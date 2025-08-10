@@ -24,5 +24,5 @@ COPY server/ .
 EXPOSE 8080
 ENV PORT=8080
 
-# アプリケーションの起動
-CMD ["gunicorn", "--worker-class", "gevent", "--bind", "0.0.0.0:8080", "--timeout", "120", "app:app"]
+# アプリケーションの起動（Cloud RunのPORTに対応）
+CMD ["/bin/sh", "-c", "gunicorn --worker-class gevent --bind 0.0.0.0:${PORT:-8080} --timeout 120 app:app"]

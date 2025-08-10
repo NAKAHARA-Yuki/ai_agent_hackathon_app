@@ -1,0 +1,59 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION: ${{ secrets.CLOUD_RUN_REGION }}
+      SERVICE: travel-quiz-app
+      REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
+      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO }}/travel-quiz-app:${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          export_default_credentials: true
+
+      - name: Auth with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Configure Docker auth for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${REGION}-docker.pkg.dev/${IMAGE} .
+
+      - name: Push Docker image
+        run: |
+          docker push ${REGION}-docker.pkg.dev/${IMAGE}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${SERVICE} \
+            --image=${REGION}-docker.pkg.dev/${IMAGE} \
+            --region=${REGION} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --max-instances=3 \
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
