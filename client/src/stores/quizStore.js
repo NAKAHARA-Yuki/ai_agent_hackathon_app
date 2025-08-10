@@ -16,6 +16,10 @@ export const useQuizStore = defineStore('quiz', () => {
     return ((currentQuestionIndex.value) / totalQuestions.value) * 100
   })
 
+  const analyzedScores = ref({})
+  const isAnalyzing = ref(false)
+  const aiPlans = ref(null)
+  const isGeneratingPlans = ref(false)
   async function fetchQuestions() {
     try {
       const response = await fetch('/api/questions')
@@ -46,10 +50,40 @@ export const useQuizStore = defineStore('quiz', () => {
   function resetQuiz() {
     userAnswers.value = {}
     currentQuestionIndex.value = 0
+  analyzedScores.value = {}
+  aiPlans.value = null
   }
 
-  const analyzedScores = ref({});
-  const isAnalyzing = ref(false);
+
+  // APIからの説明文がオブジェクトやJSON文字列で返る場合に備えて統一する
+  function normalizeExplanation(raw) {
+    try {
+      if (raw == null) return '';
+      if (typeof raw === 'object') {
+        if (typeof raw.explanation === 'string') return raw.explanation;
+        if (typeof raw['解説'] === 'string') return raw['解説'];
+        return JSON.stringify(raw);
+      }
+      const s = String(raw).trim();
+      // JSON文字列っぽい場合はパースして説明を抽出
+      if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
+        try {
+          const parsed = JSON.parse(s);
+          if (parsed && typeof parsed === 'object') {
+            if (typeof parsed.explanation === 'string') return parsed.explanation;
+            if (typeof parsed['解説'] === 'string') return parsed['解説'];
+            return JSON.stringify(parsed);
+          }
+        } catch (_) { /* no-op */ }
+      }
+      if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+        return s.slice(1, -1);
+      }
+      return s;
+    } catch (_) {
+      return String(raw);
+    }
+  }
 
   async function analyzeFreeTextAnswers() {
     isAnalyzing.value = true;
@@ -74,16 +108,16 @@ export const useQuizStore = defineStore('quiz', () => {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        const result = await response.json();
-        // result は { analyzed_score, explanation } を持つ
-        analyzedScores.value[questionId] = { 
-            score: result.analyzed_score, 
-            explanation: result.explanation 
-        };
+    const result = await response.json();
+    // result は { analyzed_score, explanation } または explanationがオブジェクト/JSON文字列の場合あり
+    analyzedScores.value[questionId] = { 
+      score: result.analyzed_score, 
+      explanation: normalizeExplanation(result.explanation ?? result)
+    };
       } catch (error) {
         console.error(`Failed to analyze text for question ${questionId}:`, error);
         // エラー時も同じ構造を保つ
-        analyzedScores.value[questionId] = { score: answer.score, explanation: "分析中にエラーが発生しました。" };
+  analyzedScores.value[questionId] = { score: answer.score, explanation: "分析中にエラーが発生しました。" };
       }
     });
 
@@ -105,13 +139,13 @@ export const useQuizStore = defineStore('quiz', () => {
 
       if (analyzedResult) {
         // 自由記述があった場合、分析結果を優先するが、スコアは選択式と平均する
-        if (userAnswer.freeText.trim() !== '') {
+        if (userAnswer && typeof userAnswer.freeText === 'string' && userAnswer.freeText.trim() !== '') {
           finalScore = (userAnswer.score + analyzedResult.score) / 2;
-          explanation = analyzedResult.explanation;
+          explanation = normalizeExplanation(analyzedResult.explanation);
         } else {
           // 自由記述がない場合は、分析された解説と選択式のスコアを使う
           finalScore = userAnswer.score;
-          explanation = analyzedResult.explanation;
+          explanation = normalizeExplanation(analyzedResult.explanation);
         }
       } else {
         // 分析がなかった場合（エラーなど）
@@ -150,7 +184,7 @@ export const useQuizStore = defineStore('quiz', () => {
     return {
       title: resultTypeDetails.title,
       description: resultTypeDetails.description,
-      plans: resultTypeDetails.plans,
+      plans: aiPlans.value ?? resultTypeDetails.plans,
       scoreDetails: {
         average: overallAverage.toFixed(2),
         traitScores: averagedTraitScores,
@@ -159,15 +193,40 @@ export const useQuizStore = defineStore('quiz', () => {
     };
   });
 
+  async function generateAIPlans() {
+    try {
+      const current = finalResult.value;
+      if (!current) return; // 分析未完了
+      isGeneratingPlans.value = true;
+      const resp = await fetch('/api/generate_plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ travel_type: current.title, description: current.description })
+      });
+      if (!resp.ok) throw new Error('Failed to generate AI plans');
+      const data = await resp.json();
+      if (Array.isArray(data?.plans)) {
+        aiPlans.value = data.plans;
+      } else {
+        aiPlans.value = [{ title: '生成エラー', description: 'AIプランの形式が不正でした。' }];
+      }
+    } catch (e) {
+      console.error('generateAIPlans error:', e);
+      aiPlans.value = [{ title: 'エラー', description: 'AIプランの生成に失敗しました。時間をおいて再試行してください。' }];
+    } finally {
+      isGeneratingPlans.value = false;
+    }
+  }
+
   function getResultType(averageScore) {
     if (averageScore >= 3.2) {
       return {
         title: "超冒険家",
         description: "あなたは未知なる体験を追い求める、真の冒険家です。既成概念にとらわれず、自分だけの道を開拓していく旅をこよなく愛します。予測不可能な出来事さえも楽しむことができるでしょう。",
         plans: [
-          { title: "秘境探検", description: "アマゾンの奥地やパプアニューギニアの村など、文明から離れた場所でのサバイバル体験。" },
-          { title: "ヒッチハイクの旅", description: "目的地だけを決め、現地での出会いに身を任せる自由な旅。" },
-          { title: "山脈越え", description: "アンデス山脈やヒマラヤ山脈など、厳しい自然環境を自らの足で踏破するチャレンジ。" }
+          { title: "屋久島 縦走トレッキング", description: "白谷雲水峡〜縄文杉エリアを含む縦走。現地ガイド同行で安全確保しつつ手付かずの森を体感。" },
+          { title: "知床 冬の流氷アドベンチャー", description: "ドライスーツでの流氷ウォークや流氷カヤック。ワシ・アザラシ観察も組み込む。" },
+          { title: "小笠原 エコツアー滞在", description: "父島でのドルフィンスイムと山歩き。固有種の自然保護に配慮した少人数ツアー参加。" }
         ]
       };
     } else if (averageScore >= 2.5) {
@@ -175,9 +234,9 @@ export const useQuizStore = defineStore('quiz', () => {
         title: "探求的トラベラー",
         description: "あなたは好奇心旺盛で、新しい発見を求める探求的な旅行者です。定番の観光地だけでなく、少し変わった体験や現地の人との交流を大切にします。計画と即興のバランスが取れた旅を好みます。",
         plans: [
-          { title: "文化体験の旅", description: "タイの料理教室に参加したり、スペインでフラメンコを習ったりする、現地の文化に深く触れる旅。" },
-          { title: "地方都市巡り", description: "首都だけでなく、その国の魅力的な地方都市を鉄道で巡る旅。" },
-          { title: "ロードトリップ", description: "アメリカのルート66やアイスランドのリングロードなど、自由気ままな車の旅。" }
+          { title: "瀬戸内アートアイランド巡り", description: "直島・豊島・犬島をフェリーで周遊。ベネッセハウス、家プロジェクト、豊島美術館を効率よく鑑賞。" },
+          { title: "金沢・加賀 伝統工芸体験", description: "金箔貼りや九谷焼の絵付けに挑戦。ひがし茶屋街の文化散策と地元食を楽しむ。" },
+          { title: "四国遍路ハイライトウォーク", description: "初心者向け区間を日帰りまたは1泊で歩く。道後温泉やご当地グルメも組み合わせ。" }
         ]
       };
     } else if (averageScore >= 1.8) {
@@ -185,9 +244,9 @@ export const useQuizStore = defineStore('quiz', () => {
         title: "バランス型ツーリスト",
         description: "あなたは快適さと新しい体験のバランスを重視する旅行者です。有名な観光スポットを楽しみつつ、時には自分だけの時間やリラックスも大切にします。事前の計画で、安心して旅を楽しみたいタイプです。",
         plans: [
-          { title: "都市とリゾートの組み合わせ", description: "イタリアの都市観光とアマルフィ海岸でのリラックスを組み合わせるなど、多様な楽しみ方ができる旅。" },
-          { title: "テーマのある旅", description: "フランスのワイナリー巡りや、ニュージーランドの映画ロケ地巡りなど、興味のあるテーマを深掘りする旅。" },
-          { title: "オールインクルーシブ・リゾート", description: "カリブ海やモルディブのリゾートで、何も考えずに贅沢な時間を過ごす旅。" }
+          { title: "東京＋箱根 王道と温泉", description: "都内の定番スポットを抑えた後、箱根で温泉と美術館（彫刻の森・ポーラ）でゆったり。" },
+          { title: "京都 定番＋郊外散策", description: "清水寺・伏見稲荷に加え、宇治や大原へ足を延ばして自然と寺院の調和を味わう。" },
+          { title: "福岡 食と糸島ドライブ", description: "屋台やローカルグルメを楽しみ、糸島で海辺カフェや軽いハイキングを満喫。" }
         ]
       };
     } else {
@@ -195,9 +254,9 @@ export const useQuizStore = defineStore('quiz', () => {
         title: "堅実派トラベラー",
         description: "あなたは安全性と快適さを第一に考える、堅実な旅行者です。実績のあるツアーや評価の高いホテルを選び、計画通りに旅を進めることを好みます。リラックスして、心身をリフレッシュすることが旅の主な目的です。",
         plans: [
-          { title: "豪華客船クルーズ", description: "地中海やアラスカなど、移動や食事の心配なく絶景を楽しめるクルーズの旅。" },
-          { title: "温泉リゾート滞在", description: "日本の温泉地やヨーロッパのスパリゾートで、日頃の疲れを癒すウェルネス志向の旅。" },
-          { title: "ガイド付き周遊ツアー", description: "専門ガイドが案内してくれる、歴史や文化を効率よく学べるパッケージツアー。" }
+          { title: "草津・箱根・由布院 温泉リゾート滞在", description: "客室露天やスパ付き宿で連泊し、移動を最小限にしてゆったり過ごす。" },
+          { title: "瀬戸内 内航クルーズ（国内）", description: "瀬戸内海の多島美を船で巡る。寄港地観光はガイド付きで安心。" },
+          { title: "日光・鎌倉 定番史跡のガイドツアー", description: "世界遺産や名刹を専門ガイドと巡り、文化や歴史を効率よく学ぶ。" }
         ]
       };
     }
@@ -215,7 +274,10 @@ export const useQuizStore = defineStore('quiz', () => {
     resetQuiz,
     isAnalyzing,
     analyzeFreeTextAnswers,
-    finalResult
+  finalResult,
+  aiPlans,
+  isGeneratingPlans,
+  generateAIPlans
   }
 })
 ;

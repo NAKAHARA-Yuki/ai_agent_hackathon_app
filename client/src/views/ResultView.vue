@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useQuizStore } from '@/stores/quizStore'
 import { useRouter } from 'vue-router'
 import ResultChart from '@/components/ResultChart.vue'
@@ -43,6 +43,13 @@ onMounted(() => {
   if (Object.keys(store.userAnswers).length > 0) {
     store.analyzeFreeTextAnswers()
   }
+  // 分析完了後にAIプランを生成（未生成の場合）
+  const stop = watch(() => store.finalResult, async (val) => {
+    if (val && !store.aiPlans && !store.isGeneratingPlans) {
+      await store.generateAIPlans()
+      stop()
+    }
+  }, { immediate: true })
 })
 
 function restartQuiz() {
@@ -76,7 +83,8 @@ function toggleScoreDetails() {
 
       <div class="result-section travel-plans">
         <h3>✈️ おすすめの旅行プラン</h3>
-        <ul>
+        <div v-if="store.isGeneratingPlans">AIがあなた向けの国内プランを作成中です…</div>
+        <ul v-else>
           <li v-for="(plan, index) in store.finalResult.plans" :key="index">
             <strong>{{ plan.title }}</strong>: {{ plan.description }}
           </li>
