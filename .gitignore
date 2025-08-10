@@ -143,6 +143,28 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+server/.env
+
+# Node.js
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+/client/dist/
+/client/node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+*.py.class
+
+# VS Code
+.vscode/
+
 
 # Spyder project settings
 .spyderproject

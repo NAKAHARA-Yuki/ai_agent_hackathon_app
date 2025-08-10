@@ -1,10 +1,43 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useQuizStore } from '@/stores/quizStore'
 import { useRouter } from 'vue-router'
+import ResultChart from '@/components/ResultChart.vue'
 
 const store = useQuizStore()
 const router = useRouter()
+const showScoreDetails = ref(false)
+
+const chartData = computed(() => {
+  if (!store.finalResult?.scoreDetails?.traitScores) {
+    return { labels: [], datasets: [] };
+  }
+  const labels = Object.keys(store.finalResult.scoreDetails.traitScores);
+  const data = Object.values(store.finalResult.scoreDetails.traitScores);
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'あなたの特性スコア',
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        borderColor: 'rgb(54, 162, 235)',
+        pointBackgroundColor: 'rgb(54, 162, 235)',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: 'rgb(54, 162, 235)',
+        data,
+      }
+    ]
+  }
+})
+
+const traitDescriptions = computed(() => {
+  if (!store.questions?.length) return {}
+  return store.questions.reduce((acc, q) => {
+    acc[q.trait] = q.trait_description
+    return acc
+  }, {})
+})
 
 onMounted(() => {
   if (Object.keys(store.userAnswers).length > 0) {
@@ -16,20 +49,72 @@ function restartQuiz() {
   store.resetQuiz()
   router.push('/')
 }
+
+function toggleScoreDetails() {
+  showScoreDetails.value = !showScoreDetails.value
+}
 </script>
 
 <template>
   <div class="card result-card">
-    <h1>診断結果</h1>
     <div v-if="store.isAnalyzing">
-      <p>自由記述の内容をAIが分析中です...</p>
+      <h1>診断中...</h1>
+      <p>自由記述の内容をAIが分析中です。少々お待ちください。</p>
       <div class="spinner"></div>
     </div>
-    <div v-else-if="store.finalResult">
-        <h2>あなたの旅行タイプは... <strong>{{ store.finalResult.title }}</strong> です！</h2>
+    <div v-else-if="store.finalResult && store.finalResult.scoreDetails">
+      <div class="result-section result-summary">
+        <h2>🎉 診断結果 🎉</h2>
+        <h3>あなたの旅行タイプは... <strong>{{ store.finalResult.title }}</strong> です！</h3>
         <p>{{ store.finalResult.description }}</p>
+        <p><strong>総合平均スコア: {{ store.finalResult.scoreDetails.average }}</strong></p>
+      </div>
+
+            <div class="result-section chart-section">
+         <ResultChart v-if="store.finalResult?.scoreDetails?.traitScores" :traitScores="store.finalResult.scoreDetails.traitScores" :traitDescriptions="traitDescriptions" />
+      </div>
+
+      <div class="result-section travel-plans">
+        <h3>✈️ おすすめの旅行プラン</h3>
+        <ul>
+          <li v-for="(plan, index) in store.finalResult.plans" :key="index">
+            <strong>{{ plan.title }}</strong>: {{ plan.description }}
+          </li>
+        </ul>
+      </div>
+
+      <div class="result-section score-details">
+        <h3 @click="toggleScoreDetails" class="collapsible-header">
+          � 回答ごとのスコア詳細
+          <span class="toggle-icon">{{ showScoreDetails ? '▲' : '▼' }}</span>
+        </h3>
+        <transition name="fade">
+          <div v-if="showScoreDetails">
+            <p class="score-note">スコアは1(依存型)〜4(冒険型)で評価されます。</p>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>質問</th>
+                    <th>最終スコア</th>
+                    <th>AIによる解説</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(answer, index) in store.finalResult.scoreDetails.answers" :key="index">
+                    <td>{{ answer.question }}</td>
+                    <td>{{ answer.finalScore.toFixed(2) }}</td>
+                    <td>{{ answer.explanation }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </transition>
+      </div>
     </div>
-     <div v-else>
+    <div v-else>
+      <h1>結果</h1>
       <p>結果を計算中です...</p>
     </div>
     <button @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
@@ -39,35 +124,143 @@ function restartQuiz() {
 <style scoped>
 .result-card {
   text-align: center;
+  animation: fadeIn 0.5s ease-in-out;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.result-section {
+  background: rgba(255, 255, 255, 0.7);
+  margin-bottom: 25px;
+  padding: 25px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
 h2 {
-  margin: 20px 0;
+  font-size: 2rem;
   color: #333;
+  margin-top: 0;
 }
-h2 strong {
-  color: #007bff;
+
+h3 {
+  font-size: 1.5rem;
+  color: #1a237e;
+  margin-bottom: 15px;
 }
+
+h3 strong {
+  color: #ff4b2b;
+  display: block;
+  margin-top: 10px;
+}
+
 p {
   font-size: 1.1rem;
+  line-height: 1.7;
+  color: #444;
+}
+
+.travel-plans ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.travel-plans li {
+  margin-bottom: 15px;
   line-height: 1.6;
-  color: #555;
-  margin-bottom: 30px;
+  background: #fdfdff;
+  padding: 15px;
+  border-radius: 8px;
 }
+
+.travel-plans li strong {
+  display: block;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.collapsible-header {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  transition: background-color 0.3s;
+}
+.collapsible-header:hover {
+  background-color: rgba(0,0,0,0.05);
+}
+
+.toggle-icon {
+  font-size: 1rem;
+  transition: transform 0.3s;
+}
+
+.score-details .table-container {
+  overflow-x: auto;
+}
+
+.score-details table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.score-details th, .score-details td {
+  border: 1px solid #e0e0e0;
+  padding: 12px 15px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.score-details th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.score-details td:first-child,
+.score-details td:last-child {
+  text-align: left;
+}
+
+.score-details td:last-child {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.score-note {
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+  margin: 15px 0;
+  padding: 10px;
+  background: #f0f0f0;
+  border-radius: 5px;
+}
+
 .spinner {
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  width: 36px;
-  height: 36px;
+  border: 5px solid rgba(0, 0, 0, 0.1);
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border-left-color: #007bff;
-  margin: 20px auto;
-  animation: spin 1s ease infinite;
+  border-left-color: #ff4b2b;
+  margin: 30px auto;
+  animation: spin 1s linear infinite;
 }
+
 @keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 </style>

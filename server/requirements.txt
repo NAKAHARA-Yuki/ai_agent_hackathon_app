@@ -1,5 +1,7 @@
 Flask==3.0.3
 gunicorn==22.0.0
-google-generativeai
-python-dotenv
+Flask==3.0.3
+python-dotenv==1.0.1
+google-generativeai==0.7.1
+requests==2.32.3
 gevent

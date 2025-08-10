@@ -23,7 +23,6 @@ export const useQuizStore = defineStore('quiz', () => {
         throw new Error('Network response was not ok')
       }
       questions.value = await response.json()
-      resetQuiz()
     } catch (error) {
       console.error('Failed to fetch questions:', error)
     }
@@ -52,11 +51,10 @@ export const useQuizStore = defineStore('quiz', () => {
   const analyzedScores = ref({});
   const isAnalyzing = ref(false);
 
-  // ... (fetchQuestions, recordAnswer, nextQuestion, resetQuizは変更なし) ...
-
   async function analyzeFreeTextAnswers() {
     isAnalyzing.value = true;
-    const answersToAnalyze = Object.entries(userAnswers.value).filter(([, answer]) => answer.freeText.trim() !== '');
+    // 全ての回答を分析対象とする
+    const answersToAnalyze = Object.entries(userAnswers.value);
     
     const analysisPromises = answersToAnalyze.map(async ([questionId, answer]) => {
       try {
@@ -68,17 +66,24 @@ export const useQuizStore = defineStore('quiz', () => {
           body: JSON.stringify({
             text: answer.freeText,
             trait: answer.trait,
-            question: answer.question
+            question: answer.question,
+            base_score: answer.score, // 選択式のスコアも送信
+            question_id: questionId
           }),
         });
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
         const result = await response.json();
-        analyzedScores.value[questionId] = result.analyzed_score;
+        // result は { analyzed_score, explanation } を持つ
+        analyzedScores.value[questionId] = { 
+            score: result.analyzed_score, 
+            explanation: result.explanation 
+        };
       } catch (error) {
         console.error(`Failed to analyze text for question ${questionId}:`, error);
-        analyzedScores.value[questionId] = 0; // エラーの場合はスコア0
+        // エラー時も同じ構造を保つ
+        analyzedScores.value[questionId] = { score: answer.score, explanation: "分析中にエラーが発生しました。" };
       }
     });
 
@@ -86,82 +91,132 @@ export const useQuizStore = defineStore('quiz', () => {
     isAnalyzing.value = false;
   }
 
-  const resultType = computed(() => {
-    if (Object.keys(userAnswers.value).length === 0) {
-      return { title: '診断中...', description: '結果を計算しています。' }
-    }
-    const totalScore = Object.values(userAnswers.value).reduce((sum, answer) => sum + answer.score, 0)
-    const averageScore = totalQuestions.value > 0 ? totalScore / totalQuestions.value : 0
-
-    if (averageScore >= 3.2) {
-      return {
-        title: '冒険型 (アロセントリック)',
-        description: 'あなたは未知なるものへの探求心が強く、型にはまらない本物の体験を求める冒険家です。観光地化されていない場所や、現地の人々との深い交流に価値を見出します。'
-      }
-    } else if (averageScore >= 2.2) {
-      return {
-        title: '中間型 (ミッドセントリック)',
-        description: 'あなたは冒険と安定のバランスが取れた旅行者です。有名な観光地を楽しみつつも、時には少し外れた場所へ足を延ばす柔軟性を持っています。'
-      }
-    } else {
-      return {
-        title: '依存型 (サイコセントリック)',
-        description: 'あなたは慣れ親しんだ環境での安心感と快適さを重視します。事前に計画された旅程や、サービスの整った人気の観光地でリラックスすることを好みます。'
-      }
-    }
-  });
-
-  const finalResult = computed(() => {
-    if (Object.keys(userAnswers.value).length !== totalQuestions.value || totalQuestions.value === 0) {
-        return { title: '診断中...', description: '結果を計算しています。' };
+    const finalResult = computed(() => {
+    if (isAnalyzing.value || Object.keys(userAnswers.value).length !== totalQuestions.value) {
+      return null;
     }
 
-    let totalScore = 0;
-    let scoreCount = 0;
+    const answersWithFinalScores = questions.value.map(q => {
+      const userAnswer = userAnswers.value[q.id];
+      const analyzedResult = analyzedScores.value[q.id];
+      
+      let finalScore;
+      let explanation;
 
-    Object.entries(userAnswers.value).forEach(([questionId, answer]) => {
-        const analyzedScore = analyzedScores.value[questionId];
-        // 自由記述の分析結果があればそちらを優先し、なければ選択式のスコアを使う
-        if (analyzedScore && analyzedScore > 0) {
-            totalScore += analyzedScore;
+      if (analyzedResult) {
+        // 自由記述があった場合、分析結果を優先するが、スコアは選択式と平均する
+        if (userAnswer.freeText.trim() !== '') {
+          finalScore = (userAnswer.score + analyzedResult.score) / 2;
+          explanation = analyzedResult.explanation;
         } else {
-            totalScore += answer.score;
+          // 自由記述がない場合は、分析された解説と選択式のスコアを使う
+          finalScore = userAnswer.score;
+          explanation = analyzedResult.explanation;
         }
-        scoreCount++;
+      } else {
+        // 分析がなかった場合（エラーなど）
+        finalScore = userAnswer.score;
+        explanation = "この回答のAIによる追加分析はありません。";
+      }
+      
+      return {
+        question: q.question,
+        finalScore,
+        explanation
+      };
     });
 
-    const averageScore = scoreCount > 0 ? totalScore / scoreCount : 0;
+    const traitScores = questions.value.reduce((acc, q) => {
+        if (!acc[q.trait]) {
+            acc[q.trait] = { total: 0, count: 0 };
+        }
+        const answer = answersWithFinalScores.find(a => a.question === q.question);
+        if (answer) {
+            acc[q.trait].total += answer.finalScore;
+            acc[q.trait].count++;
+        }
+        return acc;
+    }, {});
 
-    if (averageScore >= 3.2) {
-      return {
-        title: '冒険型 (アロセントリック)',
-        description: 'あなたは未知なるものへの探求心が強く、型にはまらない本物の体験を求める冒険家です。観光地化されていない場所や、現地の人々との深い交流に価値を見出します。'
+    const averagedTraitScores = Object.entries(traitScores).reduce((acc, [trait, data]) => {
+        acc[trait] = data.count > 0 ? data.total / data.count : 0;
+        return acc;
+    }, {});
+
+    const overallAverage = Object.values(averagedTraitScores).reduce((sum, score) => sum + score, 0) / Object.keys(averagedTraitScores).length;
+
+    const resultTypeDetails = getResultType(overallAverage);
+
+    return {
+      title: resultTypeDetails.title,
+      description: resultTypeDetails.description,
+      plans: resultTypeDetails.plans,
+      scoreDetails: {
+        average: overallAverage.toFixed(2),
+        traitScores: averagedTraitScores,
+        answers: answersWithFinalScores
       }
-    } else if (averageScore >= 2.2) {
-      return {
-        title: '中間型 (ミッドセントリック)',
-        description: 'あなたは冒険と安定のバランスが取れた旅行者です。有名な観光地を楽しみつつも、時には少し外れた場所へ足を延ばす柔軟性を持っています。'
-      }
-    } else {
-      return {
-        title: '依存型 (サイコセントリック)',
-        description: 'あなたは慣れ親しんだ環境での安心感と快適さを重視します。事前に計画された旅程や、サービスの整った人気の観光地でリラックスすることを好みます。'
-      }
-    }
+    };
   });
 
-  return { 
-    questions, 
-    userAnswers, 
+  function getResultType(averageScore) {
+    if (averageScore >= 3.2) {
+      return {
+        title: "超冒険家",
+        description: "あなたは未知なる体験を追い求める、真の冒険家です。既成概念にとらわれず、自分だけの道を開拓していく旅をこよなく愛します。予測不可能な出来事さえも楽しむことができるでしょう。",
+        plans: [
+          { title: "秘境探検", description: "アマゾンの奥地やパプアニューギニアの村など、文明から離れた場所でのサバイバル体験。" },
+          { title: "ヒッチハイクの旅", description: "目的地だけを決め、現地での出会いに身を任せる自由な旅。" },
+          { title: "山脈越え", description: "アンデス山脈やヒマラヤ山脈など、厳しい自然環境を自らの足で踏破するチャレンジ。" }
+        ]
+      };
+    } else if (averageScore >= 2.5) {
+      return {
+        title: "探求的トラベラー",
+        description: "あなたは好奇心旺盛で、新しい発見を求める探求的な旅行者です。定番の観光地だけでなく、少し変わった体験や現地の人との交流を大切にします。計画と即興のバランスが取れた旅を好みます。",
+        plans: [
+          { title: "文化体験の旅", description: "タイの料理教室に参加したり、スペインでフラメンコを習ったりする、現地の文化に深く触れる旅。" },
+          { title: "地方都市巡り", description: "首都だけでなく、その国の魅力的な地方都市を鉄道で巡る旅。" },
+          { title: "ロードトリップ", description: "アメリカのルート66やアイスランドのリングロードなど、自由気ままな車の旅。" }
+        ]
+      };
+    } else if (averageScore >= 1.8) {
+      return {
+        title: "バランス型ツーリスト",
+        description: "あなたは快適さと新しい体験のバランスを重視する旅行者です。有名な観光スポットを楽しみつつ、時には自分だけの時間やリラックスも大切にします。事前の計画で、安心して旅を楽しみたいタイプです。",
+        plans: [
+          { title: "都市とリゾートの組み合わせ", description: "イタリアの都市観光とアマルフィ海岸でのリラックスを組み合わせるなど、多様な楽しみ方ができる旅。" },
+          { title: "テーマのある旅", description: "フランスのワイナリー巡りや、ニュージーランドの映画ロケ地巡りなど、興味のあるテーマを深掘りする旅。" },
+          { title: "オールインクルーシブ・リゾート", description: "カリブ海やモルディブのリゾートで、何も考えずに贅沢な時間を過ごす旅。" }
+        ]
+      };
+    } else {
+      return {
+        title: "堅実派トラベラー",
+        description: "あなたは安全性と快適さを第一に考える、堅実な旅行者です。実績のあるツアーや評価の高いホテルを選び、計画通りに旅を進めることを好みます。リラックスして、心身をリフレッシュすることが旅の主な目的です。",
+        plans: [
+          { title: "豪華客船クルーズ", description: "地中海やアラスカなど、移動や食事の心配なく絶景を楽しめるクルーズの旅。" },
+          { title: "温泉リゾート滞在", description: "日本の温泉地やヨーロッパのスパリゾートで、日頃の疲れを癒すウェルネス志向の旅。" },
+          { title: "ガイド付き周遊ツアー", description: "専門ガイドが案内してくれる、歴史や文化を効率よく学べるパッケージツアー。" }
+        ]
+      };
+    }
+  }
+
+  return {
+    questions,
+    userAnswers,
     currentQuestionIndex,
     totalQuestions,
     progress,
-    finalResult,
-    isAnalyzing,
-    fetchQuestions, 
-    recordAnswer, 
+    fetchQuestions,
+    recordAnswer,
     nextQuestion,
     resetQuiz,
-    analyzeFreeTextAnswers
+    isAnalyzing,
+    analyzeFreeTextAnswers,
+    finalResult
   }
 })
+;
+
