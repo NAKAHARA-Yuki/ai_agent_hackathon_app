@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import StartView from '../views/StartView.vue'
+import MainView from '../views/MainView.vue'
 import LoginView from '../views/LoginView.vue'
 import SignupView from '../views/SignupView.vue'
 import ProcessingView from '../views/ProcessingView.vue'
@@ -17,6 +18,11 @@ const router = createRouter({
       path: '/',
       name: 'home',
   component: StartView
+    },
+    {
+      path: '/main',
+      name: 'main',
+      component: MainView
     },
     {
       path: '/question/:questionNumber',
@@ -40,6 +46,10 @@ router.beforeEach((to) => {
   }
   if (auth.isAuthenticated && (to.name === 'login' || to.name === 'signup')) {
     return { name: 'home' }
+  }
+  // すでに診断済みでトップに来たらメインへ
+  if (auth.isAuthenticated && to.name === 'home' && auth.user?.diagnosis_completed) {
+    return { name: 'main' }
   }
 })
 

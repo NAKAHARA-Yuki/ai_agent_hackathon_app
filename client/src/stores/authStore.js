@@ -88,7 +88,7 @@ export const useAuthStore = defineStore('auth', () => {
       body: JSON.stringify({ name, user_id, password })
     })
     if (!data) throw new Error('登録に失敗しました')
-    const payload = { user: data.user, token: data.token, ts: Date.now() }
+  const payload = { user: data.user, token: data.token, ts: Date.now() }
     saveAuth(payload)
     state.value = payload
   }
@@ -102,7 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
       body: JSON.stringify({ user_id, password })
     })
     if (!data) throw new Error('ログインに失敗しました')
-    const payload = { user: data.user, token: data.token, ts: Date.now() }
+  const payload = { user: data.user, token: data.token, ts: Date.now() }
     saveAuth(payload)
     state.value = payload
   }
@@ -111,10 +111,26 @@ export const useAuthStore = defineStore('auth', () => {
     return token.value ? { Authorization: `Bearer ${token.value}` } : {}
   }
 
+  async function refreshMe() {
+    if (!token.value) return null
+    try {
+      const resp = await fetch('/api/me', { headers: { ...authHeader() } })
+      if (resp.ok) {
+        const me = await resp.json()
+        const merged = { ...(state.value?.user || {}), ...me }
+        const payload = { user: merged, token: token.value, ts: Date.now() }
+        saveAuth(payload)
+        state.value = payload
+        return merged
+      }
+    } catch {}
+    return null
+  }
+
   function logout() {
     clearAuth()
     state.value = null
   }
 
-  return { user, token, isAuthenticated, signup, login, logout, authHeader }
+  return { user, token, isAuthenticated, signup, login, logout, authHeader, refreshMe }
 })
