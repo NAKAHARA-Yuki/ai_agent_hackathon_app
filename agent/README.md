@@ -1,11 +1,11 @@
 # ADK Agent Service (Cloud Run)
 
-このコンテナは ADK の Web/API サーバーを起動します。UI/ゲートウェイとは別コンテナとしてCloud Runにデプロイします。
+このコンテナは ADK の Web/API サーバーを起動します。UI/ゲートウェイとは別コンテナとして Cloud Run にデプロイします。
 
 - Framework: ADK Web/API
 - 主要環境変数:
   - GEMINI_API_KEY（自動的に GOOGLE_API_KEY にブリッジ）
-  - GEMINI_MODEL（既定: gemini-2.0-flash）
+  - GEMINI_MODEL（既定: gemini-2.5-flash）
   - MAPS_MCP_ENDPOINT_URL（任意）: Google Maps Platform Code Assist MCP HTTP サーバーのツールエンドポイントURL
 
 ## ローカル実行（コンテナ）
@@ -14,7 +14,7 @@
 docker build -t agent-service:local agent
 docker run --rm -p 8082:8080 \
   -e GEMINI_API_KEY=*** \
-  -e GEMINI_MODEL=gemini-2.0-flash \
+  -e GEMINI_MODEL=gemini-2.5-flash \
   agent-service:local
 ```
 
@@ -52,3 +52,7 @@ docker run --rm -p 8082:8080 \
   - 短所: サービス間通信の配線（OIDC等）が必要、管理が増える
 
 まずは単一サービスにまとめ、必要に応じて独立スケールさせたい役割を別サービス化するのがおすすめです。
+
+補足（依存関係の最小化）:
+- ランタイムは ADK Web を使用するため、FastAPI/uvicorn/pydantic などの依存は削除しています。
+- `requirements.txt` は `google-adk` と `httpx` のみです。
