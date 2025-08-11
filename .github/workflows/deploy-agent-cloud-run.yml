@@ -37,39 +37,66 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker --quiet
+      - name: Configure Docker auth (Artifact Registry)
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+        run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+
+      - name: Ensure Artifact Registry repository exists
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
+        run: |
+          set -e
+          REPO_NAME=$(echo "${REPO_PATH}" | awk -F'/' '{print $2}')
+          if [ -z "${REPO_NAME}" ]; then
+            echo "ARTIFACT_REGISTRY_REPO must be '<PROJECT_ID>/<REPOSITORY_NAME>' (e.g., my-proj/containers)" >&2
+            exit 1
+          fi
+          if ! gcloud artifacts repositories describe "${REPO_NAME}" --location="${REGION}" >/dev/null 2>&1; then
+            echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION}"
+            gcloud artifacts repositories create "${REPO_NAME}" \
+              --repository-format=docker \
+              --location="${REGION}" \
+              --description="ai_agent_hackathon_app images"
+          else
+            echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
+          fi
 
       - name: Build and push images (Agent + MCP)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }} # e.g. <PROJECT_ID>/<REPOSITORY_NAME>
         run: |
-          AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service
-          MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service
-          docker build -t ${AGENT_IMAGE}:$GITHUB_SHA agent
-          docker build -t ${MCP_IMAGE}:$GITHUB_SHA mcp
-          docker push ${AGENT_IMAGE}:$GITHUB_SHA
-          docker push ${MCP_IMAGE}:$GITHUB_SHA
+          AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
+          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
+          docker build -t ${AGENT_IMAGE} agent
+          docker build -t ${MCP_IMAGE} mcp
+          docker push ${AGENT_IMAGE}
+          docker push ${MCP_IMAGE}
 
-      - name: Deploy MCP to Cloud Run (auth required)
+    - name: Deploy MCP to Cloud Run (auth required)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
         run: |
-          MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service:${GITHUB_SHA}
+      MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
           gcloud run deploy maps-mcp-service \
             --image ${MCP_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --port 3000
 
-      - name: Deploy Agent to Cloud Run (with MCP URL)
+    - name: Deploy Agent to Cloud Run (with MCP URL)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
         run: |
-          AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service:${GITHUB_SHA}
+      AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
           MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
           MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
           gcloud run deploy travel-agent-service \
