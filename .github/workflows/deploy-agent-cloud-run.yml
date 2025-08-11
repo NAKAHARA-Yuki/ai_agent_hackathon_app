@@ -5,14 +5,24 @@ on:
     branches: [ main ]
     paths:
       - 'agent/**'
+      - 'mcp/**'
+      - '.github/workflows/deploy-agent-cloud-run.yml'
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
+    paths:
+      - 'agent/**'
+      - 'mcp/**'
       - '.github/workflows/deploy-agent-cloud-run.yml'
 
 jobs:
   build-and-deploy:
+    # Run on direct push to main OR when a PR to main is merged
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,19 +41,19 @@ jobs:
       - name: Configure Docker auth
         run: gcloud auth configure-docker --quiet
 
-    - name: Build and push images (Agent + MCP)
+      - name: Build and push images (Agent + MCP)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-      AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service
-      MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service
-      docker build -t ${AGENT_IMAGE}:$GITHUB_SHA agent
-      docker build -t ${MCP_IMAGE}:$GITHUB_SHA mcp
-      docker push ${AGENT_IMAGE}:$GITHUB_SHA
-      docker push ${MCP_IMAGE}:$GITHUB_SHA
+          AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service
+          MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service
+          docker build -t ${AGENT_IMAGE}:$GITHUB_SHA agent
+          docker build -t ${MCP_IMAGE}:$GITHUB_SHA mcp
+          docker push ${AGENT_IMAGE}:$GITHUB_SHA
+          docker push ${MCP_IMAGE}:$GITHUB_SHA
 
-  - name: Deploy MCP to Cloud Run (auth required)
+      - name: Deploy MCP to Cloud Run (auth required)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
