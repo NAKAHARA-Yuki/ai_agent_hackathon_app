@@ -53,10 +53,7 @@ function restart() {
         </div>
         <div v-else class="muted">まだペルソナがありません。診断を実施してください。</div>
 
-        <div class="actions">
-          <button class="secondary" @click="restart">診断をやり直す</button>
-          <button class="primary" v-if="hasResult" @click="goResults">診断結果を見る</button>
-        </div>
+  <!-- アクションはヘッダーのメニューに移設 -->
       </div>
     </section>
   </main>
@@ -67,7 +64,5 @@ function restart() {
 .panel { width:min(920px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
-.actions { display:flex; gap:12px; margin-top:16px; }
-button.primary { background:#2d7ef7; color:#fff; border:none; padding:10px 14px; border-radius:8px; }
-button.secondary { background:#eef2f7; color:#333; border:none; padding:10px 14px; border-radius:8px; }
+/* ページ内アクションは削除（ヘッダーに統合） */
 </style>

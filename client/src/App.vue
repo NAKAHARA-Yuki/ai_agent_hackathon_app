@@ -1,6 +1,6 @@
 <script setup>
 import { RouterView, useRouter } from 'vue-router'
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
 
@@ -9,15 +9,13 @@ const auth = useAuthStore()
 const quiz = useQuizStore()
 const isAuthed = computed(() => auth.isAuthenticated)
 const showMenu = ref(false)
+const menuRoot = ref(null)
+let removeAfterEach
 
 function logout() {
   auth.logout()
   try { quiz.resetQuiz() } catch {}
   router.replace({ name: 'login' })
-}
-
-function goMain() {
-  router.push({ name: 'main' })
 }
 
 function toggleMenu() {
@@ -43,15 +41,34 @@ async function redoDiagnosis() {
     router.push({ name: 'home' })
   }
 }
+
+function handleDocumentClick(e) {
+  if (!showMenu.value) return
+  const root = menuRoot.value
+  if (root && !root.contains(e.target)) {
+    showMenu.value = false
+  }
+}
+
+onMounted(() => {
+  // ルート遷移時は常にメニューを閉じる
+  removeAfterEach = router.afterEach(() => { showMenu.value = false })
+  // 外側クリックでメニューを閉じる
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  if (removeAfterEach) try { removeAfterEach() } catch {}
+  document.removeEventListener('click', handleDocumentClick)
+})
 </script>
 
 <template>
   <div id="app-container">
     <header class="site-header">
-      <div class="brand" @click="router.push({ name: 'home' })" role="button">Travel Quiz</div>
+  <div class="brand" @click="router.push({ name: 'main' })" role="button">いざ旅</div>
       <nav class="nav">
-        <button v-if="isAuthed" class="link" @click="goMain">メイン</button>
-        <div v-if="isAuthed" class="menu">
+  <div v-if="isAuthed" class="menu" ref="menuRoot">
           <button class="icon-btn" @click="toggleMenu" aria-label="メニュー" :aria-expanded="showMenu">
             <span class="bar"></span>
             <span class="bar"></span>
@@ -62,10 +79,11 @@ async function redoDiagnosis() {
               <div class="menu-title">診断結果</div>
               <button class="menu-item" role="menuitem" @click="viewResults">結果を閲覧</button>
               <button class="menu-item" role="menuitem" @click="redoDiagnosis">再診断</button>
+      <hr class="divider" />
+      <button class="menu-item" role="menuitem" @click="logout">ログアウト</button>
             </div>
           </div>
         </div>
-        <button v-if="isAuthed" class="link" @click="logout">ログアウト</button>
       </nav>
     </header>
     <main class="content">
@@ -103,6 +121,7 @@ async function redoDiagnosis() {
 .menu-title { font-size: 12px; color:#6b7280; padding: 6px 8px; }
 .menu-item { width:100%; text-align:left; background:transparent; border:none; padding:10px 8px; border-radius: 8px; cursor:pointer; }
 .menu-item:hover { background: rgba(37,99,235,0.08); }
+.divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
 
 .content {
   flex: 1;
