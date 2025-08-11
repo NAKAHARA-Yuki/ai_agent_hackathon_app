@@ -33,12 +33,9 @@ else:
     # REST API を直接呼び出すため、SDKの設定は不要です。
     print("Gemini API key is set. Using REST API for AI analysis.")
 
-# Agent microservice config (optional)
-AGENT_BASE_URL = os.getenv("AGENT_BASE_URL")  # e.g., https://travel-agent-service-xxxxx.a.run.app
+# Agent microservice config (ADK api_server)
+AGENT_BASE_URL = os.getenv("AGENT_BASE_URL")  # e.g., http://localhost:8080 or Cloud Run URL
 AGENT_API_KEY = os.getenv("AGENT_API_KEY")  # optional simple auth header if you set one
-agent_configured = bool(AGENT_BASE_URL)
-if agent_configured:
-    print(f"Agent base URL configured: {AGENT_BASE_URL}")
 
 # Auth / DB config
 FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
@@ -54,6 +51,13 @@ else:
     JWT_SECRET = _jwt_from_env
 
 JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "2880"))  # 48h
+
+# After ENV is known, apply dev fallback and compute configured flag
+if not AGENT_BASE_URL and ENV.lower() == "development":
+    AGENT_BASE_URL = "http://localhost:8080"
+agent_configured = bool(AGENT_BASE_URL)
+if agent_configured:
+    print(f"Agent base URL configured: {AGENT_BASE_URL}")
 
 db = None
 try:
@@ -407,11 +411,46 @@ def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dic
     resp.raise_for_status()
     return resp.json()
 
+def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60):
+    """ADK api_server に従った呼び出し手順でチャット実行。
+    1) /list-apps で存在を確認（任意）
+    2) /apps/{app_name}/users/{user_id}/sessions/{session_id} に空ボディPOSTでセッション作成
+    3) /run に { app_name, user_id, session_id, new_message } をPOST
+    戻り値: events配列（最終応答はevents内のmodelメッセージ）
+    """
+    if not agent_configured:
+        raise Exception("Agent base URL is not configured.")
+    base = AGENT_BASE_URL.rstrip('/')
+    headers = { 'Content-Type': 'application/json' }
+    if AGENT_API_KEY:
+        headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
+
+    # 2) セッション作成（冪等）
+    sess_url = f"{base}/apps/{app_name}/users/{user_id}/sessions/{session_id}"
+    try:
+        r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
+        r.raise_for_status()
+    except Exception as e:
+        raise RuntimeError(f"Failed to create session: {e}")
+
+    # 3) 実行
+    run_url = f"{base}/run"
+    payload = {
+        "app_name": app_name,
+        "user_id": user_id,
+        "session_id": session_id,
+        "new_message": { "role": "user", "parts": [{"text": message_text}] }
+    }
+    r2 = requests.post(run_url, headers=headers, json=payload, timeout=timeout_sec)
+    r2.raise_for_status()
+    return r2.json()
+
 @app.post('/api/agent/chat')
 def agent_chat():
-    """ユーザーの自由入力を受け取り、エージェントの応答と候補地リストを返す。
-    まずは簡易実装として、Agentサービスが未設定の場合はモック応答を返す。
-    仕様: { message: string } -> { reply: string, places?: [{name, lat, lng, note?}] }
+    """チャットAPI。
+    仕様: { message: string, user_id?: string, session_id?: string } -> { reply: string, places?: [{name, lat, lng, note?}] }
+    - user_id: ADKの user_id に使用。未指定時は認証のsubまたは 'u_local' を使用。
+    - session_id: ADKのセッションID。フロント(Vue)で生成したUUIDを必須で渡す。
     """
     try:
         data = request.get_json() or {}
@@ -419,14 +458,16 @@ def agent_chat():
         if not message:
             return jsonify({"reply": "ご希望を教えてください（例: 温泉と美術館を楽しみたい）。"})
 
-        # Agentサービスに委譲できる場合は専用エンドポイントに投げる（将来拡張）
+        # Agentサービスに委譲（ADK api_server 準拠）
         if agent_configured:
             try:
-                url = AGENT_BASE_URL.rstrip('/') + '/v1/chat'
-                headers = { 'Content-Type': 'application/json' }
-                if AGENT_API_KEY:
-                    headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
-                # 可能ならユーザー情報を付与
+                # リクエストで渡された user_id / session_id を採用
+                req_user_id = (data.get('user_id') or '').strip() or None
+                req_session_id = (data.get('session_id') or '').strip() or None
+                if not req_session_id:
+                    return jsonify({"error": "session_id is required"}), 400
+
+                # 可能ならユーザー情報/ペルソナを付与して前置きコンテキストを作る
                 claims = require_auth(request)
                 user_info = None
                 last_persona = None
@@ -450,10 +491,9 @@ def agent_chat():
                                         'profile': pd.get('profile'),
                                         'system_prompt': pd.get('system_prompt')
                                     }
-                    except Exception as _e:
+                    except Exception:
                         pass
 
-                # ユーザー情報と依頼文をひとつのメッセージに合成
                 context = {
                     'user': user_info,
                     'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None,
@@ -463,14 +503,60 @@ def agent_chat():
                     "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
                     "\n\n[ユーザーからの依頼]\n" + message
                 )
-                payload = { 'message': combined_message }
-                r = requests.post(url, headers=headers, json=payload, timeout=30)
-                if r.ok:
-                    return jsonify(r.json())
+
+                # ADK呼び出し
+                app_name = 'travel_planner'
+                # user_id は優先的にリクエスト値を使用、なければ claims → 'u_local'
+                user_id = req_user_id or (user_info.get('id') if isinstance(user_info, dict) and user_info.get('id') else 'u_local')
+                session_id = req_session_id
+
+                # 前置きユーザー情報の id をADKの user_id に合わせる
+                if user_info is None:
+                    user_info = { 'id': user_id }
+                else:
+                    try:
+                        user_info['id'] = user_id
+                    except Exception:
+                        pass
+
+                # context を更新して再合成（id差し替え）
+                context['user'] = user_info
+                combined_message = (
+                    "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
+                    "\n\n[ユーザーからの依頼]\n" + message
+                )
+                events = call_adk_agent_chat(app_name, user_id, session_id, combined_message, timeout_sec=60)
+
+                # eventsからreplyとplacesを抽出
+                reply_text = None
+                places = None
+                if isinstance(events, list):
+                    for ev in events:
+                        if isinstance(ev, dict):
+                            content = ev.get('content') or {}
+                            parts = content.get('parts') if isinstance(content, dict) else None
+                            if isinstance(parts, list):
+                                for p in parts:
+                                    t = p.get('text') if isinstance(p, dict) else None
+                                    if t:
+                                        reply_text = t
+                # JSON末尾抽出（エージェント約束のフォーマット）
+                if reply_text:
+                    m = re.search(r'(\{\s*"places"\s*:\s*\[.*?\]\s*\})\s*$', reply_text, re.S)
+                    if m:
+                        try:
+                            places_json = json.loads(m.group(1))
+                            places = places_json.get('places')
+                            # 本文からJSONを取り除く
+                            reply_text = reply_text[:m.start()].rstrip()
+                        except Exception:
+                            pass
+
+                return jsonify({ 'reply': reply_text or '提案を作成しました。', 'places': places })
             except Exception as e:
                 print(f"Agent chat delegation failed: {e}")
 
-    # フォールバック: キーワードに応じて簡易候補地を返す
+        # フォールバック: キーワードに応じて簡易候補地を返す
         reply = '次の候補を地図に表示しました。気になる場所はありますか？'
         candidates = []
         s = message

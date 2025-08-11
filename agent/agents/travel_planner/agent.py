@@ -1,6 +1,7 @@
 import os
 from google.adk.agents import LlmAgent
 from tools.maps_mcp import register_maps_mcp_tool
+from google.adk.tools import google_search
 
 # Bridge GEMINI_API_KEY -> GOOGLE_API_KEY for google-genai used by ADK
 if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
@@ -18,7 +19,7 @@ DEFAULT_INSTRUCTION = (
 	"- [ユーザー情報] があれば必ず個人化（年齢・興味・予算・出発地・季節など）に活用する。\n"
 	"- 安全性・移動時間・費用感に配慮し、現実的な候補を示す。\n"
 	"- 返信は会話に適した短い段落で。最初に結論、その後に補足。\n"
-	"- 必要に応じて `retrieve_google_maps_platform_docs` ツールで最新ガイドラインを参照する。\n\n"
+	"- 必要に応じて `retrieve_google_maps_platform_docs`（GoogleMapMCP）や `google_search`（Google提供のサーチツール）で最新の情報を参照する。\n\n"
 	"出力形式:\n"
 	"- 既定はチャット応答のみ（短い日本語の文章）。\n"
 	"- 地図表示のために候補地を添える場合は、応答末尾で JSON を提示（例: {\"places\":[{\"name\":\"箱根温泉\",\"lat\":null,\"lng\":null,\"note\":\"美術館と温泉\"}]}）。\n"
@@ -27,7 +28,9 @@ DEFAULT_INSTRUCTION = (
 
 INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
 
-tools = register_maps_mcp_tool()
+tools = []
+tools += register_maps_mcp_tool()  # GoogleMapMCP
+tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
 
 # Define the root agent under Agents tree
 root_agent = LlmAgent(
