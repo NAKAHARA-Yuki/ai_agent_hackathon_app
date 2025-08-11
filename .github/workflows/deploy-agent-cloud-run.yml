@@ -30,7 +30,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
       - name: Configure gcloud project
         uses: google-github-actions/setup-gcloud@v2
@@ -46,7 +46,7 @@ jobs:
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
         run: |
           set -e
           REPO_NAME=$(echo "${REPO_PATH}" | awk -F'/' '{print $2}')
@@ -56,10 +56,12 @@ jobs:
           fi
           if ! gcloud artifacts repositories describe "${REPO_NAME}" --location="${REGION}" >/dev/null 2>&1; then
             echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION}"
-            gcloud artifacts repositories create "${REPO_NAME}" \
-              --repository-format=docker \
-              --location="${REGION}" \
-              --description="ai_agent_hackathon_app images"
+            if ! gcloud artifacts repositories create "${REPO_NAME}" \
+                --repository-format=docker \
+                --location="${REGION}" \
+                --description="ai_agent_hackathon_app images"; then
+              echo "WARN: No permission to create Artifact Registry repo. Please pre-create '${REPO_NAME}' or grant 'roles/artifactregistry.admin' to the deploying SA." >&2
+            fi
           else
             echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
           fi
@@ -68,7 +70,7 @@ jobs:
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }} # e.g. <PROJECT_ID>/<REPOSITORY_NAME>
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }} # e.g. <PROJECT_ID>/<REPOSITORY_NAME>
         run: |
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
           MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
@@ -81,7 +83,7 @@ jobs:
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
         run: |
           MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
           gcloud run deploy maps-mcp-service \
@@ -94,7 +96,7 @@ jobs:
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
         run: |
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
           MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
