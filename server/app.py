@@ -728,9 +728,10 @@ def agent_chat():
 
                 events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=(not initialized))
 
-                # eventsからreplyとplacesを抽出
+                # eventsからreply, places, route_info を抽出
                 reply_text = None
                 places = None
+                route_info = None
                 if isinstance(events, list):
                     for ev in events:
                         if isinstance(ev, dict):
@@ -741,17 +742,29 @@ def agent_chat():
                                     t = p.get('text') if isinstance(p, dict) else None
                                     if t:
                                         reply_text = t
-                # JSON末尾抽出（エージェント約束のフォーマット）
+                # JSON末尾抽出（エージェント約束のフォーマット: { places: [...], route_info: ... } など）
                 if reply_text:
-                    m = re.search(r'(\{\s*"places"\s*:\s*\[.*?\]\s*\})\s*$', reply_text, re.S)
-                    if m:
-                        try:
-                            places_json = json.loads(m.group(1))
-                            places = places_json.get('places')
-                            # 本文からJSONを取り除く
-                            reply_text = reply_text[:m.start()].rstrip()
-                        except Exception:
-                            pass
+                    try:
+                        s = reply_text
+                        idx = s.rfind('{')
+                        while idx != -1:
+                            tail = s[idx:].strip()
+                            try:
+                                obj = json.loads(tail)
+                                if isinstance(obj, dict) and (('places' in obj) or ('route_info' in obj)):
+                                    if 'places' in obj and places is None:
+                                        if isinstance(obj['places'], list):
+                                            places = obj['places']
+                                    if 'route_info' in obj and route_info is None:
+                                        route_info = obj['route_info']
+                                    # 本文からこのJSONを取り除く
+                                    reply_text = s[:idx].rstrip()
+                                    break
+                            except Exception:
+                                pass
+                            idx = s.rfind('{', 0, idx)
+                    except Exception:
+                        pass
                 logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])} trace={tid}")
                 # 初回が成功したら初期化フラグを立てる
                 try:
@@ -760,6 +773,8 @@ def agent_chat():
                 except Exception:
                     pass
                 resp = { 'reply': reply_text or '提案を作成しました。', 'places': places }
+                if route_info is not None:
+                    resp['route_info'] = route_info
                 if LOG_PAYLOADS:
                     logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
                 if tid:

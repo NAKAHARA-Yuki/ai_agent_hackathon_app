@@ -74,7 +74,7 @@ async function sendMessage() {
   const reply = data.reply || '提案を取得できませんでした。'
   messages.value.push({ role: 'assistant', text: reply })
   scrollToBottom()
-  const routeInfo = Array.isArray(data.route_info) ? data.route_info : undefined
+  const routeInfo = (data.route_info && (typeof data.route_info === 'object' || Array.isArray(data.route_info))) ? data.route_info : undefined
 
     // 場所候補: [{ name, lat, lng, note }]
     if (Array.isArray(data.places)) {
