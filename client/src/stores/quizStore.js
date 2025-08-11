@@ -256,15 +256,15 @@ export const useQuizStore = defineStore('quiz', () => {
       ])
 
   // 完了
-      processingStage.value = 'done'
-      isProcessing.value = false
-  // メインページへ
-  router.replace({ name: 'main' })
+  processingStage.value = 'done'
+  isProcessing.value = false
+  // 結果画面へ（結果を見た後にメインへ進める）
+  router.replace({ name: 'results' })
     } catch (e) {
       console.error('runProcessingFlow error:', e)
       processingStage.value = 'error'
       isProcessing.value = false
-  router.replace({ name: 'main' })
+  router.replace({ name: 'results' })
     }
   }
 
