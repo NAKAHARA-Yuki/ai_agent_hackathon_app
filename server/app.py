@@ -486,6 +486,38 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
     return j
 
+# ---- Session initialization tracking (first-message detection) ----
+_primed_sessions = set()
+
+def _session_key(user_id: str, session_id: str) -> str:
+    return f"{user_id}::{session_id}"
+
+def is_session_initialized(user_id: str, session_id: str) -> bool:
+    key = _session_key(user_id, session_id)
+    if key in _primed_sessions:
+        return True
+    try:
+        if db is not None:
+            doc = db.collection('agent_sessions').document(key).get(timeout=3)
+            if getattr(doc, 'exists', False):
+                d = doc.to_dict() or {}
+                return bool(d.get('initialized'))
+    except Exception:
+        pass
+    return False
+
+def mark_session_initialized(user_id: str, session_id: str):
+    key = _session_key(user_id, session_id)
+    _primed_sessions.add(key)
+    try:
+        if db is not None:
+            db.collection('agent_sessions').document(key).set({
+                'initialized': True,
+                'updated_at': datetime.utcnow().isoformat() + 'Z'
+            })
+    except Exception:
+        pass
+
 @app.post('/api/agent/chat')
 def agent_chat():
     """チャットAPI。
@@ -536,16 +568,6 @@ def agent_chat():
                     except Exception:
                         pass
 
-                context = {
-                    'user': user_info,
-                    'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None,
-                    'persona_system_prompt': last_persona.get('system_prompt') if isinstance(last_persona, dict) else None,
-                }
-                combined_message = (
-                    "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
-                    "\n\n[ユーザーからの依頼]\n" + message
-                )
-
                 # ADK呼び出し
                 app_name = 'travel_planner'
                 # user_id は優先的にリクエスト値を使用、なければ claims → 'u_local'
@@ -561,13 +583,24 @@ def agent_chat():
                     except Exception:
                         pass
 
-                # context を更新して再合成（id差し替え）
-                context['user'] = user_info
-                combined_message = (
-                    "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
-                    "\n\n[ユーザーからの依頼]\n" + message
-                )
-                events = call_adk_agent_chat(app_name, user_id, session_id, combined_message, timeout_sec=60)
+                # 初回のみユーザー情報を前置、それ以降はプロンプトのみ
+                initialized = is_session_initialized(user_id, session_id)
+                if not initialized:
+                    context = {
+                        'user': user_info,
+                        'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None,
+                        'persona_system_prompt': last_persona.get('system_prompt') if isinstance(last_persona, dict) else None,
+                    }
+                    message_to_send = (
+                        "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
+                        "\n\n[ユーザーからの依頼]\n" + message
+                    )
+                    logger.info(f"/api/agent/chat using INIT message (include user info) user={user_id} session={session_id}")
+                else:
+                    message_to_send = message
+                    logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id}")
+
+                events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60)
 
                 # eventsからreplyとplacesを抽出
                 reply_text = None
@@ -594,6 +627,12 @@ def agent_chat():
                         except Exception:
                             pass
                 logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])}")
+                # 初回が成功したら初期化フラグを立てる
+                try:
+                    if not initialized:
+                        mark_session_initialized(user_id, session_id)
+                except Exception:
+                    pass
                 return jsonify({ 'reply': reply_text or '提案を作成しました。', 'places': places })
             except Exception as e:
                 logger.error(f"Agent chat delegation failed: {e}")
