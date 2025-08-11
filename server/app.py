@@ -701,6 +701,14 @@ def agent_chat():
                     except Exception:
                         pass
 
+                # 出力フォーマットの指針（旅程はMarkdown表）
+                formatting_hint = (
+                    "\n\n[出力フォーマットの指針]\n"
+                    "- 日別・時系列の旅程を提案するときは、Markdown表で提示してください。\n"
+                    "- 列例: 日/時間帯 | 場所 | アクティビティ/見どころ | 移動手段/所要 | メモ\n"
+                    "- コードブロックで囲まず、通常のMarkdown表で。\n"
+                )
+
                 # 初回のみユーザー情報を前置、それ以降はプロンプトのみ
                 initialized = is_session_initialized(user_id, session_id)
                 if not initialized:
@@ -711,11 +719,11 @@ def agent_chat():
                     }
                     message_to_send = (
                         "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
-                        "\n\n[ユーザーからの依頼]\n" + message
+                        "\n\n[ユーザーからの依頼]\n" + message + formatting_hint
                     )
                     logger.info(f"/api/agent/chat using INIT message (include user info) user={user_id} session={session_id} trace={tid}")
                 else:
-                    message_to_send = message
+                    message_to_send = message + formatting_hint
                     logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id} trace={tid}")
 
                 events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=(not initialized))
@@ -777,6 +785,20 @@ def agent_chat():
                 { 'name': '東京駅', 'lat': 35.681236, 'lng': 139.767125, 'note': '基準点' },
                 { 'name': '京都駅', 'lat': 34.985849, 'lng': 135.758766, 'note': '観光拠点' },
             ]
+        # 旅程系のキーワードがあれば簡易Markdown表を付与
+        if any(k in s for k in ['旅程','日程','スケジュール','行程','プラン','泊','日']):
+            reply = (
+                "サンプル旅程（Markdown表）:\n\n"
+                "| 日/時間帯 | 場所 | アクティビティ/見どころ | 移動手段/所要 | メモ |\n"
+                "|--|--|--|--|--|\n"
+                "| 1日目 午前 | 東京駅 → 箱根 | 移動・早めのランチ | JR/小田急 約90分 | 休日は混雑 |\n"
+                "| 1日目 午後 | 彫刻の森美術館 | 屋外アート鑑賞 | 駅から徒歩 | 雨天可 |\n"
+                "| 1日目 夜 | 箱根温泉 | 旅館チェックイン・温泉 | バス/送迎 | 夕食付 |\n"
+                "| 2日目 朝 | 早朝散歩 | 芦ノ湖畔散策 | 徒歩 | 写真スポット |\n"
+                "| 2日目 昼 | 大涌谷 | ロープウェイ観光 | 乗換約30分 | 黒たまご |\n"
+                "| 2日目 夕方 | 箱根 → 東京 | 帰路 | 小田急/新幹線 | 余裕を持って |\n\n"
+                "地図の候補地も併せてご確認ください。"
+            )
         tid = getattr(request, '_trace_id', None)
         logger.info(f"/api/agent/chat fallback used candidates={len(candidates)} trace={tid}")
         resp = { 'reply': reply, 'places': candidates }
