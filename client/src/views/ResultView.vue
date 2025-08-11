@@ -51,6 +51,10 @@ function restartQuiz() {
 function toggleScoreDetails() {
   showScoreDetails.value = !showScoreDetails.value
 }
+
+function goMain() {
+  router.push({ name: 'main' })
+}
 </script>
 
 <template>
@@ -110,6 +114,9 @@ function toggleScoreDetails() {
             </div>
           </div>
         </transition>
+      </div>
+      <div class="result-actions">
+        <button class="primary" @click="goMain">メインページへ進む</button>
       </div>
     </div>
     <div v-else>
@@ -262,4 +269,6 @@ p {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
+.result-actions { display:flex; justify-content:center; margin-top: 12px; }
+button.primary { background:#2d7ef7; color:#fff; border:none; padding:10px 16px; border-radius:8px; }
 </style>
