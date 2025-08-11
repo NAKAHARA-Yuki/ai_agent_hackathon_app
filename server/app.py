@@ -442,16 +442,16 @@ def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dic
     resp.raise_for_status()
     return resp.json()
 
-def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60):
+def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60, base_url: str | None = None):
     """ADK api_server に従った呼び出し手順でチャット実行。
     1) /list-apps で存在を確認（任意）
     2) /apps/{app_name}/users/{user_id}/sessions/{session_id} に空ボディPOSTでセッション作成
     3) /run に { app_name, user_id, session_id, new_message } をPOST
     戻り値: events配列（最終応答はevents内のmodelメッセージ）
     """
-    if not agent_configured:
+    if not (base_url or AGENT_BASE_URL):
         raise Exception("Agent base URL is not configured.")
-    base = AGENT_BASE_URL.rstrip('/')
+    base = (base_url or AGENT_BASE_URL).rstrip('/')
     headers = { 'Content-Type': 'application/json' }
     if AGENT_API_KEY:
         headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
@@ -463,8 +463,11 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     try:
         bridge_logger.info(f"Create session: POST {sess_url}")
         r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
-        r.raise_for_status()
-        bridge_logger.info(f"Create session OK: {r.status_code}")
+        if 200 <= r.status_code < 300 or r.status_code == 409:
+            bridge_logger.info(f"Create session OK: {r.status_code}")
+        else:
+            bridge_logger.error(f"Create session unexpected status: {r.status_code} body={r.text[:300] if r.text else ''}")
+            r.raise_for_status()
     except Exception as e:
         bridge_logger.error(f"Create session failed: {e}")
         raise RuntimeError(f"Failed to create session: {e}")
@@ -532,7 +535,18 @@ def agent_chat():
             return jsonify({"reply": "ご希望を教えてください（例: 温泉と美術館を楽しみたい）。"})
 
         # Agentサービスに委譲（ADK api_server 準拠）
-        if agent_configured:
+        # 有効なADKベースURLを決定（環境設定 or ローカル自動検出）
+        effective_base = AGENT_BASE_URL
+        if not effective_base:
+            try:
+                probe = requests.get("http://localhost:8080/list-apps", timeout=1.5)
+                if probe.ok:
+                    effective_base = "http://localhost:8080"
+                    logger.info("Detected local ADK at http://localhost:8080")
+            except Exception:
+                effective_base = None
+
+        if effective_base:
             try:
                 # リクエストで渡された user_id / session_id を採用
                 req_user_id = (data.get('user_id') or '').strip() or None
@@ -600,7 +614,7 @@ def agent_chat():
                     message_to_send = message
                     logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id}")
 
-                events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60)
+                events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base)
 
                 # eventsからreplyとplacesを抽出
                 reply_text = None
