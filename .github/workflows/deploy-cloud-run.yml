@@ -10,7 +10,130 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  agent-and-mcp:
+    # Build & deploy Agent + MCP first so we can pass the URL to the app
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    name: Build and Deploy Agent + MCP
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      agent_url: ${{ steps.resolve_agent_url.outputs.agent_url }}
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION: ${{ secrets.CLOUD_RUN_REGION }}
+      REPO_AGENT: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Auth with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          export_default_credentials: true
+
+      - name: Configure Docker auth for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
+
+      - name: Ensure Artifact Registry repository exists (agent)
+        env:
+          REGION: ${{ env.REGION }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REPO_PATH: ${{ env.REPO_AGENT }}
+        run: |
+          set -e
+          REPO_NAME=$(echo "${REPO_PATH}" | awk -F'/' '{print $2}')
+          if [ -z "${REPO_NAME}" ]; then
+            echo "ARTIFACT_REGISTRY_REPO_AGENT must be '<PROJECT_ID>/<REPOSITORY_NAME>'" >&2
+            exit 1
+          fi
+          if ! gcloud artifacts repositories describe "${REPO_NAME}" --location="${REGION}" >/dev/null 2>&1; then
+            echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION}"
+            if ! gcloud artifacts repositories create "${REPO_NAME}" \
+                --repository-format=docker \
+                --location="${REGION}" \
+                --description="ai_agent_hackathon_app agent images"; then
+              echo "WARN: No permission to create Artifact Registry repo for agent." >&2
+            fi
+          else
+            echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
+          fi
+
+      - name: Build and push images (Agent + MCP)
+        env:
+          REGION: ${{ env.REGION }}
+          REPO_PATH: ${{ env.REPO_AGENT }}
+        run: |
+          set -e
+          AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
+          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
+          docker build -t ${AGENT_IMAGE} agent
+          docker build -t ${MCP_IMAGE} mcp
+          docker push ${AGENT_IMAGE}
+          docker push ${MCP_IMAGE}
+
+      - name: Deploy MCP to Cloud Run (auth required)
+        env:
+          REGION: ${{ env.REGION }}
+        run: |
+          MCP_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/maps-mcp-service:${GITHUB_SHA}
+          gcloud run deploy maps-mcp-service \
+            --image ${MCP_IMAGE} \
+            --region ${REGION} \
+            --platform managed \
+            --port 3000
+
+      - name: Deploy Agent to Cloud Run (with MCP URL)
+        env:
+          REGION: ${{ env.REGION }}
+        run: |
+          AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service:${GITHUB_SHA}
+          MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
+          MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
+          gcloud run deploy travel-agent-service \
+            --image ${AGENT_IMAGE} \
+            --region ${REGION} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
+
+      - name: Grant Agent SA invoker on MCP service
+        env:
+          REGION: ${{ env.REGION }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+        run: |
+          AGENT_SA=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
+          if [ -z "$AGENT_SA" ]; then
+            PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
+            AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
+          fi
+          echo "Granting roles/run.invoker to ${AGENT_SA} on maps-mcp-service"
+          gcloud run services add-iam-policy-binding maps-mcp-service \
+            --region ${REGION} \
+            --member serviceAccount:${AGENT_SA} \
+            --role roles/run.invoker
+
+      - name: Resolve Agent URL
+        id: resolve_agent_url
+        env:
+          REGION: ${{ env.REGION }}
+        run: |
+          set -e
+          URL=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(status.url)')
+          echo "agent_url=${URL}" >> $GITHUB_OUTPUT
+
   build-and-deploy:
+    needs: agent-and-mcp
     # Extra guard: run only on main branch or manual dispatch
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy to Cloud Run
@@ -87,4 +210,4 @@ jobs:
             --allow-unauthenticated \
             --port=8080 \
             --max-instances=3 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp.outputs.agent_url }}

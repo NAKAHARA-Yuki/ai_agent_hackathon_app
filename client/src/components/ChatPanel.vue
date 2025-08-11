@@ -1,5 +1,7 @@
 <script setup>
 import { ref, nextTick, computed, onMounted, watch } from 'vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { useAuthStore } from '@/stores/authStore'
 
 const auth = useAuthStore()
@@ -10,6 +12,7 @@ const messages = ref([
 const userInput = ref('')
 const isSending = ref(false)
 const inputEl = ref(null)
+const isComposing = ref(false)
 
 // セッションIDはページライフサイクル内でのみ保持（リロードで新規発行）
 const userId = computed(() => auth.user?.id || 'u_local')
@@ -100,6 +103,8 @@ async function sendMessage() {
 }
 
 function onEnter(e) {
+  // IME 変換中は送信しない（Enterは変換確定用）
+  if (e.isComposing || isComposing.value) return
   // Shift+Enter で改行、Enterのみで送信
   if (e.shiftKey) return
   e.preventDefault()
@@ -111,13 +116,23 @@ function autoResize(e) {
   el.style.height = 'auto'
   el.style.height = Math.min(el.scrollHeight, 160) + 'px'
 }
+
+function renderHtml(text) {
+  try {
+    const raw = marked.parse(text || '')
+    return DOMPurify.sanitize(raw)
+  } catch {
+    return text
+  }
+}
 </script>
 
 <template>
   <div class="chat">
     <div class="log">
       <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]">
-        <span class="bubble">{{ m.text }}</span>
+  <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
+  <span v-else class="bubble" v-html="renderHtml(m.text)"></span>
       </div>
     </div>
     <form class="composer" @submit.prevent="sendMessage">
@@ -127,6 +142,8 @@ function autoResize(e) {
         rows="1"
         placeholder="行きたい雰囲気や目的を自由に入力..."
         @keydown.enter="onEnter"
+  @compositionstart="isComposing = true"
+  @compositionend="isComposing = false"
         @input="autoResize"
         :disabled="isSending"
       />
@@ -142,6 +159,11 @@ function autoResize(e) {
 .msg.user { justify-content:flex-end; }
 .bubble { background:#f3f4f6; padding:10px 12px; border-radius: 10px; max-width: 80%; }
 .msg.user .bubble { background:#2d7ef7; color:#fff; }
+.bubble :where(h1,h2,h3){ margin: 0.4em 0 0.3em; font-weight:600; }
+.bubble :where(p){ margin: 0.3em 0; }
+.bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
+.bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
+.bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
 .composer { display:flex; gap:8px; border-top:1px solid #eee; padding:12px; align-items:stretch; background:#fff; }
 /* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
 .composer textarea { flex: 1 1 auto; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; height: 40px; max-height: 160px; }

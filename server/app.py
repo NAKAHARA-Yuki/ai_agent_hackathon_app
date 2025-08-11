@@ -881,6 +881,8 @@ def static_map():
         logger.exception("Static Maps request_failed")
         return jsonify({ 'error': 'request_failed', 'message': str(e) }), 500
 
+ 
+
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
     """
@@ -1392,6 +1394,27 @@ def profile():
                 logger.exception("/api/profile POST error")
                 return jsonify({"error": "database unavailable"}), 503
         return jsonify({"profile": base if base else sanitized})
+
+# ---- SPA history fallback (serve index.html for non-API routes) ----
+# This allows reloading deep links like /planner or /result without 404.
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def spa_fallback(path: str):
+    # Do not intercept API routes
+    if path.startswith('api/'):
+        return jsonify({ 'error': 'not_found' }), 404
+    try:
+        # If the requested static asset exists, serve it
+        static_root = app.static_folder or ''
+        if path:
+            full_path = os.path.join(static_root, path)
+            if os.path.isfile(full_path):
+                return app.send_static_file(path)
+        # Otherwise serve the SPA entrypoint
+        return app.send_static_file('index.html')
+    except Exception:
+        # As a last resort, return 404 to avoid masking real backend errors
+        return jsonify({ 'error': 'not_found' }), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
