@@ -47,6 +47,28 @@ jobs:
         run: |
           gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
 
+      - name: Ensure Artifact Registry repository exists
+        env:
+          REGION: ${{ env.REGION }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REPO_PATH: ${{ env.REPO }}
+        run: |
+          set -e
+          REPO_NAME=$(echo "${REPO_PATH}" | awk -F'/' '{print $2}')
+          if [ -z "${REPO_NAME}" ]; then
+            echo "ARTIFACT_REGISTRY_REPO must be '<PROJECT_ID>/<REPOSITORY_NAME>' (e.g., my-proj/containers)" >&2
+            exit 1
+          fi
+          if ! gcloud artifacts repositories describe "${REPO_NAME}" --location="${REGION}" >/dev/null 2>&1; then
+            echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION}"
+            gcloud artifacts repositories create "${REPO_NAME}" \
+              --repository-format=docker \
+              --location="${REGION}" \
+              --description="ai_agent_hackathon_app images"
+          else
+            echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
+          fi
+
       - name: Build Docker image
         run: |
           docker build -t ${REGION}-docker.pkg.dev/${IMAGE} .
