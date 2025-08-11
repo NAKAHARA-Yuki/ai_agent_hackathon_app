@@ -57,6 +57,9 @@ watch(isMapOpen, async (open) => {
       <div class="map-overlay__body">
   <MapPanel ref="overlayMapRef" :places="places" :route-info="routeInfo" />
       </div>
+      <div class="map-overlay__footer">
+        <button class="back-to-chat" @click="isMapOpen = false" aria-label="チャットに戻る">チャットに戻る</button>
+      </div>
     </div>
   </main>
   
@@ -85,8 +88,8 @@ watch(isMapOpen, async (open) => {
 /* モバイル専用: 地図を表示ボタン（右下固定） */
 .open-map-btn {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(72px + env(safe-area-inset-bottom)); /* チャット入力欄の上に配置 */
   z-index: 40;
   background: #2d7ef7;
   color: #fff;
@@ -126,6 +129,23 @@ watch(isMapOpen, async (open) => {
 .map-overlay__body {
   position: relative;
   flex: 1 1 auto;
+}
+
+.map-overlay__footer {
+  position: sticky;
+  bottom: 0;
+  background: rgba(255,255,255,0.96);
+  border-top: 1px solid #e5e7eb;
+  padding: 10px max(12px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+.map-overlay__footer .back-to-chat {
+  width: 100%;
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-weight: 700;
 }
 
 @media (max-width: 960px) {
