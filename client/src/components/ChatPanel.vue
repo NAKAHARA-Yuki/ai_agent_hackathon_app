@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
 
 const auth = useAuthStore()
@@ -8,15 +8,22 @@ const messages = ref([
   { role: 'assistant', text: 'こんにちは。どんな旅がしたいですか？（例: 美術館めぐり、温泉、自然、グルメ）' }
 ])
 const userInput = ref('')
+const isSending = ref(false)
+const inputEl = ref(null)
 
 // 親へ: エージェント応答に含まれる場所候補を通知
 const emit = defineEmits(['agent-update'])
 
 async function sendMessage() {
   const text = userInput.value.trim()
-  if (!text) return
+  if (!text || isSending.value) return
+  isSending.value = true
   messages.value.push({ role: 'user', text })
   userInput.value = ''
+  await nextTick()
+  if (inputEl.value) {
+    inputEl.value.style.height = 'auto'
+  }
 
   // サーバーのエージェントに問い合わせ（簡易プロトタイプ）
   try {
@@ -58,7 +65,22 @@ async function sendMessage() {
     }
   } catch (e) {
     messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。' })
+  } finally {
+    isSending.value = false
   }
+}
+
+function onEnter(e) {
+  // Shift+Enter で改行、Enterのみで送信
+  if (e.shiftKey) return
+  e.preventDefault()
+  sendMessage()
+}
+
+function autoResize(e) {
+  const el = e.target
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px'
 }
 </script>
 
@@ -70,8 +92,16 @@ async function sendMessage() {
       </div>
     </div>
     <form class="composer" @submit.prevent="sendMessage">
-      <input v-model="userInput" type="text" placeholder="行きたい雰囲気や目的を自由に入力..." />
-      <button type="submit">送信</button>
+      <textarea
+        ref="inputEl"
+        v-model="userInput"
+        rows="1"
+        placeholder="行きたい雰囲気や目的を自由に入力..."
+        @keydown.enter="onEnter"
+        @input="autoResize"
+        :disabled="isSending"
+      />
+      <button type="submit" :disabled="isSending">{{ isSending ? '送信中…' : '送信' }}</button>
     </form>
   </div>
 </template>
@@ -83,7 +113,18 @@ async function sendMessage() {
 .msg.user { justify-content:flex-end; }
 .bubble { background:#f3f4f6; padding:10px 12px; border-radius: 10px; max-width: 80%; }
 .msg.user .bubble { background:#2d7ef7; color:#fff; }
-.composer { display:flex; gap:8px; border-top:1px solid #eee; padding:8px; }
-.composer input { flex:1; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; }
-.composer button { padding:10px 14px; background:#2d7ef7; color:#fff; border:none; border-radius:8px; }
+.composer { display:flex; gap:8px; border-top:1px solid #eee; padding:12px; align-items:center; background:#fff; }
+/* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
+.composer textarea { flex: 1 1 auto; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; max-height: 160px; }
+.composer textarea:disabled { background: #f9fafb; cursor: not-allowed; }
+.composer button { flex: 0 0 112px; height: 40px; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; }
+.composer button[disabled] { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+  /* モバイルではコンポーザーを下部にピン留め */
+  .composer { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); }
+  .log { padding-bottom: 72px; }
+  /* ボタン幅を少し小さくする（約80:20） */
+  .composer button { flex-basis: 96px; }
+}
 </style>
