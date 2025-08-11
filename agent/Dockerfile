@@ -19,5 +19,5 @@ COPY adk_app.py ./
 
 EXPOSE 8080
 ENTRYPOINT ["tini", "--"]
-# ADK Web/API server. It will pick ROOT agent from adk_app.py (root_agent)
-CMD ["adk", "web", "--agent", "adk_app:root_agent", "--host", "0.0.0.0", "--port", "8080"]
+# ADK API server with CORS configured for local dev; Cloud Run listens on $PORT (8080)
+CMD ["adk", "api_server", "--agent", "adk_app:root_agent", "--host", "0.0.0.0", "--port", "8080", "--allow_origins", "http://localhost:4200"]
