@@ -11,6 +11,7 @@ const isAuthed = computed(() => auth.isAuthenticated)
 const showMenu = ref(false)
 const menuRoot = ref(null)
 let removeAfterEach
+const displayName = computed(() => auth.user?.name || auth.user?.user_id || '')
 
 function logout() {
   auth.logout()
@@ -66,8 +67,9 @@ onUnmounted(() => {
 <template>
   <div id="app-container">
     <header class="site-header">
-  <div class="brand" @click="router.push({ name: 'main' })" role="button">いざ旅</div>
+      <div class="brand" @click="router.push({ name: 'main' })" role="button">いざ旅</div>
       <nav class="nav">
+        <span v-if="isAuthed && displayName" class="user-name" :title="displayName">{{ displayName }}</span>
         <div v-if="isAuthed" class="menu" ref="menuRoot">
           <button class="icon-btn" @click="toggleMenu" aria-label="メニュー" :aria-expanded="showMenu">
             <span class="bar"></span>
@@ -104,15 +106,17 @@ onUnmounted(() => {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; }
-.brand { font-weight: 700; color:#1f2937; cursor:pointer; }
-.nav { display:flex; align-items:center; gap:10px; position: relative; }
+.site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px calc(16px + env(safe-area-inset-right)) 12px calc(16px + env(safe-area-inset-left)); background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; box-sizing: border-box; }
+.brand { font-weight: 700; color:#1f2937; cursor:pointer; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav { display:flex; align-items:center; gap:10px; position: relative; flex: 0 0 auto; }
 .nav .link { background:transparent; border:none; color:#2563eb; cursor:pointer; font-size: 14px; }
+
+.user-name { color:#111827; font-weight: 600; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .menu { position: relative; }
 .icon-btn {
   width: 36px; height: 32px; border:none; background:transparent; cursor:pointer; padding: 4px; border-radius: 8px;
-  display:flex; flex-direction: column; justify-content: center; gap:4px;
+  display:flex; flex-direction: column; justify-content: center; gap:4px; margin-left: 6px;
 }
 .icon-btn:hover { background: rgba(0,0,0,0.05); }
 .bar { display:block; width: 20px; height: 2px; background:#1f2937; border-radius: 2px; }
