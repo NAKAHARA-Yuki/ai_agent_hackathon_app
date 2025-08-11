@@ -22,7 +22,8 @@ COPY server/ .
 
 # 環境変数PORTをリッスン
 EXPOSE 8080
-ENV PORT=8080
+ENV PORT=8080 \
+	LOG_LEVEL=INFO
 STOPSIGNAL SIGTERM
 
 # アプリケーションの起動（Cloud RunのPORTに対応）

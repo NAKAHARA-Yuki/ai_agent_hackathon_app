@@ -43,6 +43,7 @@ async function sendMessage() {
   const text = userInput.value.trim()
   if (!text || isSending.value) return
   isSending.value = true
+  console.debug('[Chat] send start', { user_id: userId.value, session_id: sessionId.value, len: text.length })
   messages.value.push({ role: 'user', text })
   userInput.value = ''
   await nextTick()
@@ -58,7 +59,8 @@ async function sendMessage() {
       body: JSON.stringify({ message: text, user_id: userId.value, session_id: sessionId.value })
     })
     if (!resp.ok) throw new Error('failed')
-    const data = await resp.json()
+  const data = await resp.json()
+  console.debug('[Chat] response', { ok: true, keys: Object.keys(data || {}), hasPlaces: Array.isArray(data?.places) })
     const reply = data.reply || '提案を取得できませんでした。'
     messages.value.push({ role: 'assistant', text: reply })
 
@@ -84,13 +86,16 @@ async function sendMessage() {
           }
         } catch (_) { /* noop */ }
       }
+      console.debug('[Chat] places processed', { count: places.length })
       emit('agent-update', { reply, places })
     } else {
       emit('agent-update', { reply })
     }
   } catch (e) {
+    console.debug('[Chat] error', e)
     messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。' })
   } finally {
+    console.debug('[Chat] send end')
     isSending.value = false
   }
 }

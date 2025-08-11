@@ -8,4 +8,4 @@ WORKDIR /app
 RUN npm install -g @googlemaps/code-assist-mcp@latest
 
 EXPOSE 3000
-CMD ["npx", "-y", "@googlemaps/code-assist-mcp", "--port", "3000"]
+CMD ["npx", "-y", "@googlemaps/code-assist-mcp", "--port", "3000", "--verbose"]

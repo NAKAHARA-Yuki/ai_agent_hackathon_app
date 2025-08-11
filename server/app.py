@@ -5,6 +5,8 @@ import random
 import re
 import json
 import requests
+import logging
+from time import monotonic
 from flask import Flask, jsonify, send_from_directory, request, Response
 from dotenv import load_dotenv
 from google.cloud import firestore
@@ -21,6 +23,35 @@ except Exception:
     load_dotenv()
 
 app = Flask(__name__, static_folder='client/dist', static_url_path='/')
+
+# Logging setup
+LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
+LOG_FORMAT = os.getenv("LOG_FORMAT") or "%(asctime)s %(levelname)s %(name)s - %(message)s"
+try:
+    logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO), format=LOG_FORMAT)
+except Exception:
+    logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("server")
+
+@app.before_request
+def _start_timer():
+    try:
+        request._start_time = monotonic()
+    except Exception:
+        request._start_time = None
+
+@app.after_request
+def _log_request(resp: Response):
+    try:
+        dur_ms = None
+        if getattr(request, "_start_time", None) is not None:
+            dur_ms = (monotonic() - request._start_time) * 1000
+        path = request.path
+        if path.startswith("/api/"):
+            logger.info(f"HTTP {request.method} {path} -> {resp.status_code} {int(dur_ms or 0)}ms")
+    except Exception:
+        pass
+    return resp
 
 # Gemini APIキーの設定
 api_key = os.getenv("GEMINI_API_KEY")
@@ -425,12 +456,17 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     if AGENT_API_KEY:
         headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
 
+    bridge_logger = logging.getLogger("agent_bridge")
+
     # 2) セッション作成（冪等）
     sess_url = f"{base}/apps/{app_name}/users/{user_id}/sessions/{session_id}"
     try:
+        bridge_logger.info(f"Create session: POST {sess_url}")
         r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
         r.raise_for_status()
+        bridge_logger.info(f"Create session OK: {r.status_code}")
     except Exception as e:
+        bridge_logger.error(f"Create session failed: {e}")
         raise RuntimeError(f"Failed to create session: {e}")
 
     # 3) 実行
@@ -441,9 +477,14 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
         "session_id": session_id,
         "new_message": { "role": "user", "parts": [{"text": message_text}] }
     }
+    bridge_logger.info(f"Run agent: POST {run_url} app={app_name} user={user_id} session={session_id} msg_len={len(message_text)}")
+    t0 = monotonic()
     r2 = requests.post(run_url, headers=headers, json=payload, timeout=timeout_sec)
     r2.raise_for_status()
-    return r2.json()
+    dt = (monotonic() - t0) * 1000
+    j = r2.json()
+    bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
+    return j
 
 @app.post('/api/agent/chat')
 def agent_chat():
@@ -466,6 +507,7 @@ def agent_chat():
                 req_session_id = (data.get('session_id') or '').strip() or None
                 if not req_session_id:
                     return jsonify({"error": "session_id is required"}), 400
+                logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)}")
 
                 # 可能ならユーザー情報/ペルソナを付与して前置きコンテキストを作る
                 claims = require_auth(request)
@@ -551,10 +593,10 @@ def agent_chat():
                             reply_text = reply_text[:m.start()].rstrip()
                         except Exception:
                             pass
-
+                logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])}")
                 return jsonify({ 'reply': reply_text or '提案を作成しました。', 'places': places })
             except Exception as e:
-                print(f"Agent chat delegation failed: {e}")
+                logger.error(f"Agent chat delegation failed: {e}")
 
         # フォールバック: キーワードに応じて簡易候補地を返す
         reply = '次の候補を地図に表示しました。気になる場所はありますか？'
@@ -571,9 +613,10 @@ def agent_chat():
                 { 'name': '東京駅', 'lat': 35.681236, 'lng': 139.767125, 'note': '基準点' },
                 { 'name': '京都駅', 'lat': 34.985849, 'lng': 135.758766, 'note': '観光拠点' },
             ]
+        logger.info(f"/api/agent/chat fallback used candidates={len(candidates)}")
         return jsonify({ 'reply': reply, 'places': candidates })
     except Exception as e:
-        print(f"agent_chat error: {e}")
+        logger.exception(f"agent_chat error: {e}")
         return jsonify({ 'reply': 'エラーが発生しました。時間をおいて再試行してください。' })
 
 @app.post('/api/geocode')
