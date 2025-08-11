@@ -130,6 +130,26 @@ if db is None and (os.getenv("FLASK_ENV", "").lower() == "development" or os.get
     db = DevDB()
     print("DevDB initialized (in-memory). Firestore is not used in development mode.")
 
+# 簡易ヘルスチェック
+@app.route('/api/health', methods=['GET'])
+def health():
+    try:
+        db_kind = 'unknown'
+        if db is not None:
+            db_kind = 'firestore'
+            # DevDB クラス名で判断
+            if type(db).__name__ == 'DevDB':
+                db_kind = 'devdb'
+        return jsonify({
+            "status": "ok",
+            "env": ENV,
+            "db": db_kind,
+            "gemini_configured": genai_configured,
+            "jwt_configured": bool(JWT_SECRET)
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 def create_jwt(user_id: str):
     now = datetime.now(timezone.utc)
     payload = {
