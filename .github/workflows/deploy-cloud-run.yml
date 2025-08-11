@@ -11,8 +11,8 @@ concurrency:
 
 jobs:
   build-and-deploy:
-  # Extra guard: run only on main branch or manual dispatch
-  if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    # Extra guard: run only on main branch or manual dispatch
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy to Cloud Run
     runs-on: ubuntu-latest
     permissions:
@@ -23,8 +23,8 @@ jobs:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: ${{ secrets.CLOUD_RUN_REGION }}
       SERVICE: travel-quiz-app
-  REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
-  IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app:${{ github.sha }}
+      REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
+      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app:${{ github.sha }}
 
     steps:
       - name: Checkout
