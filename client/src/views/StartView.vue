@@ -90,10 +90,9 @@ onMounted(async () => {
 <style scoped>
 .start {
   display: grid;
-  gap: 20px;
+  place-items: center;
   padding: 16px;
-  max-width: 960px;
-  width: 100%;
+  height: 100%;
 }
 
 .hero {
@@ -102,6 +101,7 @@ onMounted(async () => {
   padding: 40px 24px;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  width: min(960px, 100%);
 }
 
 .hero h1 {

@@ -17,14 +17,17 @@ async function startQuiz() {
 </script>
 
 <template>
-  <div class="card">
-    <h1>あなたの旅行スタイル診断</h1>
-    <p>いくつかの簡単な質問に答えて、あなたにぴったりの旅行タイプを見つけましょう。</p>
-    <button @click="startQuiz">診断を始める</button>
-  </div>
+  <main class="home">
+    <div class="card">
+      <h1>あなたの旅行スタイル診断</h1>
+      <p>いくつかの簡単な質問に答えて、あなたにぴったりの旅行タイプを見つけましょう。</p>
+      <button @click="startQuiz">診断を始める</button>
+    </div>
+  </main>
 </template>
 
 <style scoped>
+.home { display:grid; place-items:center; height:100%; padding:16px; }
 .card {
   text-align: center;
 }

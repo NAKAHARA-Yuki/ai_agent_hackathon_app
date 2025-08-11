@@ -74,7 +74,8 @@ function goMain() {
 </script>
 
 <template>
-  <div class="card result-card">
+  <main class="result-view">
+    <div class="card result-card">
     <div v-if="store.isAnalyzing || store.isGeneratingPlans || store.isProcessing">
       <h1>診断中...</h1>
       <p>AIがあなたの回答全体を解析し、旅行タイプとおすすめプランを生成しています。少々お待ちください。</p>
@@ -144,11 +145,13 @@ function goMain() {
       <h1>結果</h1>
       <p>結果を計算中です...</p>
     </div>
-    <button @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
-  </div>
+      <button @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
+    </div>
+  </main>
 </template>
 
 <style scoped>
+.result-view { display:grid; place-items:center; height:100%; padding:16px; overflow:auto; }
 .result-card {
   text-align: center;
   animation: fadeIn 0.5s ease-in-out;
