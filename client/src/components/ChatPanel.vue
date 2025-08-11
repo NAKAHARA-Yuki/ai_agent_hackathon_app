@@ -1,5 +1,5 @@
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
 
 const auth = useAuthStore()
@@ -10,6 +10,31 @@ const messages = ref([
 const userInput = ref('')
 const isSending = ref(false)
 const inputEl = ref(null)
+
+// ユーザーごとにセッションIDを保持
+const SESSION_KEY_PREFIX = 'travelquiz:agent_session:'
+const userId = computed(() => auth.user?.id || 'u_local')
+const sessionId = ref('')
+
+function ensureSessionId() {
+  const key = SESSION_KEY_PREFIX + userId.value
+  let sid = null
+  try { sid = localStorage.getItem(key) } catch (_) { sid = null }
+  if (!sid) {
+    const gen = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+    sid = gen
+    try { localStorage.setItem(key, sid) } catch (_) {}
+  }
+  sessionId.value = sid
+}
+
+onMounted(() => {
+  ensureSessionId()
+})
+
+watch(userId, () => {
+  ensureSessionId()
+})
 
 // 親へ: エージェント応答に含まれる場所候補を通知
 const emit = defineEmits(['agent-update'])
@@ -30,7 +55,7 @@ async function sendMessage() {
     const resp = await fetch('/api/agent/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ message: text, user_id: userId.value, session_id: sessionId.value })
     })
     if (!resp.ok) throw new Error('failed')
     const data = await resp.json()
