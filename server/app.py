@@ -6,6 +6,10 @@ import json
 import requests
 from flask import Flask, jsonify, send_from_directory, request
 from dotenv import load_dotenv
+from google.cloud import firestore
+import jwt
+from datetime import datetime, timedelta, timezone
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
@@ -21,6 +25,41 @@ else:
     # ここでは genai.configure は呼び出しません。
     # REST API を直接呼び出すため、SDKの設定は不要です。
     print("Gemini API key is set. Using REST API for AI analysis.")
+
+# Auth / DB config
+FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
+JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "2880"))  # 48h
+
+db = None
+try:
+    db = firestore.Client(project=FIRESTORE_PROJECT) if FIRESTORE_PROJECT else firestore.Client()
+    print("Firestore client initialized.")
+except Exception as e:
+    print(f"WARNING: Firestore client init failed: {e}")
+    db = None
+
+def create_jwt(user_id: str):
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=JWT_EXPIRES_MIN)).timestamp())
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+def verify_jwt(token: str):
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except Exception:
+        return None
+
+def require_auth(req):
+    authz = req.headers.get("Authorization", "")
+    if authz.startswith("Bearer "):
+        token = authz.split(" ", 1)[1]
+        return verify_jwt(token)
+    return None
 
 
 
@@ -378,6 +417,117 @@ def generate_plan():
     except Exception as e:
         print(f"An error occurred during plan generation: {e}")
         return jsonify({"error": "Failed to generate travel plans with AI", "details": str(e)}), 500
+
+
+# ==== Auth endpoints (Firestore) ====
+@app.route('/api/auth/signup', methods=['POST'])
+def signup():
+    if db is None:
+        return jsonify({"error": "Database not configured"}), 500
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    user_id = (data.get('user_id') or '').strip().lower()
+    password = data.get('password') or ''
+    # Validate
+    if not name or not user_id or not password:
+        return jsonify({"error": "missing fields"}), 400
+    # user_id: 3-30 chars, lowercase letters, numbers, _-
+    if not re.fullmatch(r'[a-z0-9_-]{3,30}', user_id):
+        return jsonify({"error": "invalid user_id"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "weak password"}), 400
+    users_ref = db.collection('users')
+    # Use user_id as document id to enforce uniqueness
+    doc_ref = users_ref.document(user_id)
+    if doc_ref.get().exists:
+        return jsonify({"error": "user_id already exists"}), 409
+    user_doc = {
+        'name': name,
+        'user_id': user_id,
+        'password_hash': generate_password_hash(password),
+        'created_at': firestore.SERVER_TIMESTAMP,
+        'updated_at': firestore.SERVER_TIMESTAMP
+    }
+    doc_ref.set(user_doc)
+    token = create_jwt(user_id)
+    return jsonify({"token": token, "user": {"id": user_id, "name": name}})
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    if db is None:
+        return jsonify({"error": "Database not configured"}), 500
+    data = request.get_json() or {}
+    user_id = (data.get('user_id') or '').strip().lower()
+    password = data.get('password') or ''
+    if not user_id or not password:
+        return jsonify({"error": "missing fields"}), 400
+    if not re.fullmatch(r'[a-z0-9_-]{3,30}', user_id):
+        return jsonify({"error": "invalid user_id"}), 400
+    users_ref = db.collection('users')
+    doc = users_ref.document(user_id).get()
+    if not doc.exists:
+        return jsonify({"error": "invalid credentials"}), 401
+    user = doc.to_dict()
+    if not check_password_hash(user.get('password_hash', ''), password):
+        return jsonify({"error": "invalid credentials"}), 401
+    token = create_jwt(user_id)
+    return jsonify({"token": token, "user": {"id": user_id, "name": user.get('name')}})
+
+
+# ==== Persona generation and storage ====
+@app.route('/api/persona', methods=['POST'])
+def create_persona():
+    if db is None:
+        return jsonify({"error": "Database not configured"}), 500
+    claims = require_auth(request)
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json() or {}
+    # Expect: { profile: {traitScores.., title, description}, system_prompt?: string }
+    profile = data.get('profile') or {}
+    system_prompt = data.get('system_prompt')
+
+    # If system_prompt not provided, generate via Gemini
+    if not system_prompt:
+        if not genai_configured:
+            system_prompt = (
+                "あなたは旅行者の嗜好に基づき、国内旅行の提案と旅程調整を行うペルソナエージェントです。"
+                "安全・予算・移動時間に配慮し、ユーザーのタイプ（{title}）の説明（{desc}）を尊重して提案します。"
+            ).format(title=profile.get('title'), desc=profile.get('description'))
+        else:
+            try:
+                prompt = f"""
+                あなたは旅行者専用のペルソナエージェントのシステムプロンプトを作成します。
+                以下の診断結果（タイプ名と説明、特性スコア）を読み、エージェントが守るべき原則・口調・判断基準・制約を日本語で明確に列挙してください。
+                出力は純テキストのみ（箇条書き可）。
+
+                # タイプ
+                {profile.get('title')}
+
+                # 説明
+                {profile.get('description')}
+
+                # 特性スコア
+                {json.dumps(profile.get('traitScores', {}), ensure_ascii=False)}
+                """
+                api_response = call_gemini_api(prompt)
+                system_prompt = api_response['candidates'][0]['content']['parts'][0]['text'].strip()
+            except Exception as e:
+                print(f"Persona prompt generation error: {e}")
+                system_prompt = (
+                    "ユーザーの診断結果に沿って、日本国内の旅行計画を丁寧に提案・調整すること。"
+                )
+
+    personas_ref = db.collection('users').document(claims['sub']).collection('personas')
+    doc_ref = personas_ref.document()
+    doc = {
+        'profile': profile,
+        'system_prompt': system_prompt,
+        'created_at': firestore.SERVER_TIMESTAMP
+    }
+    doc_ref.set(doc)
+    return jsonify({"id": doc_ref.id, "profile": profile, "system_prompt": system_prompt})
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

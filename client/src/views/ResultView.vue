@@ -47,6 +47,8 @@ onMounted(() => {
   const stop = watch(() => store.finalResult, async (val) => {
     if (val && !store.aiPlans && !store.isGeneratingPlans) {
       await store.generateAIPlans()
+  // プラン生成の後でも前でも良いが、診断プロフィールを保存
+  await store.savePersonaProfile()
       stop()
     }
   }, { immediate: true })
