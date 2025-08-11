@@ -1,12 +1,6 @@
 name: Deploy Agent (Cloud Run)
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'agent/**'
-      - 'mcp/**'
-      - '.github/workflows/deploy-agent-cloud-run.yml'
   pull_request:
     branches: [ main ]
     types: [ closed ]
@@ -14,11 +8,16 @@ on:
       - 'agent/**'
       - 'mcp/**'
       - '.github/workflows/deploy-agent-cloud-run.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
-    # Run on direct push to main OR when a PR to main is merged
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    # Only when PR to main is merged
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: read
