@@ -11,29 +11,28 @@ const userInput = ref('')
 const isSending = ref(false)
 const inputEl = ref(null)
 
-// ユーザーごとにセッションIDを保持
-const SESSION_KEY_PREFIX = 'travelquiz:agent_session:'
+// セッションIDはページライフサイクル内でのみ保持（リロードで新規発行）
 const userId = computed(() => auth.user?.id || 'u_local')
 const sessionId = ref('')
 
-function ensureSessionId() {
-  const key = SESSION_KEY_PREFIX + userId.value
-  let sid = null
-  try { sid = localStorage.getItem(key) } catch (_) { sid = null }
-  if (!sid) {
-    const gen = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`)
-    sid = gen
-    try { localStorage.setItem(key, sid) } catch (_) {}
+function newUUID() {
+  return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function ensureSessionId(reset = false) {
+  if (reset || !sessionId.value) {
+    sessionId.value = newUUID()
+    console.debug('[Chat] new session id generated', { user_id: userId.value, session_id: sessionId.value })
   }
-  sessionId.value = sid
 }
 
 onMounted(() => {
-  ensureSessionId()
+  ensureSessionId(true)
 })
 
 watch(userId, () => {
-  ensureSessionId()
+  // ユーザーが切り替わったら新しいセッションにする
+  ensureSessionId(true)
 })
 
 // 親へ: エージェント応答に含まれる場所候補を通知
