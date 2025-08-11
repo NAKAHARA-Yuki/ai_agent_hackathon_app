@@ -36,12 +36,20 @@ function goResults() {
 function restart() {
   router.push({ name: 'home' })
 }
+
+function logout() {
+  auth.logout()
+  router.replace({ name: 'login' })
+}
 </script>
 
 <template>
   <main class="main">
     <section class="panel">
-      <h1>メインページ</h1>
+      <div class="header">
+        <h1>メインページ</h1>
+        <button class="link" @click="logout">ログアウト</button>
+      </div>
       <p class="lead">あなたの診断に基づき、パーソナライズされた旅の提案を続けられます。</p>
 
       <div v-if="loading">読み込み中...</div>
@@ -66,6 +74,8 @@ function restart() {
 .panel { width:min(920px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
+.header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.header .link { background:transparent; border:none; color:#2563eb; cursor:pointer; }
 .actions { display:flex; gap:12px; margin-top:16px; }
 button.primary { background:#2d7ef7; color:#fff; border:none; padding:10px 14px; border-radius:8px; }
 button.secondary { background:#eef2f7; color:#333; border:none; padding:10px 14px; border-radius:8px; }
