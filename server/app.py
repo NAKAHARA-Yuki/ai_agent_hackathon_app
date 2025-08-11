@@ -448,6 +448,108 @@ QUESTIONS = [
     }
 ]
 
+# 趣味マスタ（likesOptions と同等のデータ）
+HOBBIES_MASTER = [
+    { "id": "onsen", "label": "温泉・サウナ", "emoji": "♨️", "weights": { "comfort": 0.6, "pace": -0.2 } },
+    { "id": "relax", "label": "リラックス・スパ", "emoji": "🧖", "weights": { "comfort": 0.8, "activity": -0.4, "pace": -0.4 } },
+    { "id": "art", "label": "アート・美術館", "emoji": "🖼️", "weights": { "culture": 0.7, "novelty": 0.1 } },
+    { "id": "history", "label": "歴史・世界遺産", "emoji": "🏛️", "weights": { "culture": 0.8 } },
+    { "id": "nature", "label": "自然・絶景", "emoji": "🏞️", "weights": { "nature": 0.8, "activity": 0.2 } },
+    { "id": "gourmet", "label": "グルメ・食べ歩き", "emoji": "🍣", "weights": { "gourmet": 0.8, "comfort": 0.1 } },
+    { "id": "citywalk", "label": "まち歩き", "emoji": "🚶", "weights": { "activity": 0.4, "culture": 0.2 } },
+    { "id": "adventure", "label": "アドベンチャー", "emoji": "🧗", "weights": { "novelty": 0.6, "risk": 0.4, "activity": 0.6 } },
+    { "id": "themepark", "label": "テーマパーク", "emoji": "🎢", "weights": { "comfort": 0.2, "pace": 0.2 } },
+    { "id": "island", "label": "離島ステイ", "emoji": "🏝️", "weights": { "nature": 0.6, "novelty": 0.3, "comfort": 0.2 } },
+    { "id": "snow", "label": "雪・ウィンター", "emoji": "❄️", "weights": { "activity": 0.4, "risk": 0.2, "comfort": -0.1 } },
+    { "id": "festival", "label": "祭り・イベント", "emoji": "🎊", "weights": { "social": 0.6, "culture": 0.2 } },
+
+    { "id": "pilgrimage", "label": "聖地巡礼（アニメ・ドラマ）", "emoji": "🎬", "weights": { "culture": 0.5, "novelty": 0.3, "planning": 0.2 } },
+    { "id": "cafe", "label": "カフェめぐり", "emoji": "☕", "weights": { "gourmet": 0.6, "comfort": 0.2, "pace": -0.1 } },
+    { "id": "coffee", "label": "コーヒー巡り", "emoji": "☕", "weights": { "gourmet": 0.5, "comfort": 0.2, "pace": -0.1 } },
+    { "id": "sweets", "label": "スイーツ巡り", "emoji": "🍰", "weights": { "gourmet": 0.5, "comfort": 0.2 } },
+    { "id": "bakery", "label": "ベーカリー巡り", "emoji": "🍞", "weights": { "gourmet": 0.4, "comfort": 0.2, "pace": -0.1 } },
+    { "id": "ramen", "label": "ラーメン", "emoji": "🍜", "weights": { "gourmet": 0.5 } },
+    { "id": "sushi_love", "label": "寿司巡り", "emoji": "🍣", "weights": { "gourmet": 0.5 } },
+    { "id": "wagashi", "label": "和菓子", "emoji": "🍡", "weights": { "gourmet": 0.4, "culture": 0.2 } },
+    { "id": "craftbeer", "label": "クラフトビール", "emoji": "🍺", "weights": { "gourmet": 0.4, "social": 0.3 } },
+    { "id": "wine", "label": "ワイン", "emoji": "🍷", "weights": { "gourmet": 0.4, "comfort": 0.2 } },
+    { "id": "sake", "label": "日本酒", "emoji": "🍶", "weights": { "gourmet": 0.4, "culture": 0.2 } },
+    { "id": "vegan", "label": "ヴィーガン対応", "emoji": "🥦", "weights": { "gourmet": 0.2, "planning": 0.2, "comfort": 0.1 } },
+
+    { "id": "shrines", "label": "神社仏閣", "emoji": "⛩️", "weights": { "culture": 0.6, "pace": -0.1 } },
+    { "id": "goshuin", "label": "御朱印集め", "emoji": "📖", "weights": { "culture": 0.5, "planning": 0.2 } },
+    { "id": "castles", "label": "城めぐり", "emoji": "🏯", "weights": { "culture": 0.6, "activity": 0.2 } },
+    { "id": "hanabi", "label": "花火", "emoji": "🎆", "weights": { "social": 0.3, "culture": 0.2 } },
+    { "id": "sakura", "label": "桜", "emoji": "🌸", "weights": { "nature": 0.4, "culture": 0.2 } },
+    { "id": "momiji", "label": "紅葉", "emoji": "🍁", "weights": { "nature": 0.5, "activity": 0.1, "pace": -0.1 } },
+    { "id": "waterfalls", "label": "滝めぐり", "emoji": "🏞️", "weights": { "nature": 0.6, "activity": 0.3, "risk": 0.1 } },
+    { "id": "stargazing", "label": "星空観察", "emoji": "🌌", "weights": { "nature": 0.5, "pace": -0.2 } },
+    { "id": "nightview", "label": "夜景・イルミ", "emoji": "🌃", "weights": { "culture": 0.2, "novelty": 0.1, "comfort": 0.1 } },
+    { "id": "aquarium", "label": "水族館", "emoji": "🐠", "weights": { "culture": 0.2, "comfort": 0.2 } },
+    { "id": "zoo", "label": "動物園・牧場", "emoji": "🦁", "weights": { "nature": 0.3, "social": 0.2 } },
+
+    { "id": "kids", "label": "子連れに優しい", "emoji": "👨‍👩‍👧", "weights": { "comfort": 0.4, "risk": 0.2, "pace": -0.2 } },
+    { "id": "pet", "label": "ペット同伴OK", "emoji": "🐶", "weights": { "comfort": 0.2, "planning": 0.2, "nature": 0.2 } },
+    { "id": "couple", "label": "カップル向け", "emoji": "💑", "weights": { "comfort": 0.2, "gourmet": 0.2, "pace": -0.1 } },
+    { "id": "girls", "label": "女子旅", "emoji": "👭", "weights": { "gourmet": 0.3, "culture": 0.2 } },
+    { "id": "solo", "label": "ひとり旅", "emoji": "🧍", "weights": { "novelty": 0.2, "planning": 0.1, "comfort": -0.1 } },
+    { "id": "photography", "label": "写真撮影", "emoji": "📸", "weights": { "nature": 0.3, "culture": 0.2, "planning": 0.1 } },
+    { "id": "instaspot", "label": "映えスポット", "emoji": "✨", "weights": { "digital": 0.3, "novelty": 0.2, "culture": 0.1 } },
+
+    { "id": "surf", "label": "サーフィン", "emoji": "🏄", "weights": { "activity": 0.7, "risk": 0.3, "nature": 0.3 } },
+    { "id": "sup", "label": "SUP・カヤック", "emoji": "🛶", "weights": { "activity": 0.6, "nature": 0.3 } },
+    { "id": "snorkel", "label": "シュノーケリング", "emoji": "🤿", "weights": { "activity": 0.6, "nature": 0.4 } },
+    { "id": "ski", "label": "スキー・スノボ", "emoji": "🎿", "weights": { "activity": 0.7, "risk": 0.3, "nature": 0.3 } },
+    { "id": "hike", "label": "ハイキング", "emoji": "🥾", "weights": { "activity": 0.5, "nature": 0.5 } },
+    { "id": "climb", "label": "登山", "emoji": "⛰️", "weights": { "activity": 0.7, "risk": 0.3, "nature": 0.4 } },
+    { "id": "trailrun", "label": "トレイルラン", "emoji": "🏃‍♂️", "weights": { "activity": 0.7, "risk": 0.2, "nature": 0.3 } },
+    { "id": "cycle", "label": "サイクリング", "emoji": "🚴", "weights": { "activity": 0.5, "nature": 0.3 } },
+    { "id": "drive", "label": "ドライブ", "emoji": "🚗", "weights": { "comfort": 0.2, "activity": 0.2 } },
+
+    { "id": "rail", "label": "鉄道旅", "emoji": "🚆", "weights": { "culture": 0.2, "planning": 0.3, "comfort": 0.1 } },
+    { "id": "scenic_train", "label": "絶景列車", "emoji": "🚞", "weights": { "nature": 0.3, "comfort": 0.2 } },
+    { "id": "ferry", "label": "フェリー旅", "emoji": "⛴️", "weights": { "comfort": 0.2, "nature": 0.2 } },
+    { "id": "cruise", "label": "クルーズ", "emoji": "🚢", "weights": { "comfort": 0.6, "pace": -0.2 } },
+
+    { "id": "craft", "label": "伝統工芸体験", "emoji": "🎎", "weights": { "culture": 0.6, "novelty": 0.2, "activity": 0.1 } },
+    { "id": "pottery", "label": "陶芸体験", "emoji": "🏺", "weights": { "culture": 0.5, "activity": 0.2 } },
+    { "id": "kintsugi", "label": "金継ぎ", "emoji": "🪡", "weights": { "culture": 0.5, "planning": 0.2 } },
+    { "id": "dyeing", "label": "染物体験", "emoji": "🧶", "weights": { "culture": 0.5 } },
+    { "id": "sushi_making", "label": "寿司握り体験", "emoji": "🍣", "weights": { "gourmet": 0.4, "culture": 0.3, "activity": 0.1 } },
+    { "id": "tea", "label": "茶道・抹茶体験", "emoji": "🍵", "weights": { "culture": 0.6, "pace": -0.2 } },
+    { "id": "kimono", "label": "着物レンタル", "emoji": "👘", "weights": { "culture": 0.5, "digital": 0.1 } },
+    { "id": "markets", "label": "朝市・市場", "emoji": "🧺", "weights": { "gourmet": 0.4, "culture": 0.2, "pace": 0.1 } },
+    { "id": "outlet", "label": "アウトレット・ショッピング", "emoji": "🛍️", "weights": { "budget": 0.3, "comfort": 0.2 } },
+    { "id": "thrift", "label": "古着・蚤の市", "emoji": "👗", "weights": { "budget": 0.2, "novelty": 0.2, "culture": 0.2 } },
+    { "id": "tech", "label": "テック・ガジェット巡り", "emoji": "📱", "weights": { "digital": 0.6, "novelty": 0.2 } },
+    { "id": "science_museum", "label": "科学館・博物館", "emoji": "🧪", "weights": { "culture": 0.5 } },
+    { "id": "concept_cafe", "label": "コンセプトカフェ", "emoji": "🧋", "weights": { "social": 0.2, "culture": 0.2, "novelty": 0.2 } },
+
+    { "id": "yoga", "label": "ヨガ・ウェルネス", "emoji": "🧘", "weights": { "comfort": 0.6, "activity": 0.2, "pace": -0.3 } },
+]
+
+@app.route('/api/hobbies', methods=['GET'])
+def list_hobbies_master():
+    """趣味マスタを返す。DBに未保存ならシードして返す。
+    形式: { items: [ {id,label,emoji,weights}, ... ] }
+    """
+    try:
+        meta_ref = db.collection('meta').document('hobbies_master')
+        snap = meta_ref.get(timeout=5)
+        if snap and snap.exists:
+            data = snap.to_dict() or {}
+            items = data.get('items')
+            if isinstance(items, list) and items:
+                return jsonify({"items": items})
+        # seed
+        to_save = { 'items': HOBBIES_MASTER, 'updated_at': firestore.SERVER_TIMESTAMP }
+        meta_ref.set(to_save, timeout=5)
+        return jsonify({"items": HOBBIES_MASTER})
+    except Exception as e:
+        logger.exception("/api/hobbies error")
+        # フォールバック: 定数を返す
+        return jsonify({"items": HOBBIES_MASTER})
+
 @app.route('/api/questions')
 def get_questions():
     return jsonify(QUESTIONS)
@@ -1150,13 +1252,33 @@ def create_persona():
     profile = data.get('profile') or {}
     system_prompt = data.get('system_prompt')
 
+    # Collect user hobbies: prefer from request profile, else from user's saved profile
+    user_hobbies = []
+    try:
+        hb = profile.get('hobbies')
+        if isinstance(hb, list):
+            user_hobbies = [str(x) for x in hb if str(x).strip()]
+        elif isinstance(hb, str) and hb.strip():
+            user_hobbies = [s.strip() for s in hb.split(',') if s.strip()]
+        # Fallback to user's stored profile
+        if not user_hobbies:
+            udoc = db.collection('users').document(claims['sub']).get(timeout=5)
+            if udoc and udoc.exists:
+                up = (udoc.to_dict() or {}).get('profile') or {}
+                hb2 = up.get('hobbies')
+                if isinstance(hb2, list):
+                    user_hobbies = [str(x) for x in hb2 if str(x).strip()]
+    except Exception:
+        pass
+
     # If system_prompt not provided, generate via Gemini
     if not system_prompt:
         if not genai_configured:
             system_prompt = (
                 "あなたは旅行者の嗜好に基づき、国内旅行の提案と旅程調整を行うペルソナエージェントです。"
                 "安全・予算・移動時間に配慮し、ユーザーのタイプ（{title}）の説明（{desc}）を尊重して提案します。"
-            ).format(title=profile.get('title'), desc=profile.get('description'))
+                "ユーザーの趣味・関心も強く反映してください。以下の趣味参考: {hobbies}"
+            ).format(title=profile.get('title'), desc=profile.get('description'), hobbies=json.dumps(user_hobbies, ensure_ascii=False))
         else:
             try:
                 prompt = f"""
@@ -1172,13 +1294,16 @@ def create_persona():
 
                 # 特性スコア
                 {json.dumps(profile.get('traitScores', {}), ensure_ascii=False)}
+
+                # ユーザーの趣味（旅行で重視するテーマや体験）
+                {json.dumps(user_hobbies, ensure_ascii=False)}
                 """
                 api_response = call_gemini_api(prompt)
                 system_prompt = api_response['candidates'][0]['content']['parts'][0]['text'].strip()
             except Exception as e:
                 logger.exception("Persona prompt generation error")
                 system_prompt = (
-                    "ユーザーの診断結果に沿って、日本国内の旅行計画を丁寧に提案・調整すること。"
+                    "ユーザーの診断結果および趣味の傾向を尊重し、日本国内の旅行計画を丁寧に提案・調整すること。"
                 )
 
     personas_ref = db.collection('users').document(claims['sub']).collection('personas')

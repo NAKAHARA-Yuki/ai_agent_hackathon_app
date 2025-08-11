@@ -9,6 +9,7 @@ import QuestionView from '../views/QuestionView.vue'
 import ResultView from '../views/ResultView.vue'
 import MyPageView from '../views/MyPageView.vue'
 import PlannerView from '../views/PlannerView.vue'
+import InterestsView from '../views/InterestsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,6 +21,11 @@ const router = createRouter({
       path: '/',
       name: 'home',
   component: StartView
+    },
+    {
+      path: '/interests',
+      name: 'interests',
+      component: InterestsView
     },
     {
       path: '/main',
