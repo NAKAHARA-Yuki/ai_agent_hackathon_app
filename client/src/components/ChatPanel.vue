@@ -83,7 +83,13 @@ async function sendMessage() {
 .msg.user { justify-content:flex-end; }
 .bubble { background:#f3f4f6; padding:10px 12px; border-radius: 10px; max-width: 80%; }
 .msg.user .bubble { background:#2d7ef7; color:#fff; }
-.composer { display:flex; gap:8px; border-top:1px solid #eee; padding:8px; }
-.composer input { flex:1; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; }
-.composer button { padding:10px 14px; background:#2d7ef7; color:#fff; border:none; border-radius:8px; }
+.composer { display:flex; gap:8px; border-top:1px solid #eee; padding:12px; align-items:center; }
+/* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
+.composer input { flex: 1 1 auto; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; }
+.composer button { flex: 0 0 112px; height: 40px; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; }
+
+@media (max-width: 600px) {
+  /* モバイルではボタン幅を少し小さくする（約80:20） */
+  .composer button { flex-basis: 96px; }
+}
 </style>

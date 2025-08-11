@@ -64,7 +64,16 @@ onMounted(async () => {
     map = new window.google.maps.Map(mapEl.value, { center: { lat: 35.6804, lng: 139.7690 }, zoom: 5 })
     clearMarkers()
     addMarkers(props.places)
-    fitBounds(props.places)
+    if (props.places && props.places.length > 0) {
+      fitBounds(props.places)
+    } else {
+      // 初期表示: 日本全体が入る程度のバウンズにフィット
+      const japanBounds = new window.google.maps.LatLngBounds(
+        { lat: 24.0, lng: 123.0 }, // 南西（沖縄付近）
+        { lat: 46.0, lng: 146.0 }  // 北東（北海道東側）
+      )
+      map.fitBounds(japanBounds)
+    }
   } catch (e) {
     console.error(e)
   }
@@ -74,7 +83,15 @@ watch(() => props.places, (list) => {
   if (!map) return
   clearMarkers()
   addMarkers(list)
-  fitBounds(list)
+  if (list && list.length > 0) {
+    fitBounds(list)
+  } else {
+    const japanBounds = new window.google.maps.LatLngBounds(
+      { lat: 24.0, lng: 123.0 },
+      { lat: 46.0, lng: 146.0 }
+    )
+    map.fitBounds(japanBounds)
+  }
 }, { deep: true })
 </script>
 
