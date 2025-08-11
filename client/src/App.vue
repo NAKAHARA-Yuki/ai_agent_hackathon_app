@@ -68,24 +68,27 @@ onUnmounted(() => {
     <header class="site-header">
   <div class="brand" @click="router.push({ name: 'main' })" role="button">いざ旅</div>
       <nav class="nav">
-  <div v-if="isAuthed" class="menu" ref="menuRoot">
+        <div v-if="isAuthed" class="menu" ref="menuRoot">
           <button class="icon-btn" @click="toggleMenu" aria-label="メニュー" :aria-expanded="showMenu">
             <span class="bar"></span>
             <span class="bar"></span>
             <span class="bar"></span>
           </button>
-          <div v-if="showMenu" class="menu-panel" role="menu">
-            <div class="menu-section">
-              <div class="menu-title">診断結果</div>
+          <transition name="drawer">
+            <aside v-if="showMenu" class="drawer" role="menu" aria-label="メニュー">
+              <div class="drawer-title">診断結果</div>
               <button class="menu-item" role="menuitem" @click="viewResults">結果を閲覧</button>
               <button class="menu-item" role="menuitem" @click="redoDiagnosis">再診断</button>
-      <hr class="divider" />
-      <button class="menu-item" role="menuitem" @click="logout">ログアウト</button>
-            </div>
-          </div>
+              <hr class="divider" />
+              <button class="menu-item danger" role="menuitem" @click="logout">ログアウト</button>
+            </aside>
+          </transition>
         </div>
       </nav>
     </header>
+    <transition name="fade">
+      <div v-if="showMenu" class="backdrop" @click="showMenu=false"></div>
+    </transition>
     <main class="content">
       <RouterView />
     </main>
@@ -114,13 +117,27 @@ onUnmounted(() => {
 .icon-btn:hover { background: rgba(0,0,0,0.05); }
 .bar { display:block; width: 20px; height: 2px; background:#1f2937; border-radius: 2px; }
 
-.menu-panel {
-  position: absolute; right: 0; top: 40px; min-width: 200px; background:#fff; border:1px solid rgba(0,0,0,0.08);
-  border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 10px; z-index: 20;
+.drawer {
+  position: fixed; right: 0; top: 0; height: 100vh; width: 280px; background: #ffffff;
+  color: #111827; border-left: 1px solid rgba(0,0,0,0.08); box-shadow: -10px 0 30px rgba(0,0,0,0.12);
+  padding: 14px; z-index: 50; display: flex; flex-direction: column; gap: 6px;
 }
-.menu-title { font-size: 12px; color:#6b7280; padding: 6px 8px; }
-.menu-item { width:100%; text-align:left; background:transparent; border:none; padding:10px 8px; border-radius: 8px; cursor:pointer; }
-.menu-item:hover { background: rgba(37,99,235,0.08); }
+.drawer-title { font-size: 14px; font-weight: 700; color:#374151; padding: 8px 6px; }
+.menu-item { width:100%; text-align:left; background:transparent; color:#111827; border:none; padding:12px 10px; border-radius: 8px; cursor:pointer; font-size: 15px; }
+.menu-item:hover { background: #eff6ff; }
+.menu-item.danger { color:#b91c1c; }
+.divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
+
+.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(1px); z-index: 40; }
+
+/* ドロワーのスライドアニメ */
+.drawer-enter-active, .drawer-leave-active { transition: transform .25s ease, opacity .2s ease; }
+.drawer-enter-from, .drawer-leave-to { transform: translateX(100%); opacity: 0.8; }
+.drawer-enter-to, .drawer-leave-from { transform: translateX(0); opacity: 1; }
+
+/* 背景フェード */
+.fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 .divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
 
 .content {
