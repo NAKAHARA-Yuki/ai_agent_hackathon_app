@@ -1,11 +1,16 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { useQuizStore } from '@/stores/quizStore'
 
+const router = useRouter()
 const auth = useAuthStore()
+const quiz = useQuizStore()
 const persona = ref(null)
 const loading = ref(true)
 const error = ref('')
+const hasResult = computed(() => !!quiz.finalResult)
 
 async function loadLatestPersona() {
   try {
@@ -23,6 +28,14 @@ async function loadLatestPersona() {
 }
 
 onMounted(loadLatestPersona)
+
+function goResults() {
+  router.push({ name: 'results' })
+}
+
+function restart() {
+  router.push({ name: 'home' })
+}
 </script>
 
 <template>
@@ -38,6 +51,11 @@ onMounted(loadLatestPersona)
           <p>{{ persona.profile.description }}</p>
         </div>
         <div v-else class="muted">まだペルソナがありません。診断を実施してください。</div>
+
+        <div class="actions">
+          <button class="secondary" @click="restart">診断をやり直す</button>
+          <button class="primary" v-if="hasResult" @click="goResults">診断結果を見る</button>
+        </div>
       </div>
     </section>
   </main>
@@ -48,4 +66,7 @@ onMounted(loadLatestPersona)
 .panel { width:min(920px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
+.actions { display:flex; gap:12px; margin-top:16px; }
+button.primary { background:#2d7ef7; color:#fff; border:none; padding:10px 14px; border-radius:8px; }
+button.secondary { background:#eef2f7; color:#333; border:none; padding:10px 14px; border-radius:8px; }
 </style>
