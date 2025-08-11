@@ -173,9 +173,9 @@ function renderHtml(text) {
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
 .bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
 .composer-area { position: static; background:#fff; border-top:1px solid #eee; padding: 8px 12px; }
-.composer { display:flex; gap:8px; align-items:stretch; background:#fff; }
+.composer { display:flex; gap:8px; align-items:stretch; background:#fff; width: 100%; }
 /* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
-.composer textarea { flex: 1 1 auto; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; height: 40px; max-height: 160px; }
+.composer textarea { flex: 1 1 0%; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; height: 40px; max-height: 160px; box-sizing: border-box; }
 .composer textarea:disabled { background: #f9fafb; cursor: not-allowed; }
 .composer button { flex: 0 0 112px; height: auto; align-self: stretch; display:flex; align-items:center; justify-content:center; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; min-height: 40px; }
 .composer button[disabled] { opacity: 0.6; cursor: not-allowed; }

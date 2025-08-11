@@ -127,6 +127,8 @@ h2 {
   grid-template-columns: 1fr;
   gap: 15px;
   margin-bottom: 30px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .options label {
   display: flex;
@@ -141,6 +143,8 @@ h2 {
   transition: all 0.3s ease;
   background-color: rgba(255, 255, 255, 0.6);
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .options label:hover {
   transform: translateY(-2px);
