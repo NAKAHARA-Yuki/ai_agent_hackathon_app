@@ -49,6 +49,87 @@ except Exception as e:
     print(f"WARNING: Firestore client init failed: {e}")
     db = None
 
+# Development fallback: in-memory DB when Firestore is unavailable
+if db is None and (os.getenv("FLASK_ENV", "").lower() == "development" or os.getenv("ENV", "").lower() == "development"):
+    import uuid
+    from copy import deepcopy
+
+    class _DevDocSnapshot:
+        def __init__(self, data):
+            self._data = deepcopy(data) if data is not None else None
+
+        @property
+        def exists(self):
+            return self._data is not None
+
+        def to_dict(self):
+            return deepcopy(self._data) if self._data is not None else None
+
+    class _DevDocumentRef:
+        def __init__(self, store, path):
+            self._store = store
+            self._path = path  # tuple of segments
+            self.id = path[-1] if path else None
+
+        def _now_iso(self):
+            return datetime.utcnow().isoformat() + "Z"
+
+        def _resolve(self):
+            cur = self._store
+            for seg in self._path:
+                cur = cur.setdefault(seg, {})
+            return cur
+
+        def get(self):
+            node = self._resolve()
+            data = node.get("__doc__")
+            return _DevDocSnapshot(data)
+
+        def set(self, data):
+            node = self._resolve()
+            doc = deepcopy(data)
+            # replace Firestore server timestamps if present
+            for k, v in list(doc.items()):
+                if v is getattr(firestore, "SERVER_TIMESTAMP", object()):
+                    doc[k] = self._now_iso()
+            node["__doc__"] = doc
+
+        def update(self, data):
+            node = self._resolve()
+            base = node.get("__doc__", {})
+            for k, v in data.items():
+                base[k] = v
+            node["__doc__"] = base
+
+        def collection(self, name):
+            return _DevCollectionRef(self._store, self._path + (name,))
+
+    class _DevCollectionRef:
+        def __init__(self, store, path):
+            self._store = store
+            self._path = path  # tuple of segments
+
+        def document(self, doc_id=None):
+            if not doc_id:
+                doc_id = uuid.uuid4().hex
+            # ensure collection container exists
+            cur = self._store
+            for seg in self._path:
+                cur = cur.setdefault(seg, {})
+            # create doc node
+            cur.setdefault(doc_id, {})
+            return _DevDocumentRef(self._store, self._path + (doc_id,))
+
+    class DevDB:
+        def __init__(self):
+            self._store = {}
+
+        def collection(self, name):
+            return _DevCollectionRef(self._store, (name,))
+
+    db = DevDB()
+    print("DevDB initialized (in-memory). Firestore is not used in development mode.")
+
 def create_jwt(user_id: str):
     now = datetime.now(timezone.utc)
     payload = {
