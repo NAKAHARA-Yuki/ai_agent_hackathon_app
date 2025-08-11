@@ -533,10 +533,15 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     try:
         bridge_logger.info(f"Create session: POST {sess_url}")
         r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
-        if 200 <= r.status_code < 300 or r.status_code == 409:
-            bridge_logger.info(f"Create session OK: {r.status_code}")
+        text_snip = (r.text[:300] + '…') if (getattr(r, 'text', None) and len(r.text) > 300) else (r.text or '')
+        already_exists = (r.status_code == 400 and isinstance(r.text, str) and 'session already exists' in r.text.lower())
+        if 200 <= r.status_code < 300 or r.status_code == 409 or already_exists:
+            if already_exists:
+                bridge_logger.info(f"Create session OK (already exists): {r.status_code} body={text_snip}")
+            else:
+                bridge_logger.info(f"Create session OK: {r.status_code}")
         else:
-            bridge_logger.error(f"Create session unexpected status: {r.status_code} body={r.text[:300] if r.text else ''}")
+            bridge_logger.error(f"Create session unexpected status: {r.status_code} body={text_snip}")
             r.raise_for_status()
     except Exception as e:
         bridge_logger.error(f"Create session failed: {e}")
@@ -642,6 +647,7 @@ def agent_chat():
                 effective_base = None
 
         if effective_base:
+            logger.info(f"/api/agent/chat delegating to ADK base={effective_base}")
             try:
                 # リクエストで渡された user_id / session_id を採用
                 req_user_id = (data.get('user_id') or '').strip() or None
@@ -750,6 +756,8 @@ def agent_chat():
                 return jsonify(resp)
             except Exception:
                 logger.exception("Agent chat delegation failed")
+        else:
+            logger.warning("/api/agent/chat no ADK available (AGENT_BASE_URL not set and local ADK not detected); using fallback")
 
         # フォールバック: キーワードに応じて簡易候補地を返す
         reply = '次の候補を地図に表示しました。気になる場所はありますか？'
