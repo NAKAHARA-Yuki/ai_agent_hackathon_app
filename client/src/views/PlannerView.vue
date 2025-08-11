@@ -36,21 +36,22 @@ function handleAgentUpdate(payload) {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr;
   gap: 12px;
-  height: calc(100vh - 80px);
-  padding: 12px;
+  height: 100%; /* 親 .content が 100vh-Header のため全高を占有 */
+  width: 100%;
+  overflow: hidden; /* 外側でスクロールさせない */
 }
 .left, .right {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 6px 18px rgba(0,0,0,.08);
-  overflow: hidden;
+  overflow: hidden; /* 各ペインの内部で必要に応じてスクロール */
   height: 100%;
 }
 .left { display:flex; }
 .right { position: relative; }
 
 @media (max-width: 960px) {
-  .planner { grid-template-columns: 1fr; height: auto; }
-  .right { height: 480px; }
+  .planner { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .right { height: 50vh; min-height: 360px; }
 }
 </style>

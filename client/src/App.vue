@@ -1,5 +1,5 @@
 <script setup>
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView, RouterLink, useRouter } from 'vue-router'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
@@ -67,7 +67,9 @@ onUnmounted(() => {
 <template>
   <div id="app-container">
     <header class="site-header">
-      <div class="brand" @click="router.push({ name: 'main' })" role="button">いざ旅</div>
+      <div class="brand">
+        <RouterLink class="brand-link" :to="{ name: 'main' }" aria-label="メインへ">いざ旅</RouterLink>
+      </div>
       <nav class="nav">
         <span v-if="isAuthed && displayName" class="user-name" :title="displayName">{{ displayName }}</span>
         <div v-if="isAuthed" class="menu" ref="menuRoot">
@@ -111,13 +113,16 @@ onUnmounted(() => {
 #app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh; /* ビューポートに固定 */
+  overflow: hidden; /* ページ全体のスクロール抑止 */
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px calc(16px + env(safe-area-inset-right)) 12px calc(16px + env(safe-area-inset-left)); background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; box-sizing: border-box; }
-.brand { font-weight: 700; color:#1f2937; cursor:pointer; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand { font-weight: 700; color:#1f2937; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-link { color: inherit; text-decoration: none; cursor: pointer; display: inline-block; padding: 4px 6px; border-radius: 6px; }
+.brand-link:hover { background: rgba(0,0,0,0.05); }
 .nav { display:flex; align-items:center; gap:10px; position: relative; flex: 0 0 auto; }
 .nav .link { background:transparent; border:none; color:#2563eb; cursor:pointer; font-size: 14px; }
 
@@ -166,10 +171,11 @@ onUnmounted(() => {
 .divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
 
 .content {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
+  align-items: stretch; /* 中身のレイアウトに任せる */
+  justify-content: flex-start;
+  padding: 16px; /* 余白はここで持つ */
+  overflow: auto; /* ページではなく、コンテンツ領域でスクロール */
 }
 </style>
