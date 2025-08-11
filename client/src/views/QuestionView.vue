@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuizStore } from '@/stores/quizStore'
 import ProgressBar from '@/components/ProgressBar.vue'
+import BackButton from '@/components/BackButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,6 +71,7 @@ function handleNext() {
   <main class="question-view">
     <transition name="fade" mode="out-in">
       <div class="card quiz-card" :key="questionNumber" v-if="currentQuestion">
+        <BackButton />
         <ProgressBar />
         <div class="question-header">
           <span class="question-number">QUESTION {{ questionNumber }} / {{ store.totalQuestions }}</span>
@@ -100,10 +102,10 @@ function handleNext() {
 </template>
 
 <style scoped>
-.question-view { display:grid; place-items:center; height:100%; padding:16px; }
+.question-view { display:grid; place-items:center; height:100%; padding:16px; width:100%; overflow:auto; }
 .quiz-card {
-  width: 700px;
-  max-width: 95%;
+  width: min(720px, 100%);
+  box-sizing: border-box;
 }
 .question-header {
   margin-bottom: 30px;
@@ -129,6 +131,9 @@ h2 {
 .options label {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
   padding: 20px;
   border: 2px solid transparent;
   border-radius: 10px;
@@ -152,6 +157,12 @@ h2 {
 }
 .option-text {
   font-size: 1.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .free-text-area {
@@ -188,5 +199,16 @@ h2 {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* モバイル向け微調整 */
+@media (max-width: 600px) {
+  h2 { font-size: 1.35rem; margin-top: 6px; }
+  .question-header { margin-bottom: 20px; }
+  .options { gap: 12px; margin-bottom: 20px; }
+  .options label { padding: 14px; }
+  .free-text-area { margin: 14px 0 20px; }
+  .free-text-area textarea { font-size: 16px; } /* モバイルでのタップしやすさ */
+  button { width: 100%; padding: 12px; }
 }
 </style>

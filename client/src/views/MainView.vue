@@ -62,7 +62,7 @@ function restart() {
 </template>
 
 <style scoped>
-.main { display:grid; place-items:center; padding:32px 16px; height:100%; overflow:auto; }
+.main { display:grid; place-items:center; padding:32px 16px; height:100%; width:100%; overflow:auto; }
 .panel { width:min(920px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }

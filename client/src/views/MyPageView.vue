@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
+import BackButton from '@/components/BackButton.vue'
 
 const auth = useAuthStore()
 const me = computed(() => auth.user)
@@ -157,6 +158,7 @@ onMounted(async () => {
 <template>
   <main class="mypage">
     <section class="panel">
+  <BackButton />
       <h1>マイページ</h1>
       <p class="muted">アカウント名: {{ me?.name || me?.id }}</p>
   <transition name="fade"><div v-if="toast" class="toast">{{ toast }}</div></transition>

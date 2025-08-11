@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import BackButton from '@/components/BackButton.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -30,6 +31,7 @@ async function submit() {
 <template>
   <main class="auth">
     <section class="panel">
+  <BackButton />
       <h1>ログイン</h1>
       <p class="lead">アカウントでログインして診断を進めましょう。</p>
 
