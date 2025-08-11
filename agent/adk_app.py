@@ -1,5 +1,12 @@
 import os
+import json
+import httpx
 from google.adk.agents import LlmAgent
+try:
+    # Prefer official ADK function tool wrapper if available
+    from google.adk.tools import function_tool as adk_function_tool
+except Exception:
+    adk_function_tool = None
 
 # Bridge GEMINI_API_KEY -> GOOGLE_API_KEY for google-genai used by ADK
 if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
@@ -24,9 +31,42 @@ DEFAULT_INSTRUCTION = (
 INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
 
 # Root agent exposed to ADK Web/UI
+MAPS_MCP_ENDPOINT_URL = os.getenv("MAPS_MCP_ENDPOINT_URL")  # e.g., http://localhost:3000/tools/retrieve-google-maps-platform-docs
+
+async def retrieve_google_maps_platform_docs(query: str) -> str:
+    """Retrieve relevant Google Maps Platform docs/snippets via MCP bridge.
+    Requires MAPS_MCP_ENDPOINT_URL to be configured to an HTTP endpoint that accepts {"query": str} and returns text or {text}.
+    """
+    if not MAPS_MCP_ENDPOINT_URL:
+        return "[maps-mcp] 未設定: MAPS_MCP_ENDPOINT_URL を設定してください。"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(MAPS_MCP_ENDPOINT_URL, json={"query": query})
+            r.raise_for_status()
+            ct = r.headers.get("content-type", "")
+            if "application/json" in ct:
+                data = r.json()
+                # Accept common shapes
+                if isinstance(data, dict):
+                    return data.get("text") or data.get("content") or json.dumps(data, ensure_ascii=False)
+                return json.dumps(data, ensure_ascii=False)
+            return r.text
+    except Exception as e:
+        return f"[maps-mcp] 呼び出しに失敗しました: {e}"
+
+# Wrap as ADK tool when possible
+tools = []
+if adk_function_tool is not None:
+    try:
+        maps_docs_tool = adk_function_tool(retrieve_google_maps_platform_docs, name="retrieve_google_maps_platform_docs", description="Google Maps Platformの最新ドキュメント/コードを検索し要約を返す")
+        tools.append(maps_docs_tool)
+    except Exception:
+        pass
+
 root_agent = LlmAgent(
     name="travel_planner",
     model=MODEL,
     description="Generate domestic travel plans in Japanese from persona/profile/constraints",
     instruction=INSTRUCTION,
+    tools=tools,
 )

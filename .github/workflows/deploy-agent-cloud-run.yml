@@ -31,28 +31,46 @@ jobs:
       - name: Configure Docker auth
         run: gcloud auth configure-docker --quiet
 
-      - name: Build and push image
+    - name: Build and push images (Agent + MCP)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service
-          docker build -t ${IMAGE}:$GITHUB_SHA agent
-          docker push ${IMAGE}:$GITHUB_SHA
+      AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service
+      MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service
+      docker build -t ${AGENT_IMAGE}:$GITHUB_SHA agent
+      docker build -t ${MCP_IMAGE}:$GITHUB_SHA mcp
+      docker push ${AGENT_IMAGE}:$GITHUB_SHA
+      docker push ${MCP_IMAGE}:$GITHUB_SHA
 
-      - name: Deploy to Cloud Run
+      - name: Deploy MCP to Cloud Run
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service:${GITHUB_SHA}
+          MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service:${GITHUB_SHA}
+          gcloud run deploy maps-mcp-service \
+            --image ${MCP_IMAGE} \
+            --region ${REGION} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 3000
+
+      - name: Deploy Agent to Cloud Run (with MCP URL)
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service:${GITHUB_SHA}
+          MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
+          MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
           gcloud run deploy travel-agent-service \
-            --image ${IMAGE} \
+            --image ${AGENT_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT}
 
       - name: Propagate AGENT_BASE_URL to backend (travel-quiz-app)
         env:

@@ -6,6 +6,7 @@
 - 主要環境変数:
   - GEMINI_API_KEY（自動的に GOOGLE_API_KEY にブリッジ）
   - GEMINI_MODEL（既定: gemini-2.0-flash）
+  - MAPS_MCP_ENDPOINT_URL（任意）: Google Maps Platform Code Assist MCP HTTP サーバーのツールエンドポイントURL
 
 ## ローカル実行（コンテナ）
 
@@ -24,6 +25,21 @@ docker run --rm -p 8082:8080 \
 
 - `adk_app.py` に `root_agent` を定義（LlmAgent）。
 - `GEMINI_API_KEY` は `GOOGLE_API_KEY` にブリッジするため追加設定不要です。
+
+### Google Maps Platform Code Assist MCP の利用（任意）
+
+このエージェントは `MAPS_MCP_ENDPOINT_URL` が設定されている場合、関数ツール `retrieve_google_maps_platform_docs` を有効化します。
+
+準備:
+- 別コンテナや別プロセスで MCP サーバー（`@googlemaps/code-assist-mcp`）を起動。
+- そのHTTPツールエンドポイントURLを `MAPS_MCP_ENDPOINT_URL` に設定してください。
+
+例（ローカル）:
+- MCP: `npx -y @googlemaps/code-assist-mcp --port 3000`
+- 簡易ツールエンドポイント例: `http://localhost:3000/tools/retrieve-google-maps-platform-docs`
+
+使い方:
+- ADK Dev UI から `retrieve_google_maps_platform_docs` を選び、クエリを与えると、Maps Platform の最新の公式情報に基づくテキストが返ります。
 
 ## 複数エージェントの運用（Cloud Run トポロジ）
 
