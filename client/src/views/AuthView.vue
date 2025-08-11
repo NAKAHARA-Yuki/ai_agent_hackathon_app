@@ -77,6 +77,7 @@ async function submit() {
   padding: 32px 16px;
   height: 100%;
   overflow: auto; /* ビュー内でのみスクロール */
+  flex: 1 1 auto; width: 100%;
 }
 .panel {
   width: min(720px, 100%);
