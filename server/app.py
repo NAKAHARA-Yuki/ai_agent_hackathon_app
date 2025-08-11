@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import time
 import random
 import re
@@ -11,7 +12,13 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 
-load_dotenv()
+# Ensure we load env from this directory (server/.env) even if CWD is repo root
+_env_path = Path(__file__).resolve().parent / '.env'
+try:
+    load_dotenv(dotenv_path=str(_env_path))
+except Exception:
+    # fallback to default search if direct load fails
+    load_dotenv()
 
 app = Flask(__name__, static_folder='client/dist', static_url_path='/')
 
