@@ -75,7 +75,8 @@ async function submit() {
   display: grid;
   place-items: center;
   padding: 32px 16px;
-  min-height: 100vh;
+  height: 100%;
+  overflow: auto; /* ビュー内でのみスクロール */
 }
 .panel {
   width: min(720px, 100%);

@@ -234,7 +234,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.mypage { display:grid; place-items:center; padding:32px 16px; }
+.mypage { display:grid; place-items:center; padding:32px 16px; height:100%; overflow:auto; }
 .panel { width:min(920px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 .muted { color:#6b7280; }
 .error { color:#b91c1c; }

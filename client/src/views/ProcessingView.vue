@@ -39,7 +39,7 @@ const stageText = computed(() => {
 </template>
 
 <style scoped>
-.processing { display:grid; place-items:center; min-height:60vh; padding:24px; }
+.processing { display:grid; place-items:center; height:100%; padding:24px; overflow:auto; }
 .panel { width:min(680px, 100%); background:white; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); text-align:center; }
 .progress { height:10px; background:#eef2f7; border-radius:8px; overflow:hidden; margin: 10px 0 8px; }
 .bar { height:100%; background:linear-gradient(90deg, #2d7ef7, #6aa6ff); transition: width .3s ease; }
