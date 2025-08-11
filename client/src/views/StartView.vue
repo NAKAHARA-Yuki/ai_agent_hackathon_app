@@ -1,9 +1,12 @@
 <script setup>
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuizStore } from '@/stores/quizStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const router = useRouter()
 const quizStore = useQuizStore()
+const auth = useAuthStore()
 
 async function startQuiz() {
   await quizStore.fetchQuestions()
@@ -14,6 +17,19 @@ async function startQuiz() {
     alert('クイズの読み込みに失敗しました。')
   }
 }
+
+onMounted(async () => {
+  // すでに診断済みならメインへ
+  if (auth.isAuthenticated) {
+    try {
+      await auth.refreshMe()
+      if (auth.user?.diagnosis_completed) {
+        router.replace({ name: 'main' })
+        return
+      }
+    } catch {}
+  }
+})
 </script>
 
 <template>

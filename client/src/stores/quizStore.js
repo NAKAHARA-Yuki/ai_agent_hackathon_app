@@ -255,16 +255,16 @@ export const useQuizStore = defineStore('quiz', () => {
         (async () => { try { await savePersonaProfile() } finally { isSavingProfile.value = false } })()
       ])
 
-      // 完了
+  // 完了
       processingStage.value = 'done'
       isProcessing.value = false
-      // 結果画面へ
-      router.replace({ name: 'results' })
+  // メインページへ
+  router.replace({ name: 'main' })
     } catch (e) {
       console.error('runProcessingFlow error:', e)
       processingStage.value = 'error'
       isProcessing.value = false
-      router.replace({ name: 'results' })
+  router.replace({ name: 'main' })
     }
   }
 

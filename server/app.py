@@ -558,6 +558,7 @@ def signup():
             'name': name,
             'user_id': user_id,
             'password_hash': generate_password_hash(password),
+        'diagnosis_completed': False,
             'created_at': firestore.SERVER_TIMESTAMP,
             'updated_at': firestore.SERVER_TIMESTAMP
         }
@@ -566,7 +567,7 @@ def signup():
         print(f"Signup DB error: {e}")
         return jsonify({"error": "database unavailable"}), 503
     token = create_jwt(user_id)
-    return jsonify({"token": token, "user": {"id": user_id, "name": name}})
+    return jsonify({"token": token, "user": {"id": user_id, "name": name, "diagnosis_completed": False}})
 
 
 @app.route('/api/auth/login', methods=['POST'])
@@ -592,7 +593,7 @@ def login():
     if not check_password_hash(user.get('password_hash', ''), password):
         return jsonify({"error": "invalid credentials"}), 401
     token = create_jwt(user_id)
-    return jsonify({"token": token, "user": {"id": user_id, "name": user.get('name')}})
+    return jsonify({"token": token, "user": {"id": user_id, "name": user.get('name'), "diagnosis_completed": bool(user.get('diagnosis_completed'))}})
 
 
 # ==== Persona generation and storage ====
@@ -651,7 +652,59 @@ def create_persona():
     except Exception as e:
         print(f"Persona DB error: {e}")
         return jsonify({"error": "database unavailable"}), 503
+    # mark user as diagnosis completed and track last persona id
+    try:
+        db.collection('users').document(claims['sub']).update({
+            'diagnosis_completed': True,
+            'last_persona_id': doc_ref.id,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }, timeout=5)
+    except Exception as e2:
+        print(f"User update after persona error: {e2}")
     return jsonify({"id": doc_ref.id, "profile": profile, "system_prompt": system_prompt})
+
+# ==== Current user info ====
+@app.route('/api/me', methods=['GET'])
+def me():
+    claims = require_auth(request)
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        snap = db.collection('users').document(claims['sub']).get(timeout=5)
+        if not snap.exists:
+            return jsonify({"id": claims['sub'], "diagnosis_completed": False})
+        u = snap.to_dict() or {}
+        return jsonify({
+            "id": claims['sub'],
+            "name": u.get('name'),
+            "diagnosis_completed": bool(u.get('diagnosis_completed')),
+            "last_persona_id": u.get('last_persona_id')
+        })
+    except Exception as e:
+        print(f"/api/me error: {e}")
+        return jsonify({"id": claims['sub']}), 200
+
+# ==== Latest persona ====
+@app.route('/api/persona/latest', methods=['GET'])
+def persona_latest():
+    claims = require_auth(request)
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        user_doc = db.collection('users').document(claims['sub']).get(timeout=5)
+        last_id = None
+        if user_doc and user_doc.exists:
+            data = user_doc.to_dict() or {}
+            last_id = data.get('last_persona_id')
+        if last_id:
+            pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=5)
+            if pdoc.exists:
+                pd = pdoc.to_dict() or {}
+                return jsonify({"id": last_id, "profile": pd.get('profile'), "system_prompt": pd.get('system_prompt')})
+        return jsonify({}), 404
+    except Exception as e:
+        print(f"/api/persona/latest error: {e}")
+        return jsonify({}), 404
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
