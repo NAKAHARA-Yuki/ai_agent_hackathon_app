@@ -33,12 +33,67 @@ except Exception:
     logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server")
 
+# Whether to log request/response payloads (useful for debugging; be careful in prod)
+# Forced to True as requested
+LOG_PAYLOADS = True
+
+SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apikey", "secret", "jwt"}
+
+def _snip_text(s: str, limit: int = 2000) -> str:
+    try:
+        if s is None:
+            return "null"
+        if len(s) <= limit:
+            return s
+        more = len(s) - limit
+        return s[:limit] + f"...(+{more} chars)"
+    except Exception:
+        return str(s)[:limit]
+
+def _sanitize(obj, depth: int = 0, max_depth: int = 5):
+    if depth > max_depth:
+        return "<max_depth>"
+    try:
+        if isinstance(obj, dict):
+            out = {}
+            for k, v in obj.items():
+                key = str(k)
+                if any(sk in key.lower() for sk in SENSITIVE_KEYS):
+                    out[key] = "***"
+                else:
+                    out[key] = _sanitize(v, depth+1, max_depth)
+            return out
+        if isinstance(obj, list):
+            return [_sanitize(v, depth+1, max_depth) for v in obj]
+        if isinstance(obj, (int, float)):
+            return obj
+        if isinstance(obj, str):
+            return obj
+        return str(obj)
+    except Exception:
+        return str(obj)
+
+def _snip_json(obj, limit: int = 2000) -> str:
+    try:
+        s = json.dumps(_sanitize(obj), ensure_ascii=False, default=str)
+    except Exception:
+        try:
+            s = str(obj)
+        except Exception:
+            s = "<unserializable>"
+    return _snip_text(s, limit)
+
 @app.before_request
 def _start_timer():
     try:
         request._start_time = monotonic()
     except Exception:
         request._start_time = None
+    # attach a lightweight correlation id for tracing
+    try:
+        request._trace_id = f"{random.getrandbits(64):016x}"
+    except Exception:
+        request._trace_id = None
 
 @app.after_request
 def _log_request(resp: Response):
@@ -48,7 +103,10 @@ def _log_request(resp: Response):
             dur_ms = (monotonic() - request._start_time) * 1000
         path = request.path
         if path.startswith("/api/"):
-            logger.info(f"HTTP {request.method} {path} -> {resp.status_code} {int(dur_ms or 0)}ms")
+            tid = getattr(request, "_trace_id", None)
+            if tid:
+                resp.headers["X-Trace-Id"] = tid
+            logger.info(f"HTTP {request.method} {path} -> {resp.status_code} {int(dur_ms or 0)}ms trace={tid}")
     except Exception:
         pass
     return resp
@@ -58,11 +116,11 @@ api_key = os.getenv("GEMINI_API_KEY")
 genai_configured = bool(api_key and api_key != "YOUR_API_KEY_HERE")
 
 if not genai_configured:
-    print("WARNING: GEMINI_API_KEY is not set or is a placeholder. The AI analysis will use dummy data.")
+    logger.warning("GEMINI_API_KEY is not set or is a placeholder. The AI analysis will use dummy data.")
 else:
     # ここでは genai.configure は呼び出しません。
     # REST API を直接呼び出すため、SDKの設定は不要です。
-    print("Gemini API key is set. Using REST API for AI analysis.")
+    logger.info("Gemini API key is set. Using REST API for AI analysis.")
 
 # Agent microservice config (ADK api_server)
 AGENT_BASE_URL = os.getenv("AGENT_BASE_URL")  # e.g., http://localhost:8080 or Cloud Run URL
@@ -88,14 +146,14 @@ if not AGENT_BASE_URL and ENV.lower() == "development":
     AGENT_BASE_URL = "http://localhost:8080"
 agent_configured = bool(AGENT_BASE_URL)
 if agent_configured:
-    print(f"Agent base URL configured: {AGENT_BASE_URL}")
+    logger.info(f"Agent base URL configured: {AGENT_BASE_URL}")
 
 db = None
 try:
     db = firestore.Client(project=FIRESTORE_PROJECT) if FIRESTORE_PROJECT else firestore.Client()
-    print("Firestore client initialized.")
+    logger.info("Firestore client initialized.")
 except Exception as e:
-    print(f"WARNING: Firestore client init failed: {e}")
+    logger.warning(f"Firestore client init failed: {e}")
     db = None
 
 # Development fallback: in-memory DB when Firestore is unavailable
@@ -177,7 +235,7 @@ if db is None and (os.getenv("FLASK_ENV", "").lower() == "development" or os.get
             return _DevCollectionRef(self._store, (name,))
 
     db = DevDB()
-    print("DevDB initialized (in-memory). Firestore is not used in development mode.")
+    logger.info("DevDB initialized (in-memory). Firestore is not used in development mode.")
 
 # 簡易ヘルスチェック
 @app.route('/api/health', methods=['GET'])
@@ -197,6 +255,7 @@ def health():
             "jwt_configured": bool(JWT_SECRET)
         })
     except Exception as e:
+        logger.exception("/api/health error")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 def create_jwt(user_id: str):
@@ -438,9 +497,20 @@ def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dic
         payload["profile"] = profile
     if constraints:
         payload["constraints"] = constraints
-    resp = requests.post(url, headers=headers, json=payload, timeout=timeout_sec)
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=timeout_sec)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        status = getattr(getattr(e, 'response', None), 'status_code', 'n/a')
+        body = None
+        try:
+            body = e.response.text if getattr(e, 'response', None) is not None else None
+        except Exception:
+            body = None
+        body_snip = (body[:500] + '…') if body and len(body) > 500 else (body or '')
+        logging.getLogger('agent_bridge').error(f"/v1/plan failed: status={status} body={body_snip}")
+        raise
 
 def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60, base_url: str | None = None):
     """ADK api_server に従った呼び出し手順でチャット実行。
@@ -481,12 +551,34 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
         "new_message": { "role": "user", "parts": [{"text": message_text}] }
     }
     bridge_logger.info(f"Run agent: POST {run_url} app={app_name} user={user_id} session={session_id} msg_len={len(message_text)}")
+    if LOG_PAYLOADS:
+        try:
+            bridge_logger.debug(f"Run payload: {_snip_json(payload)}")
+        except Exception:
+            pass
     t0 = monotonic()
-    r2 = requests.post(run_url, headers=headers, json=payload, timeout=timeout_sec)
-    r2.raise_for_status()
+    try:
+        r2 = requests.post(run_url, headers=headers, json=payload, timeout=timeout_sec)
+        r2.raise_for_status()
+    except requests.RequestException as e:
+        dt = (monotonic() - t0) * 1000
+        status = getattr(getattr(e, 'response', None), 'status_code', 'n/a')
+        body = None
+        try:
+            body = e.response.text if getattr(e, 'response', None) is not None else None
+        except Exception:
+            body = None
+        body_snip = (body[:500] + '…') if body and len(body) > 500 else (body or '')
+        bridge_logger.error(f"Run agent failed: status={status} {int(dt)}ms body={body_snip}")
+        raise
     dt = (monotonic() - t0) * 1000
     j = r2.json()
     bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
+    if LOG_PAYLOADS:
+        try:
+            bridge_logger.debug(f"Run response: {_snip_json(j)}")
+        except Exception:
+            pass
     return j
 
 # ---- Session initialization tracking (first-message detection) ----
@@ -530,6 +622,9 @@ def agent_chat():
     """
     try:
         data = request.get_json() or {}
+        tid = getattr(request, '_trace_id', None)
+        if LOG_PAYLOADS:
+            logger.info(f"/api/agent/chat request body: {_snip_json(data)} trace={tid}")
         message = (data.get('message') or '').strip()
         if not message:
             return jsonify({"reply": "ご希望を教えてください（例: 温泉と美術館を楽しみたい）。"})
@@ -553,7 +648,7 @@ def agent_chat():
                 req_session_id = (data.get('session_id') or '').strip() or None
                 if not req_session_id:
                     return jsonify({"error": "session_id is required"}), 400
-                logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)}")
+                logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
 
                 # 可能ならユーザー情報/ペルソナを付与して前置きコンテキストを作る
                 claims = require_auth(request)
@@ -609,10 +704,10 @@ def agent_chat():
                         "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
                         "\n\n[ユーザーからの依頼]\n" + message
                     )
-                    logger.info(f"/api/agent/chat using INIT message (include user info) user={user_id} session={session_id}")
+                    logger.info(f"/api/agent/chat using INIT message (include user info) user={user_id} session={session_id} trace={tid}")
                 else:
                     message_to_send = message
-                    logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id}")
+                    logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id} trace={tid}")
 
                 events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base)
 
@@ -640,16 +735,21 @@ def agent_chat():
                             reply_text = reply_text[:m.start()].rstrip()
                         except Exception:
                             pass
-                logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])}")
+                logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])} trace={tid}")
                 # 初回が成功したら初期化フラグを立てる
                 try:
                     if not initialized:
                         mark_session_initialized(user_id, session_id)
                 except Exception:
                     pass
-                return jsonify({ 'reply': reply_text or '提案を作成しました。', 'places': places })
-            except Exception as e:
-                logger.error(f"Agent chat delegation failed: {e}")
+                resp = { 'reply': reply_text or '提案を作成しました。', 'places': places }
+                if LOG_PAYLOADS:
+                    logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
+                if tid:
+                    resp['trace_id'] = tid
+                return jsonify(resp)
+            except Exception:
+                logger.exception("Agent chat delegation failed")
 
         # フォールバック: キーワードに応じて簡易候補地を返す
         reply = '次の候補を地図に表示しました。気になる場所はありますか？'
@@ -666,11 +766,21 @@ def agent_chat():
                 { 'name': '東京駅', 'lat': 35.681236, 'lng': 139.767125, 'note': '基準点' },
                 { 'name': '京都駅', 'lat': 34.985849, 'lng': 135.758766, 'note': '観光拠点' },
             ]
-        logger.info(f"/api/agent/chat fallback used candidates={len(candidates)}")
-        return jsonify({ 'reply': reply, 'places': candidates })
+        tid = getattr(request, '_trace_id', None)
+        logger.info(f"/api/agent/chat fallback used candidates={len(candidates)} trace={tid}")
+        resp = { 'reply': reply, 'places': candidates }
+        if LOG_PAYLOADS:
+            logger.info(f"/api/agent/chat response body (fallback): {_snip_json(resp)} trace={tid}")
+        if tid:
+            resp['trace_id'] = tid
+        return jsonify(resp)
     except Exception as e:
-        logger.exception(f"agent_chat error: {e}")
-        return jsonify({ 'reply': 'エラーが発生しました。時間をおいて再試行してください。' })
+        tid = getattr(request, '_trace_id', None)
+        logger.exception("agent_chat error")
+        resp = { 'reply': 'エラーが発生しました。時間をおいて再試行してください。' }
+        if tid:
+            resp['trace_id'] = tid
+        return jsonify(resp)
 
 @app.post('/api/geocode')
 def geocode_places():
@@ -703,7 +813,7 @@ def geocode_places():
                 continue
         return jsonify({ 'results': results })
     except Exception as e:
-        print(f"geocode error: {e}")
+        logger.exception("geocode error")
         return jsonify({ 'results': [] })
 
 @app.get('/api/maps/static')
@@ -749,9 +859,15 @@ def static_map():
     try:
         r = requests.get(url, timeout=15)
         if not r.ok:
+            try:
+                body_snip = (r.text[:500] + '…') if r.text and len(r.text) > 500 else (r.text or '')
+            except Exception:
+                body_snip = ''
+            logger.warning(f"Static Maps upstream error: status={r.status_code} body={body_snip}")
             return jsonify({ 'error': 'upstream_error', 'status': r.status_code }), 502
         return Response(r.content, content_type=f'image/{fmt}')
     except Exception as e:
+        logger.exception("Static Maps request_failed")
         return jsonify({ 'error': 'request_failed', 'message': str(e) }), 500
 
 @app.route('/api/analyze', methods=['POST'])
@@ -797,12 +913,12 @@ def analyze_text():
             return jsonify({"analyzed_score": base_score, "explanation": explanation})
 
         except Exception as e:
-            print(f"Error generating explanation for non-free-text answer: {e}")
+            logger.exception("Error generating explanation for non-free-text answer")
             # エラーが発生した場合は、汎用的な解説を返す
             return jsonify({"analyzed_score": base_score, "explanation": f"「{question_trait}」の観点から、あなたの選択は一貫したスタイルを示しています。"})
 
     if not genai_configured:
-        print("Skipping Gemini API call due to missing configuration.")
+        logger.warning("Skipping Gemini API call due to missing configuration.")
         time.sleep(1)
         dummy_score = random.randint(1, 4)
         dummy_explanation = f"これは「{question_trait}」に関するダミーの解説です。スコアは{dummy_score}と評価されました。"
@@ -852,7 +968,7 @@ def analyze_text():
         return jsonify({"analyzed_score": score, "explanation": explanation})
 
     except Exception as e:
-        print(f"An error occurred during Gemini API call: {e}")
+        logger.exception("An error occurred during Gemini API call")
         score = random.randint(1, 4)
         explanation = f"AIの分析中にエラーが発生しました。ダミーデータ（スコア: {score}）を返します。"
         return jsonify({"analyzed_score": score, "explanation": explanation})
@@ -876,12 +992,12 @@ def generate_plan():
             if isinstance(agent_result, dict) and isinstance(agent_result.get('plans'), list):
                 return jsonify(agent_result)
             else:
-                print("Agent response shape unexpected; falling back to Gemini path")
+                logger.warning("Agent response shape unexpected; falling back to Gemini path")
         except Exception as e:
-            print(f"Agent call failed, fallback to Gemini: {e}")
+            logger.exception("Agent call failed, fallback to Gemini")
 
     if not genai_configured:
-        print("Skipping Gemini API call for plan generation due to missing configuration.")
+        logger.warning("Skipping Gemini API call for plan generation due to missing configuration.")
         # ダミーのプランを返す
         dummy_plans = {
             "plans": [
@@ -938,7 +1054,7 @@ def generate_plan():
         return jsonify(plan_result)
 
     except Exception as e:
-        print(f"An error occurred during plan generation: {e}")
+        logger.exception("An error occurred during plan generation")
         return jsonify({"error": "Failed to generate travel plans with AI", "details": str(e)}), 500
 
 
@@ -976,7 +1092,7 @@ def signup():
         }
         doc_ref.set(user_doc, timeout=5)
     except Exception as e:
-        print(f"Signup DB error: {e}")
+        logger.exception("Signup DB error")
         return jsonify({"error": "database unavailable"}), 503
     token = create_jwt(user_id)
     return jsonify({"token": token, "user": {"id": user_id, "name": name, "diagnosis_completed": False}})
@@ -997,7 +1113,7 @@ def login():
     try:
         doc = users_ref.document(user_id).get(timeout=5)
     except Exception as e:
-        print(f"Login DB error: {e}")
+        logger.exception("Login DB error")
         return jsonify({"error": "database unavailable"}), 503
     if not doc.exists:
         return jsonify({"error": "invalid credentials"}), 401
@@ -1047,7 +1163,7 @@ def create_persona():
                 api_response = call_gemini_api(prompt)
                 system_prompt = api_response['candidates'][0]['content']['parts'][0]['text'].strip()
             except Exception as e:
-                print(f"Persona prompt generation error: {e}")
+                logger.exception("Persona prompt generation error")
                 system_prompt = (
                     "ユーザーの診断結果に沿って、日本国内の旅行計画を丁寧に提案・調整すること。"
                 )
@@ -1062,7 +1178,7 @@ def create_persona():
     try:
         doc_ref.set(doc, timeout=5)
     except Exception as e:
-        print(f"Persona DB error: {e}")
+        logger.exception("Persona DB error")
         return jsonify({"error": "database unavailable"}), 503
     # mark user as diagnosis completed and track last persona id
     try:
@@ -1072,7 +1188,7 @@ def create_persona():
             'updated_at': firestore.SERVER_TIMESTAMP
         }, timeout=5)
     except Exception as e2:
-        print(f"User update after persona error: {e2}")
+        logger.exception("User update after persona error")
     return jsonify({"id": doc_ref.id, "profile": profile, "system_prompt": system_prompt})
 
 # ==== Current user info ====
@@ -1093,7 +1209,7 @@ def me():
             "last_persona_id": u.get('last_persona_id')
         })
     except Exception as e:
-        print(f"/api/me error: {e}")
+        logger.exception("/api/me error")
         return jsonify({"id": claims['sub']}), 200
 
 # ==== Latest persona ====
@@ -1115,7 +1231,7 @@ def persona_latest():
                 return jsonify({"id": last_id, "profile": pd.get('profile'), "system_prompt": pd.get('system_prompt')})
         return jsonify({}), 404
     except Exception as e:
-        print(f"/api/persona/latest error: {e}")
+        logger.exception("/api/persona/latest error")
         return jsonify({}), 404
 
 @app.route('/', defaults={'path': ''})
@@ -1148,7 +1264,7 @@ def profile():
                 "profile": profile
             })
         except Exception as e:
-            print(f"/api/profile GET error: {e}")
+            logger.exception("/api/profile GET error")
             return jsonify({"profile": {}}), 200
     else:
         # POST: upsert profile with validation
@@ -1262,7 +1378,7 @@ def profile():
                     'updated_at': firestore.SERVER_TIMESTAMP
                 }, merge=True, timeout=5)
             except Exception as e2:
-                print(f"/api/profile POST error: {e2}")
+                logger.exception("/api/profile POST error")
                 return jsonify({"error": "database unavailable"}), 503
         return jsonify({"profile": base if base else sanitized})
 
