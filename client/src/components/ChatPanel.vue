@@ -113,11 +113,11 @@ function autoResize(e) {
 .msg.user { justify-content:flex-end; }
 .bubble { background:#f3f4f6; padding:10px 12px; border-radius: 10px; max-width: 80%; }
 .msg.user .bubble { background:#2d7ef7; color:#fff; }
-.composer { display:flex; gap:8px; border-top:1px solid #eee; padding:12px; align-items:center; background:#fff; }
+.composer { display:flex; gap:8px; border-top:1px solid #eee; padding:12px; align-items:stretch; background:#fff; }
 /* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
-.composer textarea { flex: 1 1 auto; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; max-height: 160px; }
+.composer textarea { flex: 1 1 auto; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; height: 40px; max-height: 160px; }
 .composer textarea:disabled { background: #f9fafb; cursor: not-allowed; }
-.composer button { flex: 0 0 112px; height: 40px; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; }
+.composer button { flex: 0 0 112px; height: auto; align-self: stretch; display:flex; align-items:center; justify-content:center; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; min-height: 40px; }
 .composer button[disabled] { opacity: 0.6; cursor: not-allowed; }
 
 @media (max-width: 600px) {
