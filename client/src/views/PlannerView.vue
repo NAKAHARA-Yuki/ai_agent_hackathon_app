@@ -5,15 +5,20 @@ import MapPanel from '@/components/MapPanel.vue'
 
 // エージェントが提案した場所の一覧（{ name, lat, lng, note }）
 const places = ref([])
+const routeInfo = ref([]) // [{from,to,mode,detail}]
 
 // チャットの送信イベントでエージェント応答と場所候補を反映
 function handleAgentUpdate(payload) {
-  // payload: { reply: string, places?: Array<{name, lat, lng, note?}> }
+  // payload: { reply, places?, route_info? }
   if (Array.isArray(payload?.places)) {
-    // 軽いバリデーション
     places.value = payload.places
       .filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number')
       .slice(0, 50)
+  }
+  if (Array.isArray(payload?.route_info)) {
+    routeInfo.value = payload.route_info.slice(0, 100)
+  } else {
+    routeInfo.value = []
   }
 }
 </script>
@@ -24,7 +29,7 @@ function handleAgentUpdate(payload) {
       <ChatPanel @agent-update="handleAgentUpdate" />
     </section>
     <section class="right">
-      <MapPanel :places="places" />
+  <MapPanel :places="places" :route-info="routeInfo" />
     </section>
   </main>
   

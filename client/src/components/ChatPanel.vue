@@ -63,8 +63,9 @@ async function sendMessage() {
     if (!resp.ok) throw new Error('failed')
   const data = await resp.json()
   console.debug('[Chat] response', { ok: true, keys: Object.keys(data || {}), hasPlaces: Array.isArray(data?.places) })
-    const reply = data.reply || '提案を取得できませんでした。'
-    messages.value.push({ role: 'assistant', text: reply })
+  const reply = data.reply || '提案を取得できませんでした。'
+  messages.value.push({ role: 'assistant', text: reply })
+  const routeInfo = Array.isArray(data.route_info) ? data.route_info : undefined
 
     // 場所候補: [{ name, lat, lng, note }]
     if (Array.isArray(data.places)) {
@@ -88,10 +89,10 @@ async function sendMessage() {
           }
         } catch (_) { /* noop */ }
       }
-      console.debug('[Chat] places processed', { count: places.length })
-      emit('agent-update', { reply, places })
+  console.debug('[Chat] places processed', { count: places.length })
+  emit('agent-update', { reply, places, route_info: routeInfo })
     } else {
-      emit('agent-update', { reply })
+  emit('agent-update', { reply, route_info: routeInfo })
     }
   } catch (e) {
     console.debug('[Chat] error', e)
