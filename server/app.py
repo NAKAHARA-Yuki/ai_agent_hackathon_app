@@ -407,7 +407,44 @@ def agent_chat():
                 headers = { 'Content-Type': 'application/json' }
                 if AGENT_API_KEY:
                     headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
-                payload = { 'message': message }
+                # 可能ならユーザー情報を付与
+                claims = require_auth(request)
+                user_info = None
+                last_persona = None
+                if claims and db is not None:
+                    try:
+                        udoc = db.collection('users').document(claims['sub']).get(timeout=3)
+                        if udoc and udoc.exists:
+                            u = udoc.to_dict() or {}
+                            user_info = {
+                                'id': claims['sub'],
+                                'name': u.get('name'),
+                                'profile': u.get('profile') or {}
+                            }
+                            last_id = u.get('last_persona_id')
+                            if last_id:
+                                pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=3)
+                                if pdoc and pdoc.exists:
+                                    pd = pdoc.to_dict() or {}
+                                    last_persona = {
+                                        'id': last_id,
+                                        'profile': pd.get('profile'),
+                                        'system_prompt': pd.get('system_prompt')
+                                    }
+                    except Exception as _e:
+                        pass
+
+                # ユーザー情報と依頼文をひとつのメッセージに合成
+                context = {
+                    'user': user_info,
+                    'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None,
+                    'persona_system_prompt': last_persona.get('system_prompt') if isinstance(last_persona, dict) else None,
+                }
+                combined_message = (
+                    "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
+                    "\n\n[ユーザーからの依頼]\n" + message
+                )
+                payload = { 'message': combined_message }
                 r = requests.post(url, headers=headers, json=payload, timeout=30)
                 if r.ok:
                     return jsonify(r.json())

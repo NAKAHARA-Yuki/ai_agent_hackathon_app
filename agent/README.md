@@ -23,8 +23,8 @@ docker run --rm -p 8082:8080 \
 
 ## エージェント定義
 
-- `adk_app.py` に `root_agent` を定義（LlmAgent）。
-- `GEMINI_API_KEY` は `GOOGLE_API_KEY` にブリッジするため追加設定不要です。
+- `agents/travel_planner/agent.py` に `root_agent` を定義し、`agent` として再エクスポートしています（ADK api_server ディレクトリモード対応）。
+- `GEMINI_API_KEY` は `GOOGLE_API_KEY` にブリッジされます（追加設定不要）。
 
 ### Google Maps Platform Code Assist MCP の利用（任意）
 
