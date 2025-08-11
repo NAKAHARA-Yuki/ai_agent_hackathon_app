@@ -156,6 +156,9 @@ function refresh() {
 
 watch(() => props.places, () => refresh(), { deep: true })
 watch(() => props.routeInfo, () => refresh(), { deep: true })
+
+// 親からの明示的なリフレッシュ呼び出し用（オーバーレイ開閉時など）
+defineExpose({ refresh })
 </script>
 
 <template>

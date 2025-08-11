@@ -1,11 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import MapPanel from '@/components/MapPanel.vue'
 
 // エージェントが提案した場所の一覧（{ name, lat, lng, note }）
 const places = ref([])
 const routeInfo = ref([]) // [{from,to,mode,detail}]
+const isMapOpen = ref(false)
+const overlayMapRef = ref(null)
 
 // チャットの送信イベントでエージェント応答と場所候補を反映
 function handleAgentUpdate(payload) {
@@ -21,6 +23,16 @@ function handleAgentUpdate(payload) {
     routeInfo.value = []
   }
 }
+
+// モバイル全画面マップを開いた直後に再計算（Google Mapsのリサイズ対策）
+watch(isMapOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  // DOM反映待ち + レイアウト確定待ち
+  setTimeout(() => {
+    try { overlayMapRef.value?.refresh?.() } catch {}
+  }, 0)
+})
 </script>
 
 <template>
@@ -29,8 +41,23 @@ function handleAgentUpdate(payload) {
       <ChatPanel @agent-update="handleAgentUpdate" />
     </section>
     <section class="right">
-  <MapPanel :places="places" :route-info="routeInfo" />
+      <MapPanel :places="places" :route-info="routeInfo" />
     </section>
+
+    <!-- モバイル: マップを全画面で表示するトグルボタン -->
+    <button class="open-map-btn" @click="isMapOpen = true" aria-label="地図を表示">
+      🗺️ 地図を表示
+    </button>
+
+    <!-- モバイル: 全画面マップオーバーレイ -->
+    <div v-if="isMapOpen" class="map-overlay">
+      <div class="map-overlay__bar">
+        <button class="close" @click="isMapOpen = false" aria-label="地図を閉じる">閉じる ✕</button>
+      </div>
+      <div class="map-overlay__body">
+  <MapPanel ref="overlayMapRef" :places="places" :route-info="routeInfo" />
+      </div>
+    </div>
   </main>
   
 </template>
@@ -55,8 +82,59 @@ function handleAgentUpdate(payload) {
 .left { display:flex; }
 .right { position: relative; }
 
+/* モバイル専用: 地図を表示ボタン（右下固定） */
+.open-map-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  background: #2d7ef7;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  display: none; /* デスクトップでは非表示 */
+}
+
+/* 全画面マップオーバーレイ */
+.map-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #fff;
+  display: none; /* デスクトップでは非表示 */
+  flex-direction: column;
+}
+.map-overlay__bar {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
+  background: rgba(255,255,255,0.9);
+  border-bottom: 1px solid #e5e7eb;
+}
+.map-overlay__bar .close {
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+.map-overlay__body {
+  position: relative;
+  flex: 1 1 auto;
+}
+
 @media (max-width: 960px) {
-  .planner { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .right { height: 50vh; min-height: 360px; }
+  .planner { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  /* 通常時は右ペインのマップを非表示 */
+  .right { display: none; }
+  /* モバイルでのみボタン表示 */
+  .open-map-btn { display: inline-flex; align-items: center; gap: 6px; }
+  /* モバイルでのみオーバーレイ有効化 */
+  .map-overlay { display: flex; }
 }
 </style>
