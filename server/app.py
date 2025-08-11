@@ -28,7 +28,17 @@ else:
 
 # Auth / DB config
 FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
+
+# JWT Secret 強化: 本番では未設定を許可しない
+ENV = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
+_jwt_from_env = os.getenv("JWT_SECRET")
+if ENV.lower() == "development":
+    JWT_SECRET = _jwt_from_env or "dev-secret-change-me"
+else:
+    if not _jwt_from_env or _jwt_from_env == "dev-secret-change-me":
+        raise RuntimeError("JWT_SECRET environment variable must be set in production.")
+    JWT_SECRET = _jwt_from_env
+
 JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "2880"))  # 48h
 
 db = None
@@ -420,6 +430,7 @@ def generate_plan():
 
 
 # ==== Auth endpoints (Firestore) ====
+USER_ID_REGEX = r'[a-z0-9_-]{3,30}'
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     if db is None:
@@ -432,7 +443,7 @@ def signup():
     if not name or not user_id or not password:
         return jsonify({"error": "missing fields"}), 400
     # user_id: 3-30 chars, lowercase letters, numbers, _-
-    if not re.fullmatch(r'[a-z0-9_-]{3,30}', user_id):
+    if not re.fullmatch(USER_ID_REGEX, user_id):
         return jsonify({"error": "invalid user_id"}), 400
     if len(password) < 8:
         return jsonify({"error": "weak password"}), 400
@@ -462,7 +473,7 @@ def login():
     password = data.get('password') or ''
     if not user_id or not password:
         return jsonify({"error": "missing fields"}), 400
-    if not re.fullmatch(r'[a-z0-9_-]{3,30}', user_id):
+    if not re.fullmatch(USER_ID_REGEX, user_id):
         return jsonify({"error": "invalid user_id"}), 400
     users_ref = db.collection('users')
     doc = users_ref.document(user_id).get()

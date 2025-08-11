@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { USER_ID_REGEX } from '../constants/validation'
 
 const STORAGE_KEY = 'travelquiz:auth'
 
@@ -29,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function signup({ name, user_id, password }) {
     if (!name || !user_id || !password) throw new Error('必須項目が未入力です')
-    if (!/^[a-z0-9_-]{3,30}$/.test(user_id)) throw new Error('ユーザーIDは英小文字・数字・_・-で3〜30文字')
+    if (!USER_ID_REGEX.test(user_id)) throw new Error('ユーザーIDは英小文字・数字・_・-で3〜30文字')
     if (password.length < 8) throw new Error('パスワードは8文字以上にしてください')
     const resp = await fetch('/api/auth/signup', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -44,6 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login({ user_id, password }) {
     if (!user_id || !password) throw new Error('ユーザーIDとパスワードを入力してください')
+    if (!USER_ID_REGEX.test(user_id)) throw new Error('ユーザーIDは英小文字・数字・_・-で3〜30文字')
     const resp = await fetch('/api/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id, password })
