@@ -512,7 +512,7 @@ def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dic
         logging.getLogger('agent_bridge').error(f"/v1/plan failed: status={status} body={body_snip}")
         raise
 
-def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60, base_url: str | None = None):
+def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60, base_url: str | None = None, ensure_session: bool = True):
     """ADK api_server に従った呼び出し手順でチャット実行。
     1) /list-apps で存在を確認（任意）
     2) /apps/{app_name}/users/{user_id}/sessions/{session_id} に空ボディPOSTでセッション作成
@@ -528,24 +528,27 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
 
     bridge_logger = logging.getLogger("agent_bridge")
 
-    # 2) セッション作成（冪等）
-    sess_url = f"{base}/apps/{app_name}/users/{user_id}/sessions/{session_id}"
-    try:
-        bridge_logger.info(f"Create session: POST {sess_url}")
-        r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
-        text_snip = (r.text[:300] + '…') if (getattr(r, 'text', None) and len(r.text) > 300) else (r.text or '')
-        already_exists = (r.status_code == 400 and isinstance(r.text, str) and 'session already exists' in r.text.lower())
-        if 200 <= r.status_code < 300 or r.status_code == 409 or already_exists:
-            if already_exists:
-                bridge_logger.info(f"Create session OK (already exists): {r.status_code} body={text_snip}")
+    # 2) セッション作成（初回のみ／冪等）
+    if ensure_session:
+        sess_url = f"{base}/apps/{app_name}/users/{user_id}/sessions/{session_id}"
+        try:
+            bridge_logger.info(f"Create session: POST {sess_url}")
+            r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
+            text_snip = (r.text[:300] + '…') if (getattr(r, 'text', None) and len(r.text) > 300) else (r.text or '')
+            already_exists = (r.status_code == 400 and isinstance(r.text, str) and 'session already exists' in r.text.lower())
+            if 200 <= r.status_code < 300 or r.status_code == 409 or already_exists:
+                if already_exists:
+                    bridge_logger.info(f"Create session OK (already exists): {r.status_code} body={text_snip}")
+                else:
+                    bridge_logger.info(f"Create session OK: {r.status_code}")
             else:
-                bridge_logger.info(f"Create session OK: {r.status_code}")
-        else:
-            bridge_logger.error(f"Create session unexpected status: {r.status_code} body={text_snip}")
-            r.raise_for_status()
-    except Exception as e:
-        bridge_logger.error(f"Create session failed: {e}")
-        raise RuntimeError(f"Failed to create session: {e}")
+                bridge_logger.error(f"Create session unexpected status: {r.status_code} body={text_snip}")
+                r.raise_for_status()
+        except Exception as e:
+            bridge_logger.error(f"Create session failed: {e}")
+            raise RuntimeError(f"Failed to create session: {e}")
+    else:
+        bridge_logger.info("Skip create session (already initialized on server side)")
 
     # 3) 実行
     run_url = f"{base}/run"
@@ -715,7 +718,7 @@ def agent_chat():
                     message_to_send = message
                     logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id} trace={tid}")
 
-                events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base)
+                events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=(not initialized))
 
                 # eventsからreplyとplacesを抽出
                 reply_text = None
