@@ -4,7 +4,7 @@ import random
 import re
 import json
 import requests
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, send_from_directory, request, Response
 from dotenv import load_dotenv
 from google.cloud import firestore
 import jwt
@@ -178,6 +178,18 @@ def require_auth(req):
         token = authz.split(" ", 1)[1]
         return verify_jwt(token)
     return None
+
+
+@app.get('/api/maps-key')
+def get_maps_js_key():
+    """Expose Google Maps JavaScript API key to the client.
+    It is expected to be public on the frontend. Prefer VITE_GOOGLE_MAPS_API_KEY, fallback to GOOGLE_MAPS_API_KEY.
+    """
+    key = os.getenv('VITE_GOOGLE_MAPS_API_KEY') or os.getenv('GOOGLE_MAPS_API_KEY') or ''
+    # avoid returning placeholder text
+    if key == 'YOUR_API_KEY_HERE':
+        key = ''
+    return jsonify({ 'key': key })
 
 
 
@@ -504,6 +516,54 @@ def geocode_places():
     except Exception as e:
         print(f"geocode error: {e}")
         return jsonify({ 'results': [] })
+
+@app.get('/api/maps/static')
+def static_map():
+    """Return a Google Static Maps image for given markers.
+    Query:
+      size: e.g., 640x480 (default 640x480)
+      markers: multiple allowed, format 'lat,lng|label:Name' or 'lat,lng'
+      path: optional polyline path points (repeatable)
+      zoom, center: optional; if omitted, Google fits markers
+    """
+    key = os.getenv('GOOGLE_MAPS_API_KEY') or os.getenv('VITE_GOOGLE_MAPS_API_KEY')
+    if not key or key == 'YOUR_API_KEY_HERE':
+        return jsonify({ 'error': 'maps_key_not_configured' }), 400
+    size = request.args.get('size', '640x480')
+    zoom = request.args.get('zoom')
+    center = request.args.get('center')
+    scale = request.args.get('scale', '2')
+    fmt = request.args.get('format', 'png')
+    # markers/path can be repeated
+    markers = request.args.getlist('markers')
+    paths = request.args.getlist('path')
+    params = {
+        'size': size,
+        'scale': scale,
+        'format': fmt,
+        'key': key,
+        'language': 'ja'
+    }
+    if zoom: params['zoom'] = zoom
+    if center: params['center'] = center
+    # Build query manually to allow repeated params
+    base = 'https://maps.googleapis.com/maps/api/staticmap'
+    # basic validation for size
+    if 'x' not in size:
+        params['size'] = '640x480'
+    query_parts = [f"{k}={requests.utils.quote(str(v))}" for k, v in params.items()]
+    for m in markers[:50]:
+        query_parts.append('markers=' + requests.utils.quote(m))
+    for p in paths[:10]:
+        query_parts.append('path=' + requests.utils.quote(p))
+    url = base + '?' + '&'.join(query_parts)
+    try:
+        r = requests.get(url, timeout=15)
+        if not r.ok:
+            return jsonify({ 'error': 'upstream_error', 'status': r.status_code }), 502
+        return Response(r.content, content_type=f'image/{fmt}')
+    except Exception as e:
+        return jsonify({ 'error': 'request_failed', 'message': str(e) }), 500
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
