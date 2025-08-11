@@ -67,37 +67,40 @@ function handleNext() {
 </script>
 
 <template>
-  <transition name="fade" mode="out-in">
-    <div class="card quiz-card" :key="questionNumber" v-if="currentQuestion">
-      <ProgressBar />
-      <div class="question-header">
-        <span class="question-number">QUESTION {{ questionNumber }} / {{ store.totalQuestions }}</span>
-        <h2>{{ currentQuestion.question }}</h2>
-      </div>
-      <div class="options">
-        <label v-for="option in currentQuestion.options" :key="option.text" 
-               :class="{ selected: selectedOption === option.score }">
-          <input type="radio" :value="option.score" v-model="selectedOption">
-          <span class="option-text">{{ option.text }}</span>
-        </label>
-      </div>
-      
-      <transition name="fade">
-        <div class="free-text-area" v-if="isFreeTextSelected">
-            <label :for="'free-text-' + currentQuestion.id">{{ currentQuestion.free_text_prompt }}</label>
-            <textarea :id="'free-text-' + currentQuestion.id" v-model="freeText" rows="4" :placeholder="currentQuestion.free_text_placeholder"></textarea>
+  <main class="question-view">
+    <transition name="fade" mode="out-in">
+      <div class="card quiz-card" :key="questionNumber" v-if="currentQuestion">
+        <ProgressBar />
+        <div class="question-header">
+          <span class="question-number">QUESTION {{ questionNumber }} / {{ store.totalQuestions }}</span>
+          <h2>{{ currentQuestion.question }}</h2>
         </div>
-      </transition>
+        <div class="options">
+          <label v-for="option in currentQuestion.options" :key="option.text" 
+                 :class="{ selected: selectedOption === option.score }">
+            <input type="radio" :value="option.score" v-model="selectedOption">
+            <span class="option-text">{{ option.text }}</span>
+          </label>
+        </div>
+        
+        <transition name="fade">
+          <div class="free-text-area" v-if="isFreeTextSelected">
+              <label :for="'free-text-' + currentQuestion.id">{{ currentQuestion.free_text_prompt }}</label>
+              <textarea :id="'free-text-' + currentQuestion.id" v-model="freeText" rows="4" :placeholder="currentQuestion.free_text_placeholder"></textarea>
+          </div>
+        </transition>
 
-      <button @click="handleNext" :disabled="selectedOption === null">次へ</button>
-    </div>
-    <div v-else class="card">
-      <p>質問を読み込んでいます...</p>
-    </div>
-  </transition>
+        <button @click="handleNext" :disabled="selectedOption === null">次へ</button>
+      </div>
+      <div v-else class="card">
+        <p>質問を読み込んでいます...</p>
+      </div>
+    </transition>
+  </main>
 </template>
 
 <style scoped>
+.question-view { display:grid; place-items:center; height:100%; padding:16px; }
 .quiz-card {
   width: 700px;
   max-width: 95%;
