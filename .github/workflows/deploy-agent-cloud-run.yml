@@ -77,26 +77,26 @@ jobs:
           docker push ${AGENT_IMAGE}
           docker push ${MCP_IMAGE}
 
-    - name: Deploy MCP to Cloud Run (auth required)
+      - name: Deploy MCP to Cloud Run (auth required)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
         run: |
-      MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
+          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
           gcloud run deploy maps-mcp-service \
             --image ${MCP_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --port 3000
 
-    - name: Deploy Agent to Cloud Run (with MCP URL)
+      - name: Deploy Agent to Cloud Run (with MCP URL)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
+          REPO_PATH: ${{ secrets.ARTIFACT_REGISTRY_REPO }}
         run: |
-      AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
+          AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
           MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
           MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
           gcloud run deploy travel-agent-service \
