@@ -4,7 +4,9 @@ import { useRouter } from 'vue-router'
 const props = defineProps({
   label: { type: String, default: '戻る' },
   fallbackName: { type: String, default: 'home' },
-  fallbackTo: { type: [Object, String], default: null }
+  fallbackTo: { type: [Object, String], default: null },
+  iconOnly: { type: Boolean, default: false },
+  icon: { type: String, default: 'arrow' } // 'arrow' | 'home'
 })
 
 const router = useRouter()
@@ -22,8 +24,21 @@ function goBack() {
 </script>
 
 <template>
-  <button class="back-btn" type="button" @click="goBack" aria-label="戻る">
-    ← {{ label }}
+  <button
+    class="back-btn"
+    :class="{ icon: iconOnly }"
+    type="button"
+    @click="goBack"
+    :aria-label="iconOnly ? (label || '戻る') : '戻る'"
+    :title="iconOnly ? (label || '戻る') : ''"
+  >
+    <template v-if="iconOnly">
+      <span v-if="icon === 'home'" aria-hidden="true">🏠</span>
+      <span v-else aria-hidden="true">←</span>
+    </template>
+    <template v-else>
+      ← {{ label }}
+    </template>
   </button>
   
 </template>
@@ -41,4 +56,13 @@ function goBack() {
   margin-bottom: 10px;
 }
 .back-btn:hover { background: #f3f4f6; }
+
+.back-btn.icon {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  padding: 0;
+}
 </style>

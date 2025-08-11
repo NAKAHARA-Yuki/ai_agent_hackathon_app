@@ -71,7 +71,7 @@ function handleNext() {
   <main class="question-view">
     <transition name="fade" mode="out-in">
       <div class="card quiz-card" :key="questionNumber" v-if="currentQuestion">
-        <BackButton />
+        <BackButton :icon-only="true" />
         <ProgressBar />
         <div class="question-header">
           <span class="question-number">QUESTION {{ questionNumber }} / {{ store.totalQuestions }}</span>
@@ -203,12 +203,17 @@ h2 {
 
 /* モバイル向け微調整 */
 @media (max-width: 600px) {
-  h2 { font-size: 1.35rem; margin-top: 6px; }
-  .question-header { margin-bottom: 20px; }
-  .options { gap: 12px; margin-bottom: 20px; }
-  .options label { padding: 14px; }
-  .free-text-area { margin: 14px 0 20px; }
-  .free-text-area textarea { font-size: 16px; } /* モバイルでのタップしやすさ */
-  button { width: 100%; padding: 12px; }
+  .question-view { padding: 8px; overflow: hidden; }
+  .quiz-card { width: 100%; padding: 12px !important; }
+  .question-header { margin-bottom: 12px; }
+  .question-number { font-size: 12px; }
+  h2 { font-size: 1.1rem; margin-top: 4px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .options { gap: 8px; margin-bottom: 12px; }
+  .options label { padding: 10px; gap: 8px; }
+  .option-text { font-size: 0.95rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .free-text-area { margin: 10px 0 12px; }
+  .free-text-area textarea { font-size: 14px; max-height: 96px; }
+  button { width: 100%; padding: 10px; }
+  :deep(.progress-container) { margin-bottom: 10px; height: 8px; }
 }
 </style>
