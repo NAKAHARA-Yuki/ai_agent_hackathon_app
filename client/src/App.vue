@@ -104,7 +104,7 @@ onUnmounted(() => {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 10; }
+.site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; }
 .brand { font-weight: 700; color:#1f2937; cursor:pointer; }
 .nav { display:flex; align-items:center; gap:10px; position: relative; }
 .nav .link { background:transparent; border:none; color:#2563eb; cursor:pointer; font-size: 14px; }
@@ -118,9 +118,10 @@ onUnmounted(() => {
 .bar { display:block; width: 20px; height: 2px; background:#1f2937; border-radius: 2px; }
 
 .drawer {
-  position: fixed; right: 0; top: 0; height: 100vh; width: 280px; background: #ffffff;
+  position: fixed; right: 0; top: 0; height: 100vh; width: min(88vw, 320px); background: #ffffff;
   color: #111827; border-left: 1px solid rgba(0,0,0,0.08); box-shadow: -10px 0 30px rgba(0,0,0,0.12);
-  padding: 14px; z-index: 50; display: flex; flex-direction: column; gap: 6px;
+  padding: 14px; padding-top: calc(14px + env(safe-area-inset-top)); padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 110; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 .drawer-title { font-size: 14px; font-weight: 700; color:#374151; padding: 8px 6px; }
 .menu-item { width:100%; text-align:left; background:transparent; color:#111827; border:none; padding:12px 10px; border-radius: 8px; cursor:pointer; font-size: 15px; }
@@ -128,12 +129,12 @@ onUnmounted(() => {
 .menu-item.danger { color:#b91c1c; }
 .divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
 
-.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(1px); z-index: 40; }
+.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(1px); z-index: 90; }
 
-/* ドロワーのスライドアニメ */
-.drawer-enter-active, .drawer-leave-active { transition: transform .25s ease, opacity .2s ease; }
-.drawer-enter-from, .drawer-leave-to { transform: translateX(100%); opacity: 0.8; }
-.drawer-enter-to, .drawer-leave-from { transform: translateX(0); opacity: 1; }
+/* ドロワーのスライドアニメ（不透明のまま） */
+.drawer-enter-active, .drawer-leave-active { transition: transform .25s ease; }
+.drawer-enter-from, .drawer-leave-to { transform: translateX(100%); }
+.drawer-enter-to, .drawer-leave-from { transform: translateX(0); }
 
 /* 背景フェード */
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
