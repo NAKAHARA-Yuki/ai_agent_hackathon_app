@@ -78,6 +78,13 @@ onUnmounted(() => {
           </button>
           <transition name="drawer">
             <aside v-if="showMenu" class="drawer" role="menu" aria-label="メニュー">
+              <div class="drawer-header">
+                <div class="avatar" aria-hidden="true">👤</div>
+                <div class="header-text">
+                  <div class="name" :title="displayName">{{ displayName || 'ゲスト' }}</div>
+                  <button class="mypage-link" @click="showMenu=false; router.push({ name: 'mypage' })">マイページへ</button>
+                </div>
+              </div>
               <div class="drawer-title">診断結果</div>
               <button class="menu-item" role="menuitem" @click="viewResults">結果を閲覧</button>
               <button class="menu-item" role="menuitem" @click="redoDiagnosis">再診断</button>
@@ -132,6 +139,12 @@ onUnmounted(() => {
 .menu-item:hover { background: #eff6ff; }
 .menu-item.danger { color:#b91c1c; }
 .divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
+
+.drawer-header { display:flex; align-items:center; gap:10px; padding: 6px 4px 10px; border-bottom: 1px solid #f3f4f6; margin-bottom: 8px; }
+.avatar { width: 36px; height: 36px; display:grid; place-items:center; border-radius: 50%; background:#eef2ff; font-size: 18px; }
+.header-text { display:flex; flex-direction:column; min-width: 0; }
+.header-text .name { font-weight: 700; color:#111827; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mypage-link { align-self:flex-start; background:transparent; border:none; color:#2563eb; padding: 0; cursor:pointer; font-size: 13px; }
 
 .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(1px); z-index: 90; }
 

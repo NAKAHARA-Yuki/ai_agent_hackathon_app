@@ -13,6 +13,12 @@ const props = defineProps({
   traitDescriptions: {
     type: Object,
     required: true
+  },
+  // 設問順の特性ラベル配列（任意）。与えられればこの順で描画。
+  traitsOrder: {
+    type: Array,
+    required: false,
+    default: () => []
   }
 })
 
@@ -38,22 +44,27 @@ const chartData = computed(() => {
   if (!props.traitScores) {
     return { labels: [], datasets: [] };
   }
-  const labels = Object.keys(props.traitScores);
-  const data = Object.values(props.traitScores);
+  // ラベル順序の安定化：props.traitsOrder があればそれに従い、なければアルファベット順で固定
+  const hasOrder = Array.isArray(props.traitsOrder) && props.traitsOrder.length > 0
+  const labels = hasOrder
+    ? props.traitsOrder.filter(t => Object.prototype.hasOwnProperty.call(props.traitScores, t))
+    : Object.keys(props.traitScores).sort()
+  const data = labels.map(l => Number(props.traitScores[l] ?? 0))
   return {
     labels,
     datasets: [
       {
         label: 'あなたの特性スコア',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        borderColor: 'rgb(54, 162, 235)',
-        pointBackgroundColor: 'rgb(54, 162, 235)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgb(54, 162, 235)',
-        pointRadius: 4,
-        pointHoverRadius: 7,
-        hitRadius: 14,
+  backgroundColor: 'rgba(37, 99, 235, 0.18)',
+  borderColor: 'rgba(37, 99, 235, 0.9)',
+  borderWidth: 2,
+  pointBackgroundColor: '#1d4ed8',
+  pointBorderColor: '#fff',
+  pointHoverBackgroundColor: '#fff',
+  pointHoverBorderColor: '#1d4ed8',
+  pointRadius: 4,
+  pointHoverRadius: 6,
+  hitRadius: 12,
         data,
       }
     ]
@@ -69,7 +80,14 @@ const chartOptions = computed(() => ({
   },
   plugins: {
     legend: {
-      position: 'top',
+      position: 'bottom',
+      labels: {
+        padding: 16,
+        color: '#374151',
+        boxWidth: 14,
+        usePointStyle: true,
+        pointStyle: 'circle'
+      }
     },
     title: {
       display: true,
@@ -130,17 +148,21 @@ const chartOptions = computed(() => ({
   scales: {
     r: {
       angleLines: {
-        display: true
+        display: true,
+        color: 'rgba(0,0,0,0.08)'
       },
-      suggestedMin: 0,
+      // スコアは 1-4 を想定
+      suggestedMin: 1,
       suggestedMax: 4,
       pointLabels: {
-        font: {
-          size: 14
-        }
+        color: '#111827',
+        font: { size: 14 }
       },
       ticks: {
-        stepSize: 1
+        stepSize: 1,
+        beginAtZero: false,
+        showLabelBackdrop: false,
+        color: '#4b5563'
       }
     }
   }
