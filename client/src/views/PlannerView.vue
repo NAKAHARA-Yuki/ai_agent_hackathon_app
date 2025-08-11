@@ -2,6 +2,7 @@
 import { ref, watch, nextTick } from 'vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import MapPanel from '@/components/MapPanel.vue'
+import BackButton from '@/components/BackButton.vue'
 
 // エージェントが提案した場所の一覧（{ name, lat, lng, note }）
 const places = ref([])
@@ -38,7 +39,8 @@ watch(isMapOpen, async (open) => {
 <template>
   <main class="planner">
     <section class="left">
-      <ChatPanel @agent-update="handleAgentUpdate" />
+  <div class="left-header"><BackButton label="メインへ戻る" :fallback-name="'main'" /></div>
+  <ChatPanel @agent-update="handleAgentUpdate" />
     </section>
     <section class="right">
       <MapPanel :places="places" :route-info="routeInfo" />
@@ -84,6 +86,7 @@ watch(isMapOpen, async (open) => {
 }
 .left { display:flex; }
 .right { position: relative; }
+.left-header { position: sticky; top: 0; z-index: 5; padding: 8px; background: #fff; border-bottom: 1px solid #eee; }
 
 /* モバイル専用: 地図を表示ボタン（右下固定） */
 .open-map-btn {

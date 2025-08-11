@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import BackButton from '@/components/BackButton.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -37,6 +38,7 @@ async function submit() {
 <template>
   <main class="auth">
     <section class="panel">
+  <BackButton />
       <h1>最高の旅行アシスタントをあなたのポケットに</h1>
       <p class="lead">アカウントを作成またはログインして、旅行スタイル診断から始めましょう。</p>
 

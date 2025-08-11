@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useQuizStore } from '@/stores/quizStore'
+import BackButton from '@/components/BackButton.vue'
 
 const store = useQuizStore()
 
@@ -19,6 +20,7 @@ const stageText = computed(() => {
 <template>
   <main class="processing">
     <section class="panel">
+  <BackButton />
       <h1>診断中</h1>
 
       <div class="progress">

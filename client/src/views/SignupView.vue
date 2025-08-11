@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { USER_ID_REGEX } from '@/constants/validation'
+import BackButton from '@/components/BackButton.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -34,6 +35,7 @@ async function submit() {
 <template>
   <main class="auth">
     <section class="panel">
+  <BackButton />
       <h1>新規登録</h1>
       <p class="lead">アカウントを作成して診断を始めましょう。</p>
 

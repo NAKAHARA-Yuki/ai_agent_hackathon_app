@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuizStore } from '@/stores/quizStore'
 import ProgressBar from '@/components/ProgressBar.vue'
+import BackButton from '@/components/BackButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,6 +71,7 @@ function handleNext() {
   <main class="question-view">
     <transition name="fade" mode="out-in">
       <div class="card quiz-card" :key="questionNumber" v-if="currentQuestion">
+        <BackButton />
         <ProgressBar />
         <div class="question-header">
           <span class="question-number">QUESTION {{ questionNumber }} / {{ store.totalQuestions }}</span>

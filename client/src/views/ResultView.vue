@@ -3,6 +3,7 @@ import { onMounted, ref, computed, watch } from 'vue'
 import { useQuizStore } from '@/stores/quizStore'
 import { useRouter } from 'vue-router'
 import ResultChart from '@/components/ResultChart.vue'
+import BackButton from '@/components/BackButton.vue'
 
 const store = useQuizStore()
 const router = useRouter()
@@ -75,7 +76,8 @@ function goMain() {
 
 <template>
   <main class="result-view">
-    <div class="card result-card">
+  <div class="card result-card">
+  <BackButton />
     <div v-if="store.isAnalyzing || store.isGeneratingPlans || store.isProcessing">
       <h1>診断中...</h1>
       <p>AIがあなたの回答全体を解析し、旅行タイプとおすすめプランを生成しています。少々お待ちください。</p>
