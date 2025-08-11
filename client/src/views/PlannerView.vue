@@ -39,17 +39,12 @@ watch(isMapOpen, async (open) => {
 <template>
   <main class="planner">
     <section class="left">
-  <div class="left-header"><BackButton label="メインへ戻る" :fallback-name="'main'" /></div>
-  <ChatPanel @agent-update="handleAgentUpdate" />
+  <div class="left-header"><BackButton :icon-only="true" icon="home" label="メインへ" :fallback-name="'main'" /></div>
+  <ChatPanel @agent-update="handleAgentUpdate" @open-map="isMapOpen = true" />
     </section>
     <section class="right">
       <MapPanel :places="places" :route-info="routeInfo" />
     </section>
-
-    <!-- モバイル: マップを全画面で表示するトグルボタン -->
-    <button class="open-map-btn" @click="isMapOpen = true" aria-label="地図を表示">
-      🗺️ 地図を表示
-    </button>
 
     <!-- モバイル: 全画面マップオーバーレイ -->
     <div v-if="isMapOpen" class="map-overlay">
@@ -87,22 +82,6 @@ watch(isMapOpen, async (open) => {
 .left { display:flex; }
 .right { position: relative; }
 .left-header { position: sticky; top: 0; z-index: 5; padding: 8px; background: #fff; border-bottom: 1px solid #eee; }
-
-/* モバイル専用: 地図を表示ボタン（右下固定） */
-.open-map-btn {
-  position: fixed;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: calc(72px + env(safe-area-inset-bottom)); /* チャット入力欄の上に配置 */
-  z-index: 40;
-  background: #2d7ef7;
-  color: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(0,0,0,.18);
-  display: none; /* デスクトップでは非表示 */
-}
 
 /* 全画面マップオーバーレイ */
 .map-overlay {

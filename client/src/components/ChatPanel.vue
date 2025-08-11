@@ -38,8 +38,8 @@ watch(userId, () => {
   ensureSessionId(true)
 })
 
-// 親へ: エージェント応答に含まれる場所候補を通知
-const emit = defineEmits(['agent-update'])
+// 親へイベント: エージェント応答通知・地図オープン
+const emit = defineEmits(['agent-update', 'open-map'])
 
 async function sendMessage() {
   const text = userInput.value.trim()
@@ -126,7 +126,8 @@ function renderHtml(text) {
     return text
   }
 }
-</script>
+
+ </script>
 
 <template>
   <div class="chat">
@@ -136,20 +137,26 @@ function renderHtml(text) {
   <span v-else class="bubble" v-html="renderHtml(m.text)"></span>
       </div>
     </div>
-    <form class="composer" @submit.prevent="sendMessage">
-      <textarea
-        ref="inputEl"
-        v-model="userInput"
-        rows="1"
-        placeholder="行きたい雰囲気や目的を自由に入力..."
-        @keydown.enter="onEnter"
-  @compositionstart="isComposing = true"
-  @compositionend="isComposing = false"
-        @input="autoResize"
-        :disabled="isSending"
-      />
-      <button type="submit" :disabled="isSending">{{ isSending ? '送信中…' : '送信' }}</button>
-    </form>
+    
+    <div class="composer-area">
+      <form class="composer" @submit.prevent="sendMessage">
+        <textarea
+          ref="inputEl"
+          v-model="userInput"
+          rows="1"
+          placeholder="行きたい雰囲気や目的を自由に入力..."
+          @keydown.enter="onEnter"
+          @compositionstart="isComposing = true"
+          @compositionend="isComposing = false"
+          @input="autoResize"
+          :disabled="isSending"
+        />
+        <button type="submit" :disabled="isSending">{{ isSending ? '送信中…' : '送信' }}</button>
+      </form>
+      <div class="composer-actions">
+        <button type="button" class="map-open-btn" @click="emit('open-map')" aria-label="地図を表示">🗺️ 地図を表示</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -165,17 +172,22 @@ function renderHtml(text) {
 .bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
 .bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
-.composer { display:flex; gap:8px; border-top:1px solid #eee; padding:12px; align-items:stretch; background:#fff; }
+.composer-area { position: static; background:#fff; border-top:1px solid #eee; padding: 8px 12px; }
+.composer { display:flex; gap:8px; align-items:stretch; background:#fff; }
 /* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
 .composer textarea { flex: 1 1 auto; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; height: 40px; max-height: 160px; }
 .composer textarea:disabled { background: #f9fafb; cursor: not-allowed; }
 .composer button { flex: 0 0 112px; height: auto; align-self: stretch; display:flex; align-items:center; justify-content:center; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; min-height: 40px; }
 .composer button[disabled] { opacity: 0.6; cursor: not-allowed; }
 
+.composer-actions { margin-top: 6px; display: none; }
+.map-open-btn { width: 100%; background:#111827; color:#fff; border:none; border-radius:10px; padding:10px; font-weight:700; }
+
 @media (max-width: 600px) {
-  /* モバイルではコンポーザーを下部にピン留め */
-  .composer { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); }
-  .log { padding-bottom: 72px; }
+  /* モバイルではコンポーザー一式を下部にピン留め */
+  .composer-area { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .composer-actions { display: block; }
+  .log { padding-bottom: 120px; }
   /* ボタン幅を少し小さくする（約80:20） */
   .composer button { flex-basis: 96px; }
 }
