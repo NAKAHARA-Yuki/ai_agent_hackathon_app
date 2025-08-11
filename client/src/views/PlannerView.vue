@@ -34,6 +34,7 @@ function handleAgentUpdate(payload) {
 .planner {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
   gap: 12px;
   height: calc(100vh - 80px);
   padding: 12px;
@@ -43,6 +44,7 @@ function handleAgentUpdate(payload) {
   border-radius: 12px;
   box-shadow: 0 6px 18px rgba(0,0,0,.08);
   overflow: hidden;
+  height: 100%;
 }
 .left { display:flex; }
 .right { position: relative; }
