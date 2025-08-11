@@ -23,6 +23,7 @@ COPY server/ .
 # 環境変数PORTをリッスン
 EXPOSE 8080
 ENV PORT=8080
+STOPSIGNAL SIGTERM
 
 # アプリケーションの起動（Cloud RunのPORTに対応）
-CMD ["/bin/sh", "-c", "gunicorn --worker-class gevent --bind 0.0.0.0:${PORT:-8080} --timeout 120 app:app"]
+CMD ["/bin/sh", "-c", "exec gunicorn --worker-class gevent --bind 0.0.0.0:${PORT:-8080} --timeout 120 --graceful-timeout 5 app:app"]

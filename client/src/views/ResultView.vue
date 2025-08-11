@@ -40,16 +40,7 @@ const traitDescriptions = computed(() => {
 })
 
 onMounted(() => {
-  if (Object.keys(store.userAnswers).length > 0) {
-    store.analyzeFreeTextAnswers()
-  }
-  // 分析完了後にAIプランを生成（未生成の場合）
-  const stop = watch(() => store.finalResult, async (val) => {
-    if (val && !store.aiPlans && !store.isGeneratingPlans) {
-      await store.generateAIPlans()
-      stop()
-    }
-  }, { immediate: true })
+  // 画面到達時点ではAI処理は完了済みの想定（ストア側で完了してから遷移）
 })
 
 function restartQuiz() {
@@ -64,9 +55,9 @@ function toggleScoreDetails() {
 
 <template>
   <div class="card result-card">
-    <div v-if="store.isAnalyzing">
+    <div v-if="store.isAnalyzing || store.isGeneratingPlans || store.isProcessing">
       <h1>診断中...</h1>
-      <p>自由記述の内容をAIが分析中です。少々お待ちください。</p>
+      <p>AIがあなたの回答全体を解析し、旅行タイプとおすすめプランを生成しています。少々お待ちください。</p>
       <div class="spinner"></div>
     </div>
     <div v-else-if="store.finalResult && store.finalResult.scoreDetails">

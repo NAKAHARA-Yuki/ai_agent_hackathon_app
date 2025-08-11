@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from './authStore'
 
 export const useQuizStore = defineStore('quiz', () => {
   const router = useRouter()
@@ -20,6 +21,20 @@ export const useQuizStore = defineStore('quiz', () => {
   const isAnalyzing = ref(false)
   const aiPlans = ref(null)
   const isGeneratingPlans = ref(false)
+  const isProcessing = ref(false) // 終了処理（分析+プラン生成+保存）中
+  const isSavingProfile = ref(false)
+  const processingStage = ref('idle') // idle|analyzing|scoring|parallel|done|error
+  const processingPercent = computed(() => {
+    switch (processingStage.value) {
+      case 'idle': return 0
+      case 'analyzing': return isAnalyzing.value ? 35 : 50
+      case 'scoring': return 65
+      case 'parallel': return (isGeneratingPlans.value || isSavingProfile.value) ? 85 : 95
+      case 'done': return 100
+      case 'error': return 100
+      default: return 0
+    }
+  })
   async function fetchQuestions() {
     try {
       const response = await fetch('/api/questions')
@@ -36,14 +51,18 @@ export const useQuizStore = defineStore('quiz', () => {
     userAnswers.value[questionId] = { score, freeText, trait, question }
   }
 
-  function nextQuestion() {
+  async function nextQuestion() {
     if (currentQuestionIndex.value < totalQuestions.value - 1) {
       currentQuestionIndex.value++
       router.push({ name: 'question', params: { questionNumber: currentQuestionIndex.value + 1 } })
     } else {
-      // 最後の質問が終わったら結果ページへ
-      currentQuestionIndex.value++ // プログレスバーを100%にするため
-      router.push({ name: 'results' })
+      // 最後の質問が終わったら処理専用画面へ遷移して可視化
+      currentQuestionIndex.value++ // プログレス100%
+      isProcessing.value = true
+      processingStage.value = 'analyzing'
+      router.push({ name: 'processing' })
+      // 処理は専用フローで実行
+      runProcessingFlow()
     }
   }
 
@@ -218,6 +237,64 @@ export const useQuizStore = defineStore('quiz', () => {
     }
   }
 
+  async function runProcessingFlow() {
+    try {
+      // 1) 回答解析（全自由記述＋選択肢ベース補足）
+      processingStage.value = 'analyzing'
+      await analyzeFreeTextAnswers()
+
+      // 2) スコア集計（computedが反映されるのを待つ）
+      processingStage.value = 'scoring'
+      await new Promise(r => setTimeout(r, 150))
+
+      // 3) プラン生成とプロフィール保存を並列に実行
+      processingStage.value = 'parallel'
+      isSavingProfile.value = true
+      await Promise.all([
+        (async () => { await generateAIPlans() })(),
+        (async () => { try { await savePersonaProfile() } finally { isSavingProfile.value = false } })()
+      ])
+
+      // 完了
+      processingStage.value = 'done'
+      isProcessing.value = false
+      // 結果画面へ
+      router.replace({ name: 'results' })
+    } catch (e) {
+      console.error('runProcessingFlow error:', e)
+      processingStage.value = 'error'
+      isProcessing.value = false
+      router.replace({ name: 'results' })
+    }
+  }
+
+  // 診断プロフィールをサーバーに保存し、ペルソナのシステムプロンプトを生成
+  async function savePersonaProfile() {
+    try {
+      const current = finalResult.value;
+      if (!current) return;
+      const auth = useAuthStore();
+      const payload = {
+        profile: {
+          title: current.title,
+          description: current.description,
+          traitScores: current.scoreDetails?.traitScores || {}
+        }
+      };
+      const resp = await fetch('/api/persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        console.error('savePersonaProfile failed:', err);
+      }
+    } catch (e) {
+      console.error('savePersonaProfile error:', e);
+    }
+  }
+
   function getResultType(averageScore) {
     if (averageScore >= 3.2) {
       return {
@@ -277,7 +354,13 @@ export const useQuizStore = defineStore('quiz', () => {
   finalResult,
   aiPlans,
   isGeneratingPlans,
-  generateAIPlans
+  isProcessing,
+  isSavingProfile,
+  processingStage,
+  processingPercent,
+  generateAIPlans,
+  savePersonaProfile,
+  runProcessingFlow,
   }
 })
 ;
