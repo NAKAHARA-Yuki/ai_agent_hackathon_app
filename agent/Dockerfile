@@ -14,7 +14,8 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py ./
+# ADK runtime loads root agent from adk_app.py
+COPY adk_app.py ./
 
 EXPOSE 8080
 ENTRYPOINT ["tini", "--"]
