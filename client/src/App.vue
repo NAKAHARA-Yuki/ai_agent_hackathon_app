@@ -78,7 +78,17 @@ onUnmounted(() => {
           </button>
           <transition name="drawer">
             <aside v-if="showMenu" class="drawer" role="menu" aria-label="メニュー">
-              <div class="drawer-title">診断結果</div>
+              <div class="drawer-header">
+                <div class="avatar" aria-hidden="true">👤</div>
+                <div class="header-text">
+                  <div class="name" :title="displayName">{{ displayName || 'ゲスト' }}</div>
+                  <button class="mypage-row" @click="showMenu=false; router.push({ name: 'mypage' })">
+                    <span class="row-left">📝 マイページ</span>
+                    <span class="row-right">›</span>
+                  </button>
+                </div>
+              </div>
+              <div class="drawer-title subtle">診断結果</div>
               <button class="menu-item" role="menuitem" @click="viewResults">結果を閲覧</button>
               <button class="menu-item" role="menuitem" @click="redoDiagnosis">再診断</button>
               <hr class="divider" />
@@ -127,11 +137,21 @@ onUnmounted(() => {
   padding: 14px; padding-top: calc(14px + env(safe-area-inset-top)); padding-bottom: calc(14px + env(safe-area-inset-bottom));
   z-index: 110; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
-.drawer-title { font-size: 14px; font-weight: 700; color:#374151; padding: 8px 6px; }
+.drawer-title { font-size: 13px; font-weight: 700; color:#374151; padding: 6px 6px; letter-spacing: 0.2px; }
+.drawer-title.subtle { color:#6b7280; font-weight: 600; }
 .menu-item { width:100%; text-align:left; background:transparent; color:#111827; border:none; padding:12px 10px; border-radius: 8px; cursor:pointer; font-size: 15px; }
 .menu-item:hover { background: #eff6ff; }
 .menu-item.danger { color:#b91c1c; }
-.divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
+.divider { border: none; border-top: 1px solid rgba(0,0,0,0.06); margin: 10px 0; }
+
+.drawer-header { display:flex; align-items:center; gap:10px; padding: 6px 4px 10px; border-bottom: 1px solid #f3f4f6; margin-bottom: 8px; }
+.avatar { width: 36px; height: 36px; display:grid; place-items:center; border-radius: 50%; background:#eef2ff; font-size: 18px; }
+.header-text { display:flex; flex-direction:column; min-width: 0; }
+.header-text .name { font-weight: 700; color:#111827; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mypage-row { margin-top: 6px; display:flex; align-items:center; justify-content:space-between; width:100%; background:#f9fafb; border:1px solid #eef2ff; color:#1f2937; padding:8px 10px; border-radius:8px; cursor:pointer; font-size: 14px; }
+.mypage-row:hover { background:#eef2ff; }
+.mypage-row .row-left { display:flex; align-items:center; gap:6px; }
+.mypage-row .row-right { color:#6b7280; font-weight:700; }
 
 .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(1px); z-index: 90; }
 

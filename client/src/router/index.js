@@ -7,6 +7,7 @@ import ProcessingView from '../views/ProcessingView.vue'
 import { useAuthStore } from '@/stores/authStore'
 import QuestionView from '../views/QuestionView.vue'
 import ResultView from '../views/ResultView.vue'
+import MyPageView from '../views/MyPageView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -33,6 +34,11 @@ const router = createRouter({
       path: '/results',
       name: 'results',
       component: ResultView
+    },
+    {
+      path: '/me',
+      name: 'mypage',
+      component: MyPageView
     }
   ]
 })

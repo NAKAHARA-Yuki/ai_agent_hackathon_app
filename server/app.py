@@ -714,6 +714,146 @@ def serve(path):
     else:
         return send_from_directory(app.static_folder, 'index.html')
 
+# ==== User profile (basic) ====
+@app.route('/api/profile', methods=['GET', 'POST'])
+def profile():
+    claims = require_auth(request)
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    user_id = claims['sub']
+    user_ref = db.collection('users').document(user_id)
+    if request.method == 'GET':
+        try:
+            snap = user_ref.get(timeout=5)
+            profile = {}
+            name = None
+            if snap and snap.exists:
+                data = snap.to_dict() or {}
+                profile = data.get('profile') or {}
+                name = data.get('name')
+            return jsonify({
+                "name": name,
+                "profile": profile
+            })
+        except Exception as e:
+            print(f"/api/profile GET error: {e}")
+            return jsonify({"profile": {}}), 200
+    else:
+        # POST: upsert profile with validation
+        payload = request.get_json() or {}
+        prof = payload.get('profile') or {}
+        sanitized = {}
+        errors = []
+
+        def as_str(x):
+            try:
+                return str(x).strip()
+            except Exception:
+                return ''
+
+        def strip_ng(s: str):
+            # remove control chars and angle brackets to avoid simple injection
+            return re.sub(r'[\x00-\x1F<>]', '', s)
+
+        # display_name
+        if 'display_name' in prof:
+            dn = strip_ng(as_str(prof.get('display_name')))
+            if dn and len(dn) <= 50:
+                sanitized['display_name'] = dn
+            elif dn:
+                errors.append('display_name must be <= 50 chars')
+
+        # age
+        if 'age' in prof:
+            try:
+                age = int(prof.get('age'))
+                if 0 <= age <= 120:
+                    sanitized['age'] = age
+                else:
+                    errors.append('age must be between 0 and 120')
+            except Exception:
+                errors.append('age must be an integer')
+
+        # birthdate (YYYY-MM-DD)
+        if 'birthdate' in prof:
+            bd = as_str(prof.get('birthdate'))
+            if bd:
+                if re.fullmatch(r'\d{4}-\d{2}-\d{2}', bd):
+                    sanitized['birthdate'] = bd
+                else:
+                    errors.append('invalid birthdate format')
+
+        # gender
+        if 'gender' in prof:
+            g = as_str(prof.get('gender'))
+            allowed_genders = {'', '男性', '女性', 'その他', '回答しない'}
+            if g in allowed_genders:
+                sanitized['gender'] = g
+            else:
+                errors.append('invalid gender')
+
+        # hobbies
+        if 'hobbies' in prof:
+            hobbies = prof.get('hobbies')
+            arr = []
+            if isinstance(hobbies, list):
+                arr = [strip_ng(as_str(h)) for h in hobbies]
+            elif isinstance(hobbies, str):
+                arr = [strip_ng(as_str(p)) for p in hobbies.split(',')]
+            arr = [h for h in arr if h]
+            # de-dup and length constraints
+            seen = set()
+            cleaned = []
+            for h in arr:
+                if h.lower() in seen:
+                    continue
+                seen.add(h.lower())
+                if len(h) > 30:
+                    errors.append('each hobby must be <= 30 chars')
+                else:
+                    cleaned.append(h)
+            if len(cleaned) > 10:
+                errors.append('max 10 hobbies')
+                cleaned = cleaned[:10]
+            if cleaned:
+                sanitized['hobbies'] = cleaned
+
+        # other optional fields with length limits
+        limits = {'location': 100, 'budget': 100, 'notes': 500}
+        for key, limit in limits.items():
+            if key in prof:
+                val = strip_ng(as_str(prof.get(key)))
+                if len(val) > limit:
+                    errors.append(f'{key} too long (>{limit})')
+                elif val:
+                    sanitized[key] = val
+
+        if errors:
+            return jsonify({"error": "; ".join(errors)}), 400
+        try:
+            # merge into existing profile
+            snap = user_ref.get(timeout=5)
+            base = {}
+            if snap and snap.exists:
+                data = snap.to_dict() or {}
+                base = data.get('profile') or {}
+            base.update(sanitized)
+            user_ref.update({
+                'profile': base,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            }, timeout=5)
+        except Exception as e:
+            # if update fails (e.g., doc missing), set instead
+            try:
+                user_ref.set({
+                    'profile': sanitized,
+                    'updated_at': firestore.SERVER_TIMESTAMP
+                }, merge=True, timeout=5)
+            except Exception as e2:
+                print(f"/api/profile POST error: {e2}")
+                return jsonify({"error": "database unavailable"}), 503
+        return jsonify({"profile": base if base else sanitized})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 

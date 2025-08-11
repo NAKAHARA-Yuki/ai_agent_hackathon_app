@@ -31,12 +31,28 @@ const chartData = computed(() => {
   }
 })
 
+const traitsOrder = computed(() => {
+  // 設問定義順に trait を列挙（重複除去）
+  const order = []
+  const seen = new Set()
+  for (const q of store.questions || []) {
+    if (q?.trait && !seen.has(q.trait)) {
+      seen.add(q.trait)
+      order.push(q.trait)
+    }
+  }
+  return order
+})
+
 const traitDescriptions = computed(() => {
   if (!store.questions?.length) return {}
-  return store.questions.reduce((acc, q) => {
-    acc[q.trait] = q.trait_description
-    return acc
-  }, {})
+  const map = {}
+  for (const q of store.questions) {
+    if (q?.trait && !(q.trait in map)) {
+      map[q.trait] = q.trait_description
+    }
+  }
+  return map
 })
 
 onMounted(() => {
@@ -73,7 +89,12 @@ function goMain() {
       </div>
 
             <div class="result-section chart-section">
-         <ResultChart v-if="store.finalResult?.scoreDetails?.traitScores" :traitScores="store.finalResult.scoreDetails.traitScores" :traitDescriptions="traitDescriptions" />
+         <ResultChart
+           v-if="store.finalResult?.scoreDetails?.traitScores"
+           :traitScores="store.finalResult.scoreDetails.traitScores"
+           :traitDescriptions="traitDescriptions"
+           :traitsOrder="traitsOrder"
+         />
       </div>
 
       <div class="result-section travel-plans">
