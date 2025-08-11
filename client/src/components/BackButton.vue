@@ -33,8 +33,13 @@ function goBack() {
     :title="iconOnly ? (label || '戻る') : ''"
   >
     <template v-if="iconOnly">
-      <span v-if="icon === 'home'" aria-hidden="true">🏠</span>
-      <span v-else aria-hidden="true">←</span>
+      <svg v-if="icon === 'home'" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12l9-9 9 9"></path>
+        <path d="M9 21V9h6v12"></path>
+      </svg>
+      <svg v-else aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6"></path>
+      </svg>
     </template>
     <template v-else>
       ← {{ label }}
