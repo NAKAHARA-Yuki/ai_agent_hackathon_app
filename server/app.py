@@ -26,6 +26,13 @@ else:
     # REST API を直接呼び出すため、SDKの設定は不要です。
     print("Gemini API key is set. Using REST API for AI analysis.")
 
+# Agent microservice config (optional)
+AGENT_BASE_URL = os.getenv("AGENT_BASE_URL")  # e.g., https://travel-agent-service-xxxxx.a.run.app
+AGENT_API_KEY = os.getenv("AGENT_API_KEY")  # optional simple auth header if you set one
+agent_configured = bool(AGENT_BASE_URL)
+if agent_configured:
+    print(f"Agent base URL configured: {AGENT_BASE_URL}")
+
 # Auth / DB config
 FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 
@@ -359,6 +366,74 @@ def call_gemini_api(prompt, model_name='gemini-2.5-flash'):
     # APIからのレスポンスを直接JSONとしてパース
     return response.json()
 
+def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dict | None = None, timeout_sec: int = 30):
+    """
+    Agent サービスの /v1/plan を呼び出す。
+    persona: { title: str, description: str, traitScores?: dict }
+    """
+    if not agent_configured:
+        raise Exception("Agent base URL is not configured.")
+    url = AGENT_BASE_URL.rstrip('/') + '/v1/plan'
+    headers = { 'Content-Type': 'application/json' }
+    if AGENT_API_KEY:
+        headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
+    payload = {
+        "persona": persona,
+    }
+    if profile:
+        payload["profile"] = profile
+    if constraints:
+        payload["constraints"] = constraints
+    resp = requests.post(url, headers=headers, json=payload, timeout=timeout_sec)
+    resp.raise_for_status()
+    return resp.json()
+
+@app.post('/api/agent/chat')
+def agent_chat():
+    """ユーザーの自由入力を受け取り、エージェントの応答と候補地リストを返す。
+    まずは簡易実装として、Agentサービスが未設定の場合はモック応答を返す。
+    仕様: { message: string } -> { reply: string, places?: [{name, lat, lng, note?}] }
+    """
+    try:
+        data = request.get_json() or {}
+        message = (data.get('message') or '').strip()
+        if not message:
+            return jsonify({"reply": "ご希望を教えてください（例: 温泉と美術館を楽しみたい）。"})
+
+        # Agentサービスに委譲できる場合は専用エンドポイントに投げる（将来拡張）
+        if agent_configured:
+            try:
+                url = AGENT_BASE_URL.rstrip('/') + '/v1/chat'
+                headers = { 'Content-Type': 'application/json' }
+                if AGENT_API_KEY:
+                    headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
+                payload = { 'message': message }
+                r = requests.post(url, headers=headers, json=payload, timeout=30)
+                if r.ok:
+                    return jsonify(r.json())
+            except Exception as e:
+                print(f"Agent chat delegation failed: {e}")
+
+        # フォールバック: キーワードに応じて簡易候補地を返す
+        reply = '次の候補を地図に表示しました。気になる場所はありますか？'
+        candidates = []
+        s = message
+        if any(k in s for k in ['温泉','箱根','湯']):
+            candidates.append({ 'name': '箱根温泉', 'lat': 35.232, 'lng': 139.106, 'note': '美術館と温泉巡り' })
+        if any(k in s for k in ['美術','アート','直島']):
+            candidates.append({ 'name': '直島 ベネッセハウス', 'lat': 34.459, 'lng': 134.009, 'note': '現代アート' })
+        if any(k in s for k in ['自然','登山','屋久島']):
+            candidates.append({ 'name': '屋久島 縄文杉', 'lat': 30.358, 'lng': 130.531, 'note': 'トレッキング' })
+        if not candidates:
+            candidates = [
+                { 'name': '東京駅', 'lat': 35.681236, 'lng': 139.767125, 'note': '基準点' },
+                { 'name': '京都駅', 'lat': 34.985849, 'lng': 135.758766, 'note': '観光拠点' },
+            ]
+        return jsonify({ 'reply': reply, 'places': candidates })
+    except Exception as e:
+        print(f"agent_chat error: {e}")
+        return jsonify({ 'reply': 'エラーが発生しました。時間をおいて再試行してください。' })
+
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
     """
@@ -467,6 +542,23 @@ def generate_plan():
     data = request.get_json()
     if not data or 'travel_type' not in data or 'description' not in data:
         return jsonify({"error": "Missing travel_type or description"}), 400
+
+    # まず Agent サービスが設定されていれば委譲
+    if agent_configured:
+        try:
+            persona = {
+                "title": data['travel_type'],
+                "description": data['description']
+            }
+            # 将来的にユーザープロフィールも付与可
+            agent_result = call_agent_plan(persona=persona)
+            # 期待形式 {"plans": [{title, description} ...]}
+            if isinstance(agent_result, dict) and isinstance(agent_result.get('plans'), list):
+                return jsonify(agent_result)
+            else:
+                print("Agent response shape unexpected; falling back to Gemini path")
+        except Exception as e:
+            print(f"Agent call failed, fallback to Gemini: {e}")
 
     if not genai_configured:
         print("Skipping Gemini API call for plan generation due to missing configuration.")

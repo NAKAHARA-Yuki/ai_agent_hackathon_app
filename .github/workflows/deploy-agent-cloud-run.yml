@@ -1,0 +1,77 @@
+name: Deploy Agent (Cloud Run)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'agent/**'
+      - '.github/workflows/deploy-agent-cloud-run.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up gcloud auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Configure gcloud project
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build and push image
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service
+          docker build -t ${IMAGE}:$GITHUB_SHA agent
+          docker push ${IMAGE}:$GITHUB_SHA
+
+      - name: Deploy to Cloud Run
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service:${GITHUB_SHA}
+          gcloud run deploy travel-agent-service \
+            --image ${IMAGE} \
+            --region ${REGION} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash
+
+      - name: Propagate AGENT_BASE_URL to backend (travel-quiz-app)
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+        run: |
+          set -e
+          # Get deployed agent service URL
+          AGENT_URL=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(status.url)' || true)
+          if [ -z "$AGENT_URL" ]; then
+            echo "Agent URL could not be resolved. Skipping propagation."
+            exit 0
+          fi
+          echo "Resolved AGENT_BASE_URL=${AGENT_URL}"
+          # Check if backend service exists
+          if gcloud run services describe travel-quiz-app --region ${REGION} --format 'value(metadata.name)' >/dev/null 2>&1; then
+            gcloud run services update travel-quiz-app \
+              --region ${REGION} \
+              --update-env-vars=AGENT_BASE_URL=${AGENT_URL}
+            echo "Updated travel-quiz-app AGENT_BASE_URL"
+          else
+            echo "Backend service 'travel-quiz-app' not found. Skipping update."
+          fi

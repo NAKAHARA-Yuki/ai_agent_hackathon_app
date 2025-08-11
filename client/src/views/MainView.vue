@@ -53,7 +53,9 @@ function restart() {
         </div>
         <div v-else class="muted">まだペルソナがありません。診断を実施してください。</div>
 
-  <!-- アクションはヘッダーのメニューに移設 -->
+        <div class="actions">
+          <button class="primary" @click="router.push({ name: 'planner' })">旅行計画の作成</button>
+        </div>
       </div>
     </section>
   </main>
@@ -64,5 +66,6 @@ function restart() {
 .panel { width:min(920px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
-/* ページ内アクションは削除（ヘッダーに統合） */
+.actions { margin-top: 16px; display:flex; gap: 12px; }
+.primary { background:#2d7ef7; color:#fff; border:none; border-radius:10px; padding:10px 16px; }
 </style>
