@@ -1,7 +1,16 @@
 import os
+import logging
 from google.adk.agents import LlmAgent
 from tools.maps_mcp import register_maps_mcp_tool
 from google.adk.tools import google_search
+
+# Logging setup for agent container
+_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
+try:
+	logging.basicConfig(level=getattr(logging, _LEVEL, logging.INFO), format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+except Exception:
+	logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("agent.startup")
 
 # Bridge GEMINI_API_KEY -> GOOGLE_API_KEY for google-genai used by ADK
 if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
@@ -9,6 +18,8 @@ if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
 	os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+log.info(f"Agent model: {MODEL}")
+log.info(f"Maps MCP endpoint: {os.getenv('MAPS_MCP_ENDPOINT_URL')}")
 
 DEFAULT_INSTRUCTION = (
 	"あなたは日本国内旅行のコンシェルジュです。常に丁寧で、簡潔な日本語で応答してください。\n\n"
@@ -31,6 +42,7 @@ INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
 tools = []
 tools += register_maps_mcp_tool()  # GoogleMapMCP
 tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
+log.info("Tools registered: maps_mcp, google_search")
 
 # Define the root agent under Agents tree
 root_agent = LlmAgent(
