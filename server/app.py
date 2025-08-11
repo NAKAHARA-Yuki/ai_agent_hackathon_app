@@ -80,12 +80,12 @@ if db is None and (os.getenv("FLASK_ENV", "").lower() == "development" or os.get
                 cur = cur.setdefault(seg, {})
             return cur
 
-        def get(self):
+        def get(self, *args, **kwargs):
             node = self._resolve()
             data = node.get("__doc__")
             return _DevDocSnapshot(data)
 
-        def set(self, data):
+        def set(self, data, *args, **kwargs):
             node = self._resolve()
             doc = deepcopy(data)
             # replace Firestore server timestamps if present
@@ -94,7 +94,7 @@ if db is None and (os.getenv("FLASK_ENV", "").lower() == "development" or os.get
                     doc[k] = self._now_iso()
             node["__doc__"] = doc
 
-        def update(self, data):
+        def update(self, data, *args, **kwargs):
             node = self._resolve()
             base = node.get("__doc__", {})
             for k, v in data.items():
@@ -551,16 +551,20 @@ def signup():
     users_ref = db.collection('users')
     # Use user_id as document id to enforce uniqueness
     doc_ref = users_ref.document(user_id)
-    if doc_ref.get().exists:
-        return jsonify({"error": "user_id already exists"}), 409
-    user_doc = {
-        'name': name,
-        'user_id': user_id,
-        'password_hash': generate_password_hash(password),
-        'created_at': firestore.SERVER_TIMESTAMP,
-        'updated_at': firestore.SERVER_TIMESTAMP
-    }
-    doc_ref.set(user_doc)
+    try:
+        if doc_ref.get(timeout=5).exists:
+            return jsonify({"error": "user_id already exists"}), 409
+        user_doc = {
+            'name': name,
+            'user_id': user_id,
+            'password_hash': generate_password_hash(password),
+            'created_at': firestore.SERVER_TIMESTAMP,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }
+        doc_ref.set(user_doc, timeout=5)
+    except Exception as e:
+        print(f"Signup DB error: {e}")
+        return jsonify({"error": "database unavailable"}), 503
     token = create_jwt(user_id)
     return jsonify({"token": token, "user": {"id": user_id, "name": name}})
 
@@ -577,7 +581,11 @@ def login():
     if not re.fullmatch(USER_ID_REGEX, user_id):
         return jsonify({"error": "invalid user_id"}), 400
     users_ref = db.collection('users')
-    doc = users_ref.document(user_id).get()
+    try:
+        doc = users_ref.document(user_id).get(timeout=5)
+    except Exception as e:
+        print(f"Login DB error: {e}")
+        return jsonify({"error": "database unavailable"}), 503
     if not doc.exists:
         return jsonify({"error": "invalid credentials"}), 401
     user = doc.to_dict()
@@ -638,7 +646,11 @@ def create_persona():
         'system_prompt': system_prompt,
         'created_at': firestore.SERVER_TIMESTAMP
     }
-    doc_ref.set(doc)
+    try:
+        doc_ref.set(doc, timeout=5)
+    except Exception as e:
+        print(f"Persona DB error: {e}")
+        return jsonify({"error": "database unavailable"}), 503
     return jsonify({"id": doc_ref.id, "profile": profile, "system_prompt": system_prompt})
 
 @app.route('/', defaults={'path': ''})

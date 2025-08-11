@@ -26,4 +26,6 @@ ENV PORT=8080
 STOPSIGNAL SIGTERM
 
 # アプリケーションの起動（Cloud RunのPORTに対応）
-CMD ["/bin/sh", "-c", "exec gunicorn --worker-class gevent --bind 0.0.0.0:${PORT:-8080} --timeout 120 --graceful-timeout 5 app:app"]
+# geventではなく同期ワーカー+スレッドを使用（Firestore gRPCとの相性を考慮）
+# 環境変数で調整可能: WEB_CONCURRENCY, GUNICORN_THREADS, GUNICORN_TIMEOUT
+CMD ["/bin/sh", "-c", "exec gunicorn --workers ${WEB_CONCURRENCY:-1} --threads ${GUNICORN_THREADS:-8} --bind 0.0.0.0:${PORT:-8080} --timeout ${GUNICORN_TIMEOUT:-45} --graceful-timeout 5 app:app"]
