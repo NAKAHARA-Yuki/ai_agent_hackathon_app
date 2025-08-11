@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   build-and-deploy:
+  # Extra guard: run only on main branch or manual dispatch
+  if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy to Cloud Run
     runs-on: ubuntu-latest
     permissions:
