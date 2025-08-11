@@ -1252,13 +1252,33 @@ def create_persona():
     profile = data.get('profile') or {}
     system_prompt = data.get('system_prompt')
 
+    # Collect user hobbies: prefer from request profile, else from user's saved profile
+    user_hobbies = []
+    try:
+        hb = profile.get('hobbies')
+        if isinstance(hb, list):
+            user_hobbies = [str(x) for x in hb if str(x).strip()]
+        elif isinstance(hb, str) and hb.strip():
+            user_hobbies = [s.strip() for s in hb.split(',') if s.strip()]
+        # Fallback to user's stored profile
+        if not user_hobbies:
+            udoc = db.collection('users').document(claims['sub']).get(timeout=5)
+            if udoc and udoc.exists:
+                up = (udoc.to_dict() or {}).get('profile') or {}
+                hb2 = up.get('hobbies')
+                if isinstance(hb2, list):
+                    user_hobbies = [str(x) for x in hb2 if str(x).strip()]
+    except Exception:
+        pass
+
     # If system_prompt not provided, generate via Gemini
     if not system_prompt:
         if not genai_configured:
             system_prompt = (
                 "あなたは旅行者の嗜好に基づき、国内旅行の提案と旅程調整を行うペルソナエージェントです。"
                 "安全・予算・移動時間に配慮し、ユーザーのタイプ（{title}）の説明（{desc}）を尊重して提案します。"
-            ).format(title=profile.get('title'), desc=profile.get('description'))
+                "ユーザーの趣味・関心も強く反映してください。以下の趣味参考: {hobbies}"
+            ).format(title=profile.get('title'), desc=profile.get('description'), hobbies=json.dumps(user_hobbies, ensure_ascii=False))
         else:
             try:
                 prompt = f"""
@@ -1274,13 +1294,16 @@ def create_persona():
 
                 # 特性スコア
                 {json.dumps(profile.get('traitScores', {}), ensure_ascii=False)}
+
+                # ユーザーの趣味（旅行で重視するテーマや体験）
+                {json.dumps(user_hobbies, ensure_ascii=False)}
                 """
                 api_response = call_gemini_api(prompt)
                 system_prompt = api_response['candidates'][0]['content']['parts'][0]['text'].strip()
             except Exception as e:
                 logger.exception("Persona prompt generation error")
                 system_prompt = (
-                    "ユーザーの診断結果に沿って、日本国内の旅行計画を丁寧に提案・調整すること。"
+                    "ユーザーの診断結果および趣味の傾向を尊重し、日本国内の旅行計画を丁寧に提案・調整すること。"
                 )
 
     personas_ref = db.collection('users').document(claims['sub']).collection('personas')

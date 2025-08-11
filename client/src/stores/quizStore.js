@@ -402,11 +402,15 @@ export const useQuizStore = defineStore('quiz', () => {
       const current = finalResult.value;
       if (!current) return;
       const auth = useAuthStore();
+    // hobbies を同時送信（サーバー側でプロンプトに反映される）
+    const opts = Array.isArray(likesOptions.value) ? likesOptions.value : []
+    const hobbies = (selectedLikes.value || []).map(id => opts.find(o => o.id === id)?.label || String(id)).filter(Boolean).slice(0, 10)
       const payload = {
         profile: {
           title: current.title,
           description: current.description,
-          traitScores: current.scoreDetails?.traitScores || {}
+      traitScores: current.scoreDetails?.traitScores || {},
+      hobbies
         }
       };
       const resp = await fetch('/api/persona', {
