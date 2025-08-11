@@ -32,7 +32,27 @@ async function sendMessage() {
 
     // 場所候補: [{ name, lat, lng, note }]
     if (Array.isArray(data.places)) {
-      emit('agent-update', { reply, places: data.places })
+      let places = data.places
+      const needGeocode = places.filter(p => typeof p?.lat !== 'number' || typeof p?.lng !== 'number')
+      if (needGeocode.length) {
+        try {
+          const resp2 = await fetch('/api/geocode', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
+            body: JSON.stringify({ names: needGeocode.map(p => p.name).filter(Boolean) })
+          })
+          if (resp2.ok) {
+            const g = await resp2.json()
+            const map = new Map((g.results || []).map(r => [r.name, r]))
+            places = places.map(p => {
+              const hit = map.get(p.name)
+              return (hit && (typeof p.lat !== 'number' || typeof p.lng !== 'number'))
+                ? { ...p, lat: hit.lat, lng: hit.lng, note: p.note || hit.formatted_address }
+                : p
+            })
+          }
+        } catch (_) { /* noop */ }
+      }
+      emit('agent-update', { reply, places })
     } else {
       emit('agent-update', { reply })
     }

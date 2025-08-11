@@ -43,7 +43,7 @@ jobs:
       docker push ${AGENT_IMAGE}:$GITHUB_SHA
       docker push ${MCP_IMAGE}:$GITHUB_SHA
 
-      - name: Deploy MCP to Cloud Run
+  - name: Deploy MCP to Cloud Run (auth required)
         env:
           REGION: ${{ secrets.CLOUD_RUN_REGION }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -53,7 +53,6 @@ jobs:
             --image ${MCP_IMAGE} \
             --region ${REGION} \
             --platform managed \
-            --allow-unauthenticated \
             --port 3000
 
       - name: Deploy Agent to Cloud Run (with MCP URL)
@@ -70,7 +69,24 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT}
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
+
+      - name: Grant Agent SA invoker on MCP service
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          # Get agent service account
+          AGENT_SA=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
+          if [ -z "$AGENT_SA" ]; then
+            PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
+            AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
+          fi
+          echo "Granting roles/run.invoker to ${AGENT_SA} on maps-mcp-service"
+          gcloud run services add-iam-policy-binding maps-mcp-service \
+            --region ${REGION} \
+            --member serviceAccount:${AGENT_SA} \
+            --role roles/run.invoker
 
       - name: Propagate AGENT_BASE_URL to backend (travel-quiz-app)
         env:

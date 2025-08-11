@@ -1,6 +1,7 @@
 import os
 import json
 import httpx
+import os
 from google.adk.agents import LlmAgent
 try:
     # Prefer official ADK function tool wrapper if available
@@ -25,13 +26,15 @@ DEFAULT_INSTRUCTION = (
     "{\n  \"plans\": [\n    {\"title\": \"...\", \"description\": \"...\"},\n"
     "    {\"title\": \"...\", \"description\": \"...\"},\n"
     "    {\"title\": \"...\", \"description\": \"...\"}\n  ]\n}\n\n"
-    "制約:\n- 国内旅行に限定\n- 地域はなるべく分散（北/東/西など）\n- 日本語で簡潔に\n"
+    "制約:\n- 国内旅行に限定\n- 地域はなるべく分散（北/東/西など）\n- 日本語で簡潔に\n\n"
+    "注記: 必要に応じて `retrieve_google_maps_platform_docs` ツールを用い、最新のGoogle Maps Platform公式ガイドに準拠した提案やコード方針を参考にしてください。"
 )
 
 INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
 
 # Root agent exposed to ADK Web/UI
-MAPS_MCP_ENDPOINT_URL = os.getenv("MAPS_MCP_ENDPOINT_URL")  # e.g., http://localhost:3000/tools/retrieve-google-maps-platform-docs
+MAPS_MCP_ENDPOINT_URL = os.getenv("MAPS_MCP_ENDPOINT_URL")  # e.g., https://maps-mcp-service-xxxx.a.run.app/tools/retrieve-google-maps-platform-docs
+MAPS_MCP_AUDIENCE = os.getenv("MAPS_MCP_AUDIENCE")  # e.g., https://maps-mcp-service-xxxx.a.run.app
 
 async def retrieve_google_maps_platform_docs(query: str) -> str:
     """Retrieve relevant Google Maps Platform docs/snippets via MCP bridge.
@@ -40,8 +43,26 @@ async def retrieve_google_maps_platform_docs(query: str) -> str:
     if not MAPS_MCP_ENDPOINT_URL:
         return "[maps-mcp] 未設定: MAPS_MCP_ENDPOINT_URL を設定してください。"
     try:
+        headers = {"Content-Type": "application/json"}
+        # If audience is provided, fetch an identity token from metadata server (Cloud Run) and include it
+        token = None
+        if MAPS_MCP_AUDIENCE and os.getenv('K_SERVICE'):
+            try:
+                md_url = (
+                    f"http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?"
+                    f"audience={MAPS_MCP_AUDIENCE}&format=full"
+                )
+                async with httpx.AsyncClient(timeout=5.0) as md:
+                    md_resp = await md.get(md_url, headers={"Metadata-Flavor": "Google"})
+                    if md_resp.status_code == 200:
+                        token = md_resp.text.strip()
+            except Exception:
+                token = None
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
         async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.post(MAPS_MCP_ENDPOINT_URL, json={"query": query})
+            r = await client.post(MAPS_MCP_ENDPOINT_URL, headers=headers, json={"query": query})
             r.raise_for_status()
             ct = r.headers.get("content-type", "")
             if "application/json" in ct:

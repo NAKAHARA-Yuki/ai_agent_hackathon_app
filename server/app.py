@@ -414,7 +414,7 @@ def agent_chat():
             except Exception as e:
                 print(f"Agent chat delegation failed: {e}")
 
-        # フォールバック: キーワードに応じて簡易候補地を返す
+    # フォールバック: キーワードに応じて簡易候補地を返す
         reply = '次の候補を地図に表示しました。気になる場所はありますか？'
         candidates = []
         s = message
@@ -433,6 +433,40 @@ def agent_chat():
     except Exception as e:
         print(f"agent_chat error: {e}")
         return jsonify({ 'reply': 'エラーが発生しました。時間をおいて再試行してください。' })
+
+@app.post('/api/geocode')
+def geocode_places():
+    """地名の配列を受け取って緯度経度に解決する。Google Geocoding APIキーはフロントのVITE_キーとは別管理のため、
+    サーバー側で x-goog-api-key として GEMINI_API_KEY を使わず、環境変数 GOOGLE_MAPS_API_KEY があれば使用する。
+    形式: { names: ["箱根温泉", ...] } -> { results: [{ name, lat, lng, formatted_address }] }
+    """
+    try:
+        data = request.get_json() or {}
+        names = data.get('names') or []
+        if not isinstance(names, list) or not names:
+            return jsonify({ 'results': [] })
+        api_key = os.getenv('GOOGLE_MAPS_API_KEY')
+        results = []
+        if not api_key:
+            # APIキー未設定時は空で返す（フロントは名称のみで処理可能）
+            return jsonify({ 'results': results })
+        for nm in names[:20]:
+            try:
+                url = 'https://maps.googleapis.com/maps/api/geocode/json'
+                params = { 'address': nm, 'key': api_key, 'language': 'ja' }
+                r = requests.get(url, params=params, timeout=10)
+                if r.ok:
+                    j = r.json()
+                    if j.get('results'):
+                        g = j['results'][0]
+                        loc = g['geometry']['location']
+                        results.append({ 'name': nm, 'lat': loc['lat'], 'lng': loc['lng'], 'formatted_address': g.get('formatted_address') })
+            except Exception:
+                continue
+        return jsonify({ 'results': results })
+    except Exception as e:
+        print(f"geocode error: {e}")
+        return jsonify({ 'results': [] })
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
