@@ -1,0 +1,83 @@
+openapi: 3.0.3
+info:
+  title: Travel Agent API
+  version: 0.1.0
+  description: Agent service for generating domestic travel plans
+servers:
+  - url: https://travel-agent-service-xxxxx.a.run.app
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /v1/plan:
+    post:
+      summary: Generate travel plans
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponse'
+components:
+  schemas:
+    Persona:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        traitScores:
+          type: object
+          additionalProperties:
+            type: number
+    Profile:
+      type: object
+      properties:
+        display_name: { type: string }
+        age: { type: integer, minimum: 0, maximum: 120 }
+        birthdate: { type: string, pattern: '^\\d{4}-\\d{2}-\\d{2}$' }
+        gender: { type: string }
+        hobbies:
+          type: array
+          items: { type: string }
+        location: { type: string }
+        budget: { type: string }
+        notes: { type: string }
+    Constraints:
+      type: object
+      properties:
+        stay_length: { type: string }
+        regions:
+          type: array
+          items: { type: string }
+        season: { type: string }
+        transport: { type: string }
+    Plan:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string }
+        description: { type: string }
+    PlanRequest:
+      type: object
+      required: [persona]
+      properties:
+        persona: { $ref: '#/components/schemas/Persona' }
+        profile: { $ref: '#/components/schemas/Profile' }
+        constraints: { $ref: '#/components/schemas/Constraints' }
+    PlanResponse:
+      type: object
+      properties:
+        plans:
+          type: array
+          items: { $ref: '#/components/schemas/Plan' }

@@ -1,0 +1,111 @@
+name: Deploy Agent (Cloud Run)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'agent/**'
+      - '.github/workflows/deploy-agent-cloud-run.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up gcloud auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Configure gcloud project
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker --quiet
+
+    - name: Build and push images (Agent + MCP)
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+      AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service
+      MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service
+      docker build -t ${AGENT_IMAGE}:$GITHUB_SHA agent
+      docker build -t ${MCP_IMAGE}:$GITHUB_SHA mcp
+      docker push ${AGENT_IMAGE}:$GITHUB_SHA
+      docker push ${MCP_IMAGE}:$GITHUB_SHA
+
+  - name: Deploy MCP to Cloud Run (auth required)
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          MCP_IMAGE=gcr.io/${PROJECT_ID}/maps-mcp-service:${GITHUB_SHA}
+          gcloud run deploy maps-mcp-service \
+            --image ${MCP_IMAGE} \
+            --region ${REGION} \
+            --platform managed \
+            --port 3000
+
+      - name: Deploy Agent to Cloud Run (with MCP URL)
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          AGENT_IMAGE=gcr.io/${PROJECT_ID}/travel-agent-service:${GITHUB_SHA}
+          MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
+          MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
+          gcloud run deploy travel-agent-service \
+            --image ${AGENT_IMAGE} \
+            --region ${REGION} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
+
+      - name: Grant Agent SA invoker on MCP service
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          # Get agent service account
+          AGENT_SA=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
+          if [ -z "$AGENT_SA" ]; then
+            PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
+            AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
+          fi
+          echo "Granting roles/run.invoker to ${AGENT_SA} on maps-mcp-service"
+          gcloud run services add-iam-policy-binding maps-mcp-service \
+            --region ${REGION} \
+            --member serviceAccount:${AGENT_SA} \
+            --role roles/run.invoker
+
+      - name: Propagate AGENT_BASE_URL to backend (travel-quiz-app)
+        env:
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+        run: |
+          set -e
+          # Get deployed agent service URL
+          AGENT_URL=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(status.url)' || true)
+          if [ -z "$AGENT_URL" ]; then
+            echo "Agent URL could not be resolved. Skipping propagation."
+            exit 0
+          fi
+          echo "Resolved AGENT_BASE_URL=${AGENT_URL}"
+          # Check if backend service exists
+          if gcloud run services describe travel-quiz-app --region ${REGION} --format 'value(metadata.name)' >/dev/null 2>&1; then
+            gcloud run services update travel-quiz-app \
+              --region ${REGION} \
+              --update-env-vars=AGENT_BASE_URL=${AGENT_URL}
+            echo "Updated travel-quiz-app AGENT_BASE_URL"
+          else
+            echo "Backend service 'travel-quiz-app' not found. Skipping update."
+          fi
