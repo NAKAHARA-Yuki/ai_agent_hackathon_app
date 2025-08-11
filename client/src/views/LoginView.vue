@@ -56,7 +56,7 @@ async function submit() {
 </template>
 
 <style scoped>
-.auth { display:grid; place-items:center; padding:32px 16px; height:100%; overflow:auto; }
+.auth { display:grid; place-items:center; padding:32px 16px; height:100%; overflow:auto; flex: 1 1 auto; width: 100%; }
 .panel { width:min(560px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .form { display:grid; gap:12px; }

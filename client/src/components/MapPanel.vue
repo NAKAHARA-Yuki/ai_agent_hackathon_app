@@ -2,18 +2,27 @@
 import { onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
-  places: { type: Array, default: () => [] }
+  places: { type: Array, default: () => [] },
+  routeInfo: { type: Array, default: () => [] }
 })
 
 let map
 const mapEl = ref(null)
 const markers = []
+const polylines = []
 const status = ref('loading') // 'loading' | 'ready' | 'no-key' | 'load-error'
 
 function clearMarkers() {
   while (markers.length) {
     const m = markers.pop()
     m.setMap(null)
+  }
+}
+
+function clearPolylines() {
+  while (polylines.length) {
+    const pl = polylines.pop()
+    pl.setMap(null)
   }
 }
 
@@ -31,6 +40,34 @@ function fitBounds(list) {
   const bounds = new window.google.maps.LatLngBounds()
   list.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }))
   map.fitBounds(bounds)
+}
+
+function drawRoutes(places, routes) {
+  if (!Array.isArray(routes) || !routes.length) return
+  // 索引用: 名前→座標
+  const index = new Map()
+  for (const p of places) {
+    if (p?.name && typeof p.lat === 'number' && typeof p.lng === 'number') {
+      index.set(p.name, { lat: p.lat, lng: p.lng })
+    }
+  }
+  const colors = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2']
+  let colorIdx = 0
+  for (const seg of routes) {
+    const a = index.get(seg?.from)
+    const b = index.get(seg?.to)
+    if (!a || !b) continue
+    const strokeColor = colors[colorIdx++ % colors.length]
+    const pl = new window.google.maps.Polyline({
+      path: [a, b],
+      geodesic: true,
+      strokeColor,
+      strokeOpacity: 0.9,
+      strokeWeight: 4,
+      map
+    })
+    polylines.push(pl)
+  }
 }
 
 function ensureMapsReady() {
@@ -83,6 +120,8 @@ onMounted(async () => {
     clearMarkers()
     const pts = (props.places || []).filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number')
     addMarkers(pts)
+    clearPolylines()
+    drawRoutes(pts, props.routeInfo)
     if (pts.length > 0) {
       fitBounds(pts)
     } else {
@@ -97,11 +136,13 @@ onMounted(async () => {
   }
 })
 
-watch(() => props.places, (list) => {
+function refresh() {
   if (!map) return
   clearMarkers()
-  const pts = (list || []).filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number')
+  const pts = (props.places || []).filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number')
   addMarkers(pts)
+  clearPolylines()
+  drawRoutes(pts, props.routeInfo)
   if (pts.length > 0) {
     fitBounds(pts)
   } else {
@@ -111,7 +152,13 @@ watch(() => props.places, (list) => {
     )
     map.fitBounds(japanBounds)
   }
-}, { deep: true })
+}
+
+watch(() => props.places, () => refresh(), { deep: true })
+watch(() => props.routeInfo, () => refresh(), { deep: true })
+
+// 親からの明示的なリフレッシュ呼び出し用（オーバーレイ開閉時など）
+defineExpose({ refresh })
 </script>
 
 <template>
