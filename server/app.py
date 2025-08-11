@@ -774,6 +774,15 @@ def profile():
             except Exception:
                 errors.append('age must be an integer')
 
+        # birthdate (YYYY-MM-DD)
+        if 'birthdate' in prof:
+            bd = as_str(prof.get('birthdate'))
+            if bd:
+                if re.fullmatch(r'\d{4}-\d{2}-\d{2}', bd):
+                    sanitized['birthdate'] = bd
+                else:
+                    errors.append('invalid birthdate format')
+
         # gender
         if 'gender' in prof:
             g = as_str(prof.get('gender'))

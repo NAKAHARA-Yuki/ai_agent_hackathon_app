@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
 
 const auth = useAuthStore()
@@ -7,11 +7,16 @@ const me = computed(() => auth.user)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
-const profile = ref({ display_name: '', age: '', gender: '', hobbies: [], location: '', budget: '', notes: '' })
+const profile = ref({ display_name: '', age: '', birthdate: '', gender: '', hobbies: [], location: '', budget: '', notes: '' })
 const toast = ref('')
 const latestPersona = ref(null)
 const hobbiesError = ref('')
 const canAddHobby = computed(() => (profile.value.hobbies?.length || 0) < 10)
+const dobError = ref('')
+const displayAge = computed(() => {
+  const a = profile.value.age
+  return (a === '' || a == null || Number.isNaN(a)) ? '—' : String(a)
+})
 
 function splitHobbies(input) {
   if (Array.isArray(input)) return input
@@ -28,11 +33,16 @@ async function loadProfile() {
       profile.value = {
         display_name: p.display_name || (data.name || me.value?.name || ''),
         age: p.age || '',
+        birthdate: p.birthdate || '',
         gender: p.gender || '',
         hobbies: splitHobbies(p.hobbies || []),
         location: p.location || '',
         budget: p.budget || '',
         notes: p.notes || ''
+      }
+      // 読み込み時にも生年月日から年齢を再計算
+      if (profile.value.birthdate) {
+        profile.value.age = calcAge(profile.value.birthdate)
       }
     }
   } catch (e) {
@@ -65,12 +75,61 @@ function addTag(e) {
   e.target.value = ''
 }
 
+function calcAge(dobStr) {
+  try {
+    if (!dobStr) return ''
+    const today = new Date()
+    const [y, m, d] = dobStr.split('-').map(Number)
+    if (!y || !m || !d) return ''
+    let age = today.getFullYear() - y
+    const hasHadBirthday = (today.getMonth() + 1 > m) || ((today.getMonth() + 1 === m) && (today.getDate() >= d))
+    if (!hasHadBirthday) age -= 1
+    if (age < 0 || age > 120) return ''
+    return age
+  } catch { return '' }
+}
+
+// 生年月日変更で年齢を自動更新
+watch(() => profile.value.birthdate, (v) => {
+  // 構文と実在チェック
+  dobError.value = ''
+  if (!v) { profile.value.age = ''; return }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    dobError.value = 'YYYY-MM-DD形式で入力してください'
+    profile.value.age = ''
+    return
+  }
+  const [y, m, d] = v.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  if (!(dt && dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d)) {
+    dobError.value = '存在しない日付です'
+    profile.value.age = ''
+    return
+  }
+  const age = calcAge(v)
+  if (age === '') {
+    dobError.value = '年齢が計算できません'
+  }
+  profile.value.age = age
+})
+
 async function saveProfile() {
   if (saving.value) return
   saving.value = true
   error.value = ''
   try {
-    const payload = { profile: { ...profile.value, hobbies: profile.value.hobbies } }
+  // save前に年齢をDOBから再計算（信頼できる形で送る）
+    const ageFromDob = calcAge(profile.value.birthdate)
+    const bodyProfile = { ...profile.value, hobbies: profile.value.hobbies }
+    if (dobError.value) {
+      delete bodyProfile.birthdate
+    }
+    if (ageFromDob === '' || ageFromDob == null || Number.isNaN(ageFromDob)) {
+      delete bodyProfile.age
+    } else {
+      bodyProfile.age = ageFromDob
+    }
+    const payload = { profile: bodyProfile }
     const resp = await fetch('/api/profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
@@ -110,12 +169,16 @@ onMounted(async () => {
             <input v-model="profile.display_name" type="text" placeholder="いざ旅 太郎" />
           </div>
           <div class="field">
+            <label>生年月日</label>
+            <input v-model="profile.birthdate" type="date" :max="new Date().toISOString().slice(0,10)" />
+          </div>
+          <div class="field">
             <label>年齢</label>
-            <input v-model.number="profile.age" type="number" min="0" max="120" placeholder="28" />
+            <div class="readonly-value" :class="{ 'muted': displayAge==='—' }">{{ displayAge }}</div>
           </div>
           <div class="field">
             <label>性別</label>
-            <div class="segmented" role="radiogroup" aria-label="性別">
+            <div class="segmented compact" role="radiogroup" aria-label="性別">
               <button type="button" class="seg-btn" :class="{ active: profile.gender==='男性' }" @click="profile.gender='男性'" role="radio" :aria-checked="profile.gender==='男性'">男性</button>
               <button type="button" class="seg-btn" :class="{ active: profile.gender==='女性' }" @click="profile.gender='女性'" role="radio" :aria-checked="profile.gender==='女性'">女性</button>
               <button type="button" class="seg-btn" :class="{ active: profile.gender==='その他' }" @click="profile.gender='その他'" role="radio" :aria-checked="profile.gender==='その他'">その他</button>
@@ -191,12 +254,14 @@ button.primary { background:#2563eb; color:#fff; border:none; padding:10px 16px;
 .toast { position: sticky; top: 8px; background:#16a34a; color:#fff; padding:6px 10px; border-radius: 8px; display:inline-block; margin-left: 8px; }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-.segmented { display:inline-flex; background:#f3f4f6; border-radius:10px; padding:3px; gap:4px; }
-.seg-btn { border:none; background:transparent; padding:8px 12px; border-radius:8px; cursor:pointer; color:#374151; }
+.segmented { display:inline-flex; background:#f3f4f6; border-radius:10px; padding:2px; gap:2px; }
+.segmented.compact { padding:1px; gap:2px; }
+.seg-btn { border:none; background:transparent; padding:4px 8px; border-radius:6px; cursor:pointer; color:#374151; font-size: 12px; line-height: 1.1; }
 .seg-btn.active { background:#2563eb; color:#fff; }
 .seg-btn:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
 .hint-row { display:flex; justify-content: space-between; align-items:center; margin-top:6px; }
 .error.small { font-size: 12px; }
+.readonly-value { padding:10px 12px; border:1px dashed #e5e7eb; border-radius:10px; font-size:14px; background:#f9fafb; }
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }
 }
