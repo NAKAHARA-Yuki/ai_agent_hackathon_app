@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import StartView from '../views/StartView.vue'
-import AuthView from '../views/AuthView.vue'
+import LoginView from '../views/LoginView.vue'
+import SignupView from '../views/SignupView.vue'
 import { useAuthStore } from '@/stores/authStore'
 import QuestionView from '../views/QuestionView.vue'
 import ResultView from '../views/ResultView.vue'
@@ -8,11 +9,8 @@ import ResultView from '../views/ResultView.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    {
-      path: '/auth',
-      name: 'auth',
-      component: AuthView
-    },
+  { path: '/login', name: 'login', component: LoginView },
+  { path: '/signup', name: 'signup', component: SignupView },
     {
       path: '/',
       name: 'home',
@@ -34,11 +32,11 @@ const router = createRouter({
 // 認証ガード: 未認証なら /auth へ
 router.beforeEach((to) => {
   const auth = useAuthStore()
-  const publicPaths = new Set(['/auth'])
+  const publicPaths = new Set(['/login', '/signup'])
   if (!auth.isAuthenticated && !publicPaths.has(to.path)) {
-    return { name: 'auth', query: { redirect: to.fullPath } }
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if (auth.isAuthenticated && to.name === 'auth') {
+  if (auth.isAuthenticated && (to.name === 'login' || to.name === 'signup')) {
     return { name: 'home' }
   }
 })
