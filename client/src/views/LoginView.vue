@@ -31,18 +31,18 @@ async function submit() {
 <template>
   <main class="auth">
     <section class="panel">
-  <BackButton />
       <h1>ログイン</h1>
       <p class="lead">アカウントでログインして診断を進めましょう。</p>
 
       <form @submit.prevent="submit" class="form">
         <div class="field">
           <label>ユーザーID</label>
-          <input v-model.trim="user_id" type="text" autocomplete="username" placeholder="例: nakahara_yuki" />
+          <input v-model.trim="user_id" type="text" autocomplete="username" placeholder="例: gemini-user" />
         </div>
         <div class="field">
           <label>パスワード</label>
           <input v-model="password" type="password" autocomplete="current-password" placeholder="••••••" />
+          <p class="muted">パスワードは8文字以上である必要があります。</p>
         </div>
 
         <p v-if="error" class="error">{{ error }}</p>
