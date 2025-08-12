@@ -81,7 +81,8 @@ watch(isMapOpen, async (open) => {
   overflow: hidden; /* 各ペインの内部で必要に応じてスクロール */
   height: 100%;
 }
-.left { display:flex; }
+.left { display:flex; flex-direction: column; }
+.left > .chat { flex: 1; }
 .right { position: relative; }
 .left-header { position: sticky; top: 0; z-index: 5; padding: 8px; background: #fff; border-bottom: 1px solid #eee; }
 
