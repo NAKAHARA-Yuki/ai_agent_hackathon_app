@@ -35,7 +35,6 @@ async function submit() {
 <template>
   <main class="auth">
     <section class="panel">
-  <BackButton />
       <h1>新規登録</h1>
       <p class="lead">アカウントを作成して診断を始めましょう。</p>
 
@@ -46,12 +45,13 @@ async function submit() {
         </div>
         <div class="field">
           <label>ユーザーID</label>
-          <input v-model.trim="user_id" type="text" placeholder="例: nakahara_yuki" />
+          <input v-model.trim="user_id" type="text" placeholder="例: gemini-user" />
           <small class="hint">英小文字・数字・_・- の3〜30文字</small>
         </div>
         <div class="field">
           <label>パスワード</label>
           <input v-model="password" type="password" placeholder="••••••" />
+          <p class="muted">パスワードは8文字以上である必要があります。</p>
         </div>
 
         <p v-if="error" class="error">{{ error }}</p>

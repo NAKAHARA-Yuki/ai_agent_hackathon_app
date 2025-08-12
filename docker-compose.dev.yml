@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   maps-mcp:
     build:
@@ -8,8 +6,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-  - PORT=3000
-  - LOG_LEVEL=DEBUG
+      - PORT=3000
+      - LOG_LEVEL=DEBUG
     # Exposes an HTTP endpoint for docs retrieval at /tools/retrieve-google-maps-platform-docs
 
   agent:
@@ -23,7 +21,7 @@ services:
     env_file:
       - ./server/.env
     environment:
-  # Model/API keys are supplied via env_file (./server/.env)
+      # Model/API keys are supplied via env_file (./server/.env)
       - LOG_LEVEL=DEBUG
       # MCP bridging (service-to-service in compose network)
       - MAPS_MCP_ENDPOINT_URL=http://maps-mcp:3000/tools/retrieve-google-maps-platform-docs
