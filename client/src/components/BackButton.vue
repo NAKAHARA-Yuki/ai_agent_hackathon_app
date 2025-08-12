@@ -58,16 +58,17 @@ function goBack() {
   padding: 6px 10px;
   font-weight: 600;
   cursor: pointer;
-  margin-bottom: 10px;
 }
 .back-btn:hover { background: #f3f4f6; }
 
 .back-btn.icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
   padding: 0;
+  transition: background 0.2s ease;
 }
+.back-btn.icon:hover { background: #e5e7eb; }
 </style>
