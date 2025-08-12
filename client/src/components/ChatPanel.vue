@@ -167,7 +167,13 @@ function renderHtml(text) {
           @input="autoResize"
           :disabled="isSending"
         />
-        <button type="submit" :disabled="isSending">{{ isSending ? '送信中…' : '送信' }}</button>
+        <button type="submit" :disabled="isSending">
+          <svg v-if="!isSending" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+          <span v-else>送信中…</span>
+        </button>
       </form>
       <div class="composer-actions">
         <button type="button" class="map-open-btn" @click="emit('open-map')" aria-label="地図を表示">🗺️ 地図を表示</button>
@@ -193,12 +199,12 @@ function renderHtml(text) {
 .bubble.typing .dot:nth-child(2) { animation-delay: .2s; }
 .bubble.typing .dot:nth-child(3) { animation-delay: .4s; }
 @keyframes typingBlink { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
-.composer-area { position: static; background:#fff; border-top:1px solid #eee; padding: 8px 0; }
+.composer-area { position: static; background:#fff; border-top:1px solid #eee; padding: 8px 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.05); }
 .composer { display:flex; gap:8px; align-items:stretch; background:#fff; width: 100%; padding: 0 12px; box-sizing: border-box; }
 /* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
 .composer textarea { flex: 1 1 0%; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; height: 40px; max-height: 160px; box-sizing: border-box; }
 .composer textarea:disabled { background: #f9fafb; cursor: not-allowed; }
-.composer button { flex: 0 0 112px; height: auto; align-self: stretch; display:flex; align-items:center; justify-content:center; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; min-height: 40px; }
+.composer button { flex: 0 0 40px; height: 40px; align-self: flex-end; display:flex; align-items:center; justify-content:center; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; min-height: 40px; padding: 0; }
 .composer button[disabled] { opacity: 0.6; cursor: not-allowed; }
 
 .composer-actions { margin-top: 6px; display: none; padding: 0 12px; box-sizing: border-box; }
