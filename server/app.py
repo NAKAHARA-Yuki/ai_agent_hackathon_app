@@ -28,7 +28,10 @@ except Exception as e:
     # fallback to default search if direct load fails
     load_dotenv(override=True)
 
-app = Flask(__name__, static_folder='client/dist', static_url_path='/')
+# Resolve absolute path to client/dist so SPA can be served reliably from the backend
+_repo_root = Path(__file__).resolve().parent.parent
+_client_dist = _repo_root / 'client' / 'dist'
+app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/')
 
 # Logging setup
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
