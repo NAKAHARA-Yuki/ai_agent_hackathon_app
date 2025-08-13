@@ -6,7 +6,7 @@ import BackButton from '@/components/BackButton.vue'
 
 // エージェントが提案した場所の一覧（{ name, lat, lng, note }）
 const places = ref([])
-const routeInfo = ref([]) // Google Routes APIレスポンス or 旧[{from,to,mode,detail}]
+const routeInfo = ref(null) // ルート情報（{ origin, destination }）
 const isMapOpen = ref(false)
 const overlayMapRef = ref(null)
 
@@ -18,12 +18,11 @@ function handleAgentUpdate(payload) {
       .filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number')
       .slice(0, 50)
   }
-  if (Array.isArray(payload?.route_info)) {
-    routeInfo.value = payload.route_info.slice(0, 100)
-  } else if (payload?.route_info && typeof payload.route_info === 'object') {
+
+  if (payload?.route_info && typeof payload.route_info === 'object' && payload.route_info.origin && payload.route_info.destination) {
     routeInfo.value = payload.route_info
   } else {
-    routeInfo.value = []
+    routeInfo.value = null
   }
 }
 
