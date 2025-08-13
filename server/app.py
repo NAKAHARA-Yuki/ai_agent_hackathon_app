@@ -663,7 +663,7 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     bridge_logger.info(f"Run agent: POST {run_url} app={app_name} user={user_id} session={session_id} msg_len={len(message_text)}")
     if LOG_PAYLOADS:
         try:
-            bridge_logger.debug(f"Run payload: {_snip_json(payload)}")
+            bridge_logger.info(f"Run payload: {_snip_json(payload)}")
         except Exception:
             pass
     t0 = monotonic()
@@ -686,7 +686,7 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
     if LOG_PAYLOADS:
         try:
-            bridge_logger.debug(f"Run response: {_snip_json(j)}")
+            bridge_logger.info(f"Run response: {_snip_json(j)}")
         except Exception:
             pass
     return j
