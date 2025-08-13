@@ -22,4 +22,4 @@ COPY tools ./tools
 EXPOSE 8080
 ENTRYPOINT ["tini", "--"]
 # ADK API server with CORS configured for local dev; serve agents from /app/agents
-CMD ["adk", "api_server", "--host", "0.0.0.0", "--port", "8080", "--allow_origins", "http://localhost:4200", "./agents"]
+CMD ["adk", "api_server", "--host", "0.0.0.0", "--port", "8080", "--log_level", "debug", "--allow_origins", "http://localhost:4200", "./agents"]
