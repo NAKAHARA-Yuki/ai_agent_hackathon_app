@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore'
 const auth = useAuthStore()
 
 const messages = ref([
-  { role: 'assistant', text: 'こんにちは。どんな旅がしたいですか？（例: 美術館めぐり、温泉、自然、グルメ）' }
+  { role: 'assistant', text: 'こんにちは。どんな旅がしたいですか？（例: 美術館めぐり、温泉、自然、グルメ）', citations: [], grounding_html: null }
 ])
 const userInput = ref('')
 const isSending = ref(false)
@@ -56,7 +56,6 @@ async function sendMessage() {
   const text = userInput.value.trim()
   if (!text || isSending.value) return
   isSending.value = true
-  console.debug('[Chat] send start', { user_id: userId.value, session_id: sessionId.value, len: text.length })
   messages.value.push({ role: 'user', text })
   userInput.value = ''
   await nextTick()
@@ -74,38 +73,33 @@ async function sendMessage() {
     })
     if (!resp.ok) throw new Error('failed')
     const data = await resp.json()
-    console.debug('[Chat] response', { ok: true, keys: Object.keys(data || {}), hasPlaces: Array.isArray(data?.places) })
     
     const reply = data.reply || ''
     const citations = data.citations || []
-    const assistantMessage = { role: 'assistant', text: reply, citations: citations }
+    const groundingHtml = data.grounding_html || null
+    const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml }
     
-    // 以前の grounding_html ロジックは削除し、citations を使う
-    if (reply || citations.length > 0) {
+    if (reply || citations.length > 0 || groundingHtml) {
       messages.value.push(assistantMessage)
     }
     scrollToBottom()
 
-    const routeInfo = data.route_info // オブジェクトまたはnull
-    const places = data.places // 配列またはnull
+    const routeInfo = data.route_info
+    const places = data.places
 
-    // 親コンポーネントに更新を通知
     emit('agent-update', { reply, places, route_info: routeInfo, citations })
 
   } catch (e) {
-    console.debug('[Chat] error', e)
-    messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。', citations: [] })
+    console.error('Chat send error', e)
+    messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。', citations: [], grounding_html: null })
     scrollToBottom()
   } finally {
-    console.debug('[Chat] send end')
     isSending.value = false
   }
 }
 
 function onEnter(e) {
-  // IME 変換中は送信しない（Enterは変換確定用）
   if (e.isComposing || isComposing.value) return
-  // Shift+Enter で改行、Enterのみで送信
   if (e.shiftKey) return
   e.preventDefault()
   sendMessage()
@@ -120,11 +114,11 @@ function autoResize(e) {
 function renderHtml(text) {
   try {
     const raw = marked.parse(text || '')
-    const sanitized = DOMPurify.sanitize(raw, {
-      ADD_TAGS: ['svg', 'path', 'circle', 'div'],
-      ADD_ATTR: ['fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href']
+    // Allow more tags for grounding results
+    return DOMPurify.sanitize(raw, {
+      ADD_TAGS: ['svg', 'path', 'circle', 'div', 'g', 'a'],
+      ADD_ATTR: ['fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href', 'target', 'rel']
     })
-    return sanitized
   } catch {
     return text
   }
@@ -138,12 +132,13 @@ function renderHtml(text) {
       <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]">
         <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
         <div v-else class="bubble">
-          <div v-if="m.text" v-html="renderHtml(m.text)"></div>
+          <div v-if="m.grounding_html" class="grounding" v-html="renderHtml(m.grounding_html)"></div>
+          <div v-if="m.text" class="text" v-html="renderHtml(m.text)"></div>
           <div v-if="m.citations && m.citations.length" class="citations">
             <p><strong>引用元:</strong></p>
             <ul>
               <li v-for="c in m.citations" :key="c.index">
-                [{{ c.index }}] <a :href="'https://www.google.com/search?q=' + encodeURIComponent(c.query)" target="_blank" rel="noopener">{{ c.query }}</a>
+                [{{ c.index }}] <a :href="c.uri" target="_blank" rel="noopener">{{ c.title }}</a>
               </li>
             </ul>
           </div>

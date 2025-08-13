@@ -16,22 +16,31 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # Ensure we load env from this directory (server/.env) even if CWD is repo root
 _env_path = Path(__file__).resolve().parent / '.env'
+logging.info(f"Attempting to load .env file from: {_env_path}")
 try:
-    load_dotenv(dotenv_path=str(_env_path))
-except Exception:
+    if _env_path.exists():
+        load_dotenv(dotenv_path=str(_env_path), override=True)
+        logging.info(".env file loaded successfully.")
+    else:
+        logging.warning(".env file not found at the specified path.")
+except Exception as e:
+    logging.error(f"Error loading .env file: {e}")
     # fallback to default search if direct load fails
-    load_dotenv()
+    load_dotenv(override=True)
 
 app = Flask(__name__, static_folder='client/dist', static_url_path='/')
 
 # Logging setup
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
-LOG_FORMAT = os.getenv("LOG_FORMAT") or "%(asctime)s %(levelname)s %(name)s - %(message)s"
-try:
-    logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO), format=LOG_FORMAT)
-except Exception:
-    logging.basicConfig(level=logging.INFO)
+numeric_level = getattr(logging, LOG_LEVEL, logging.INFO)
+logging.basicConfig(
+    level=numeric_level,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    force=True
+)
 logger = logging.getLogger("server")
+logger.setLevel(numeric_level)
+app.logger.setLevel(numeric_level)
 
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 # Forced to True as requested
@@ -131,6 +140,9 @@ FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJE
 
 # JWT Secret 強化: 本番では未設定を許可しない
 ENV = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
+logger.info(f"Starting server in {ENV.upper()} mode.")
+
+_jwt_from_env = os.getenv("JWT_SECRET")
 _jwt_from_env = os.getenv("JWT_SECRET")
 if ENV.lower() == "development":
     JWT_SECRET = _jwt_from_env or "dev-secret-change-me"
@@ -725,9 +737,7 @@ def mark_session_initialized(user_id: str, session_id: str):
 
 @app.post('/api/agent/chat')
 def agent_chat():
-    """チャットAPI。
-    仕様: { message: string, user_id?: string, session_id?: string } -> { reply: string, places?: [...], citations?: [] }
-    """
+    """チャットAPI。"""
     try:
         data = request.get_json() or {}
         tid = getattr(request, '_trace_id', None)
@@ -735,101 +745,59 @@ def agent_chat():
             logger.info(f"/api/agent/chat request body: {_snip_json(data)} trace={tid}")
         message = (data.get('message') or '').strip()
         if not message:
-            return jsonify({"reply": "ご希望を教えてください（例: 温泉と美術館を楽しみたい）。"})
+            return jsonify({"reply": "ご希望を教えてください。"})
 
-        effective_base = AGENT_BASE_URL
-        if not effective_base:
+        effective_base = AGENT_BASE_URL or 'http://localhost:8080'
+        logger.info(f"/api/agent/chat delegating to ADK base={effective_base}")
+
+        req_user_id = (data.get('user_id') or '').strip() or 'u_local'
+        req_session_id = (data.get('session_id') or '').strip()
+        if not req_session_id:
+            return jsonify({"error": "session_id is required"}), 400
+        logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
+
+        claims = require_auth(request)
+        user_info, last_persona = None, None
+        if claims and db:
             try:
-                probe = requests.get("http://localhost:8080/list-apps", timeout=1.5)
-                if probe.ok:
-                    effective_base = "http://localhost:8080"
-                    logger.info("Detected local ADK at http://localhost:8080")
-            except Exception:
-                effective_base = None
+                udoc = db.collection('users').document(claims['sub']).get(timeout=3)
+                if udoc.exists:
+                    u = udoc.to_dict() or {}
+                    user_info = {'id': claims['sub'], 'name': u.get('name'), 'profile': u.get('profile') or {}}
+                    last_id = u.get('last_persona_id')
+                    if last_id:
+                        pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=3)
+                        if pdoc.exists:
+                            last_persona = (pdoc.to_dict() or {}).get('profile')
+            except Exception as e:
+                logger.warning(f"Error fetching user/persona info: {e}")
 
-        if effective_base:
-            logger.info(f"/api/agent/chat delegating to ADK base={effective_base}")
-            try:
-                req_user_id = (data.get('user_id') or '').strip() or None
-                req_session_id = (data.get('session_id') or '').strip() or None
-                if not req_session_id:
-                    return jsonify({"error": "session_id is required"}), 400
-                logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
+        message_to_send = message
+        if not is_session_initialized(req_user_id, req_session_id):
+            context = {'user': user_info, 'persona': last_persona}
+            message_to_send = "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) + "\n\n[ユーザーからの依頼]\n" + message
+        
+        logger.info(f"About to call agent with message: {message_to_send[:100]}...")
+        events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=True)
+        logger.info(f"Agent call returned {len(events) if events else 0} events.")
+        logger.debug(f"Agent events raw: {_snip_json(events)}")
 
-                claims = require_auth(request)
-                user_info, last_persona = None, None
-                if claims and db is not None:
-                    try:
-                        udoc = db.collection('users').document(claims['sub']).get(timeout=3)
-                        if udoc and udoc.exists:
-                            u = udoc.to_dict() or {}
-                            user_info = {'id': claims['sub'], 'name': u.get('name'), 'profile': u.get('profile') or {}}
-                            last_id = u.get('last_persona_id')
-                            if last_id:
-                                pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=3)
-                                if pdoc and pdoc.exists:
-                                    pd = pdoc.to_dict() or {}
-                                    last_persona = {'id': last_id, 'profile': pd.get('profile'), 'system_prompt': pd.get('system_prompt')}
-                    except Exception:
-                        pass
+        reply_text, places, route_info, citations, grounding_html = None, None, None, [], None
 
-                app_name = 'travel_planner'
-                user_id = req_user_id or (user_info.get('id') if isinstance(user_info, dict) else 'u_local')
-                session_id = req_session_id
+        if isinstance(events, list) and events:
+            final_event = events[-1]
+            content = final_event.get('content') or {}
+            if content.get('role') == 'model':
+                reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
 
-                if user_info is None: user_info = {'id': user_id}
-                else: user_info['id'] = user_id
-
-                formatting_hint = (
-                    "\n\n[出力フォーマットの指針]\n"
-                    "- 日別・時系列の旅程を提案するときは、Markdown表で提示してください。\n"
-                    "- 列例: 日/時間帯 | 場所 | アクティビティ/見どころ | 移動手段/所要 | メモ\n"
-                    "- コードブロックで囲まず、通常のMarkdown表で。\n"
-                )
-                initialized = is_session_initialized(user_id, session_id)
-                if not initialized:
-                    context = {'user': user_info, 'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None, 'persona_system_prompt': last_persona.get('system_prompt') if isinstance(last_persona, dict) else None}
-                    message_to_send = (
-                        "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
-                        "\n\n[ユーザーからの依頼]\n" + message + formatting_hint
-                    )
-                    logger.info(f"/api/agent/chat using INIT message user={user_id} session={session_id} trace={tid}")
-                else:
-                    message_to_send = message + formatting_hint
-                    logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id} trace={tid}")
-
-                events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=(not initialized))
-
-                reply_text, places, route_info, grounding_html, citations = None, None, None, None, []
-                grounding_supports, web_search_queries = [], []
-
-                if isinstance(events, list):
-                    for ev in events:
-                        if not isinstance(ev, dict): continue
-                        # ツール実行から検索クエリを収集
-                        if ev.get('type') == 'tool_code' and isinstance(ev.get('content'), dict):
-                            tool_code = ev['content'].get('tool_code') or ''
-                            if 'google_search' in tool_code and 'queries' in tool_code:
-                                try:
-                                    # `queries=[...]` の部分を雑に抽出
-                                    queries_str = re.search(r'queries=\[(.*?)\]', tool_code, re.DOTALL).group(1)
-                                    web_search_queries.extend([q.strip().strip("'\"") for q in queries_str.split(',')])
-                                except Exception:
-                                    pass
-                        # モデル応答からテキストとグラウンディング情報を収集
-                        if ev.get('type') == 'model' and isinstance(ev.get('content'), dict):
-                            parts = ev['content'].get('parts') or []
-                            for p in parts:
-                                if p.get('text'): reply_text = p['text']
-                            # grounding_metadata は content 直下にある場合と、candidates 内にある場合がある
-                            meta = ev['content'].get('grounding_metadata')
-                            if not meta and isinstance(ev['content'].get('candidates'), list) and ev['content']['candidates']:
-                                meta = ev['content']['candidates'][0].get('grounding_metadata')
-                            if isinstance(meta, dict) and isinstance(meta.get('grounding_supports'), list):
-                                grounding_supports.extend(meta['grounding_supports'])
-
-                # 引用情報を整理・挿入
-                if reply_text and grounding_supports and web_search_queries:
+            meta = final_event.get('groundingMetadata') or {}
+            if isinstance(meta, dict):
+                grounding_chunks = meta.get('grounding_chunks') or []
+                grounding_supports = meta.get('grounding_supports') or []
+                
+                citation_map = {i + 1: chunk.get('web', {}) for i, chunk in enumerate(grounding_chunks)}
+                
+                if reply_text and grounding_supports and citation_map:
                     segment_citations = {}
                     for support in grounding_supports:
                         segment = support.get('segment')
@@ -837,87 +805,60 @@ def agent_chat():
                         key = (segment['start_index'], segment['end_index'])
                         if key not in segment_citations: segment_citations[key] = set()
                         for chunk_idx in support.get('grounding_chunk_indices', []):
-                            if 0 <= chunk_idx < len(web_search_queries):
-                                segment_citations[key].add(chunk_idx + 1)
+                            segment_citations[key].add(chunk_idx + 1)
                     
                     sorted_segments = sorted(segment_citations.items(), key=lambda item: item[0][0], reverse=True)
                     for (start, end), indices in sorted_segments:
                         if not indices: continue
-                        citation_str = f"[{', '.join(map(str, sorted(list(indices))))}]"
+                        citation_str = f" [{' '.join(map(str, sorted(list(indices))))}]"
                         reply_text = reply_text[:end] + citation_str + reply_text[end:]
-                    
-                    for i, query in enumerate(web_search_queries):
-                        citations.append({"index": i + 1, "query": query})
+                
+                citations = []
+                for i, c in citation_map.items():
+                    original_uri = c.get('uri')
+                    if original_uri and "vertexaisearch.cloud.google.com/grounding-api-redirect/" in original_uri:
+                        search_query = c.get('title', '')
+                        if search_query:
+                            citations.append({"index": i, "title": c.get('title'), "uri": f"https://www.google.com/search?q={requests.utils.quote(search_query)}"})
+                        else:
+                            citations.append({"index": i, "title": c.get('title'), "uri": original_uri})
+                    else:
+                        citations.append({"index": i, "title": c.get('title'), "uri": original_uri})
 
-                # JSONオブジェクト（places, route_info）を本文から分離
-                if reply_text:
-                    try:
-                        s, idx = reply_text, reply_text.rfind('{')
-                        while idx != -1:
-                            tail = s[idx:].strip()
-                            try:
-                                obj = json.loads(tail)
-                                if isinstance(obj, dict) and (('places' in obj) or ('route_info' in obj)):
-                                    if 'places' in obj and places is None: places = obj.get('places')
-                                    if 'route_info' in obj and route_info is None: route_info = obj.get('route_info')
-                                    reply_text = s[:idx].rstrip()
-                                    break
-                            except Exception: pass
-                            idx = s.rfind('{', 0, idx)
-                    except Exception: pass
+                if isinstance(meta.get('search_entry_point'), dict):
+                    search_entry_point = meta['search_entry_point']
+                    web_search_queries = search_entry_point.get('web_search_queries')
+                    if web_search_queries:
+                        chips_html = []
+                        for query in web_search_queries:
+                            encoded_query = requests.utils.quote(query)
+                            chips_html.append(f'<a href="https://www.google.com/search?q={encoded_query}" target="_blank" rel="noopener" style="display:inline-block; border:solid 1px; border-radius:16px; min-width:14px; padding:5px 16px; text-align:center; margin: 0 8px;">{query}</a>')
+                        grounding_html = f'<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">{" ".join(chips_html)}</div>'
+                    else:
+                        grounding_html = search_entry_point.get('rendered_content')
 
-                logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} trace={tid}")
-                if not initialized: mark_session_initialized(user_id, session_id)
+        if reply_text:
+            try:
+                s, idx = reply_text, reply_text.rfind('{')
+                if idx != -1:
+                    tail = s[idx:].strip()
+                    obj = json.loads(tail)
+                    if isinstance(obj, dict):
+                        places = obj.get('places')
+                        route_info = obj.get('route_info')
+                        reply_text = s[:idx].rstrip()
+            except Exception: pass
 
-                resp = { 'reply': reply_text or '提案を作成しました。', 'places': places, 'citations': citations }
-                if route_info: resp['route_info'] = route_info
-                if LOG_PAYLOADS: logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
-                if tid: resp['trace_id'] = tid
-                return jsonify(resp)
+        logger.info(f"/api/agent/chat done user={req_user_id} session={req_session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} trace={tid}")
+        if not is_session_initialized(req_user_id, req_session_id):
+            mark_session_initialized(req_user_id, req_session_id)
 
-            except Exception:
-                logger.exception("Agent chat delegation failed")
-        
-        # フォールバック: キーワードに応じて簡易候補地を返す
-        reply = '次の候補を地図に表示しました。気になる場所はありますか？'
-        candidates = []
-        s = message
-        if any(k in s for k in ['温泉','箱根','湯']):
-            candidates.append({ 'name': '箱根温泉', 'lat': 35.232, 'lng': 139.106, 'note': '美術館と温泉巡り' })
-        if any(k in s for k in ['美術','アート','直島']):
-            candidates.append({ 'name': '直島 ベネッセハウス', 'lat': 34.459, 'lng': 134.009, 'note': '現代アート' })
-        if any(k in s for k in ['自然','登山','屋久島']):
-            candidates.append({ 'name': '屋久島 縄文杉', 'lat': 30.358, 'lng': 130.531, 'note': 'トレッキング' })
-        if not candidates:
-            candidates = [
-                { 'name': '東京駅', 'lat': 35.681236, 'lng': 139.767125, 'note': '基準点' },
-                { 'name': '京都駅', 'lat': 34.985849, 'lng': 135.758766, 'note': '観光拠点' },
-            ]
-        # 旅程系のキーワードがあれば簡易Markdown表を付与
-        if any(k in s for k in ['旅程','日程','スケジュール','行程','プラン','泊','日']):
-            reply = (
-                "サンプル旅程（Markdown表）:\n\n"
-                "| 日/時間帯 | 場所 | アクティビティ/見どころ | 移動手段/所要 | メモ |\n"
-                "|--|--|--|--|--|\n"
-                "| 1日目 午前 | 東京駅 → 箱根 | 移動・早めのランチ | JR/小田急 約90分 | 休日は混雑 |\n"
-                "| 1日目 午後 | 彫刻の森美術館 | 屋外アート鑑賞 | 駅から徒歩 | 雨天可 |\n"
-                "| 1日目 夜 | 箱根温泉 | 旅館チェックイン・温泉 | バス/送迎 | 夕食付 |\n"
-                "| 2日目 朝 | 早朝散歩 | 芦ノ湖畔散策 | 徒歩 | 写真スポット |\n"
-                "| 2日目 昼 | 大涌谷 | ロープウェイ観光 | 乗換約30分 | 黒たまご |\n"
-                "| 2日目 夕方 | 箱根 → 東京 | 帰路 | 小田急/新幹線 | 余裕を持って |\n\n"
-                "地図の候補地も併せてご確認ください。"
-            )
-        tid = getattr(request, '_trace_id', None)
-        logger.info(f"/api/agent/chat fallback used candidates={len(candidates)} trace={tid}")
-        resp = { 'reply': reply, 'places': candidates }
-        if LOG_PAYLOADS:
-            logger.info(f"/api/agent/chat response body (fallback): {_snip_json(resp)} trace={tid}")
-        if tid:
-            resp['trace_id'] = tid
+        resp = { 'reply': reply_text or '提案を作成しました。', 'places': places, 'citations': citations, 'grounding_html': grounding_html, 'route_info': route_info }
+        if LOG_PAYLOADS: logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
+        if tid: resp['trace_id'] = tid
         return jsonify(resp)
 
     except Exception as e:
-        tid = getattr(request, '_trace_id', None)
         logger.exception("agent_chat error")
         resp = { 'reply': 'エラーが発生しました。時間をおいて再試行してください。' }
         if tid:
@@ -1570,7 +1511,79 @@ def spa_fallback(path: str):
         # As a last resort, return 404 to avoid masking real backend errors
         return jsonify({ 'error': 'not_found' }), 404
 
+def create_dummy_user_if_needed():
+    if ENV.lower() != 'development' or db is None:
+        return
+    
+    dummy_user_id = 'devuser'
+    dummy_password = 'password'
+    users_ref = db.collection('users')
+    doc_ref = users_ref.document(dummy_user_id)
+    
+    try:
+        user_exists = doc_ref.get(timeout=5).exists
+        if user_exists:
+            user_data = doc_ref.get().to_dict()
+            if user_data.get('diagnosis_completed'):
+                logger.info(f"Dummy user '{dummy_user_id}' already exists and has a persona.")
+                return
+            else:
+                logger.info(f"Dummy user '{dummy_user_id}' exists but needs a persona. Creating one...")
+        else:
+            logger.info(f"Creating dummy user '{dummy_user_id}'...")
+            user_doc = {
+                'name': 'Dev User',
+                'user_id': dummy_user_id,
+                'password_hash': generate_password_hash(dummy_password),
+                'profile': {
+                    'display_name': 'Dev User',
+                    'age': 30,
+                    'gender': 'その他',
+                    'hobbies': ['温泉・サウナ', 'グルメ・食べ歩き'],
+                    'location': '東京',
+                    'budget': '気にしない',
+                    'notes': '開発用のダミーユーザーです。'
+                },
+                'created_at': firestore.SERVER_TIMESTAMP,
+            }
+            doc_ref.set(user_doc, timeout=5)
+            logger.info(f"Dummy user '{dummy_user_id}' created with password '{dummy_password}'.")
+
+        # Create a dummy persona
+        personas_ref = doc_ref.collection('personas')
+        persona_doc_ref = personas_ref.document()
+        dummy_persona_profile = {
+            'title': '冒険グルメ探検家',
+            'description': '未知の味と体験を求めて、計画や予算にとらわれず自由な旅を楽しむ。美味しいもののためなら、どこへでも足を運ぶ情熱的な冒険家。',
+            'traitScores': {
+                '新規性追求': 4, '旅程密度': 2, '予算哲学': 3, '社会的志向性': 3,
+                '主な興味関心': 2, '計画志向性': 1, '快適性水準': 2, '活動レベル': 3,
+                '安全性の閾値': 2, 'デジタル統合度': 3
+            }
+        }
+        dummy_system_prompt = "あなたは、ユーザーの診断結果「冒険グルメ探検家」に基づき、日本国内のユニークな食体験を提案する専門家です。予算や計画よりも、その場でしか味わえない特別な体験を重視します。ユーザーの趣味である「温泉・サウナ」も考慮に入れ、食と癒やしを組み合わせた最高の旅を提案してください。"
+        
+        persona_doc = {
+            'profile': dummy_persona_profile,
+            'system_prompt': dummy_system_prompt,
+            'created_at': firestore.SERVER_TIMESTAMP
+        }
+        persona_doc_ref.set(persona_doc, timeout=5)
+        
+        # Update user with diagnosis_completed and last_persona_id
+        doc_ref.update({
+            'diagnosis_completed': True,
+            'last_persona_id': persona_doc_ref.id,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }, timeout=5)
+        
+        logger.info(f"Dummy persona created for user '{dummy_user_id}'.")
+
+    except Exception as e:
+        logger.error(f"Failed to create/update dummy user or persona: {e}")
+
 if __name__ == '__main__':
+    create_dummy_user_if_needed()
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 
 
