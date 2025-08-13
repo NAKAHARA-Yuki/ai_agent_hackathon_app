@@ -726,9 +726,7 @@ def mark_session_initialized(user_id: str, session_id: str):
 @app.post('/api/agent/chat')
 def agent_chat():
     """チャットAPI。
-    仕様: { message: string, user_id?: string, session_id?: string } -> { reply: string, places?: [{name, lat, lng, note?}] }
-    - user_id: ADKの user_id に使用。未指定時は認証のsubまたは 'u_local' を使用。
-    - session_id: ADKのセッションID。フロント(Vue)で生成したUUIDを必須で渡す。
+    仕様: { message: string, user_id?: string, session_id?: string } -> { reply: string, places?: [...], citations?: [] }
     """
     try:
         data = request.get_json() or {}
@@ -739,8 +737,6 @@ def agent_chat():
         if not message:
             return jsonify({"reply": "ご希望を教えてください（例: 温泉と美術館を楽しみたい）。"})
 
-        # Agentサービスに委譲（ADK api_server 準拠）
-        # 有効なADKベースURLを決定（環境設定 or ローカル自動検出）
         effective_base = AGENT_BASE_URL
         if not effective_base:
             try:
@@ -754,139 +750,134 @@ def agent_chat():
         if effective_base:
             logger.info(f"/api/agent/chat delegating to ADK base={effective_base}")
             try:
-                # リクエストで渡された user_id / session_id を採用
                 req_user_id = (data.get('user_id') or '').strip() or None
                 req_session_id = (data.get('session_id') or '').strip() or None
                 if not req_session_id:
                     return jsonify({"error": "session_id is required"}), 400
                 logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
 
-                # 可能ならユーザー情報/ペルソナを付与して前置きコンテキストを作る
                 claims = require_auth(request)
-                user_info = None
-                last_persona = None
+                user_info, last_persona = None, None
                 if claims and db is not None:
                     try:
                         udoc = db.collection('users').document(claims['sub']).get(timeout=3)
                         if udoc and udoc.exists:
                             u = udoc.to_dict() or {}
-                            user_info = {
-                                'id': claims['sub'],
-                                'name': u.get('name'),
-                                'profile': u.get('profile') or {}
-                            }
+                            user_info = {'id': claims['sub'], 'name': u.get('name'), 'profile': u.get('profile') or {}}
                             last_id = u.get('last_persona_id')
                             if last_id:
                                 pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=3)
                                 if pdoc and pdoc.exists:
                                     pd = pdoc.to_dict() or {}
-                                    last_persona = {
-                                        'id': last_id,
-                                        'profile': pd.get('profile'),
-                                        'system_prompt': pd.get('system_prompt')
-                                    }
+                                    last_persona = {'id': last_id, 'profile': pd.get('profile'), 'system_prompt': pd.get('system_prompt')}
                     except Exception:
                         pass
 
-                # ADK呼び出し
                 app_name = 'travel_planner'
-                # user_id は優先的にリクエスト値を使用、なければ claims → 'u_local'
-                user_id = req_user_id or (user_info.get('id') if isinstance(user_info, dict) and user_info.get('id') else 'u_local')
+                user_id = req_user_id or (user_info.get('id') if isinstance(user_info, dict) else 'u_local')
                 session_id = req_session_id
 
-                # 前置きユーザー情報の id をADKの user_id に合わせる
-                if user_info is None:
-                    user_info = { 'id': user_id }
-                else:
-                    try:
-                        user_info['id'] = user_id
-                    except Exception:
-                        pass
+                if user_info is None: user_info = {'id': user_id}
+                else: user_info['id'] = user_id
 
-                # 出力フォーマットの指針（旅程はMarkdown表）
                 formatting_hint = (
                     "\n\n[出力フォーマットの指針]\n"
                     "- 日別・時系列の旅程を提案するときは、Markdown表で提示してください。\n"
                     "- 列例: 日/時間帯 | 場所 | アクティビティ/見どころ | 移動手段/所要 | メモ\n"
                     "- コードブロックで囲まず、通常のMarkdown表で。\n"
                 )
-
-                # 初回のみユーザー情報を前置、それ以降はプロンプトのみ
                 initialized = is_session_initialized(user_id, session_id)
                 if not initialized:
-                    context = {
-                        'user': user_info,
-                        'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None,
-                        'persona_system_prompt': last_persona.get('system_prompt') if isinstance(last_persona, dict) else None,
-                    }
+                    context = {'user': user_info, 'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None, 'persona_system_prompt': last_persona.get('system_prompt') if isinstance(last_persona, dict) else None}
                     message_to_send = (
                         "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
                         "\n\n[ユーザーからの依頼]\n" + message + formatting_hint
                     )
-                    logger.info(f"/api/agent/chat using INIT message (include user info) user={user_id} session={session_id} trace={tid}")
+                    logger.info(f"/api/agent/chat using INIT message user={user_id} session={session_id} trace={tid}")
                 else:
                     message_to_send = message + formatting_hint
                     logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id} trace={tid}")
 
                 events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=(not initialized))
 
-                # eventsからreply, places, route_info を抽出
-                reply_text = None
-                places = None
-                route_info = None
+                reply_text, places, route_info, grounding_html, citations = None, None, None, None, []
+                grounding_supports, web_search_queries = [], []
+
                 if isinstance(events, list):
                     for ev in events:
-                        if isinstance(ev, dict):
-                            content = ev.get('content') or {}
-                            parts = content.get('parts') if isinstance(content, dict) else None
-                            if isinstance(parts, list):
-                                for p in parts:
-                                    t = p.get('text') if isinstance(p, dict) else None
-                                    if t:
-                                        reply_text = t
-                # JSON末尾抽出（エージェント約束のフォーマット: { places: [...], route_info: ... } など）
+                        if not isinstance(ev, dict): continue
+                        # ツール実行から検索クエリを収集
+                        if ev.get('type') == 'tool_code' and isinstance(ev.get('content'), dict):
+                            tool_code = ev['content'].get('tool_code') or ''
+                            if 'google_search' in tool_code and 'queries' in tool_code:
+                                try:
+                                    # `queries=[...]` の部分を雑に抽出
+                                    queries_str = re.search(r'queries=\[(.*?)\]', tool_code, re.DOTALL).group(1)
+                                    web_search_queries.extend([q.strip().strip("'\"") for q in queries_str.split(',')])
+                                except Exception:
+                                    pass
+                        # モデル応答からテキストとグラウンディング情報を収集
+                        if ev.get('type') == 'model' and isinstance(ev.get('content'), dict):
+                            parts = ev['content'].get('parts') or []
+                            for p in parts:
+                                if p.get('text'): reply_text = p['text']
+                            # grounding_metadata は content 直下にある場合と、candidates 内にある場合がある
+                            meta = ev['content'].get('grounding_metadata')
+                            if not meta and isinstance(ev['content'].get('candidates'), list) and ev['content']['candidates']:
+                                meta = ev['content']['candidates'][0].get('grounding_metadata')
+                            if isinstance(meta, dict) and isinstance(meta.get('grounding_supports'), list):
+                                grounding_supports.extend(meta['grounding_supports'])
+
+                # 引用情報を整理・挿入
+                if reply_text and grounding_supports and web_search_queries:
+                    segment_citations = {}
+                    for support in grounding_supports:
+                        segment = support.get('segment')
+                        if not segment: continue
+                        key = (segment['start_index'], segment['end_index'])
+                        if key not in segment_citations: segment_citations[key] = set()
+                        for chunk_idx in support.get('grounding_chunk_indices', []):
+                            if 0 <= chunk_idx < len(web_search_queries):
+                                segment_citations[key].add(chunk_idx + 1)
+                    
+                    sorted_segments = sorted(segment_citations.items(), key=lambda item: item[0][0], reverse=True)
+                    for (start, end), indices in sorted_segments:
+                        if not indices: continue
+                        citation_str = f"[{', '.join(map(str, sorted(list(indices))))}]"
+                        reply_text = reply_text[:end] + citation_str + reply_text[end:]
+                    
+                    for i, query in enumerate(web_search_queries):
+                        citations.append({"index": i + 1, "query": query})
+
+                # JSONオブジェクト（places, route_info）を本文から分離
                 if reply_text:
                     try:
-                        s = reply_text
-                        idx = s.rfind('{')
+                        s, idx = reply_text, reply_text.rfind('{')
                         while idx != -1:
                             tail = s[idx:].strip()
                             try:
                                 obj = json.loads(tail)
                                 if isinstance(obj, dict) and (('places' in obj) or ('route_info' in obj)):
-                                    if 'places' in obj and places is None:
-                                        if isinstance(obj['places'], list):
-                                            places = obj['places']
-                                    if 'route_info' in obj and route_info is None:
-                                        route_info = obj['route_info']
-                                    # 本文からこのJSONを取り除く
+                                    if 'places' in obj and places is None: places = obj.get('places')
+                                    if 'route_info' in obj and route_info is None: route_info = obj.get('route_info')
                                     reply_text = s[:idx].rstrip()
                                     break
-                            except Exception:
-                                pass
+                            except Exception: pass
                             idx = s.rfind('{', 0, idx)
-                    except Exception:
-                        pass
-                logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])} trace={tid}")
-                # 初回が成功したら初期化フラグを立てる
-                try:
-                    if not initialized:
-                        mark_session_initialized(user_id, session_id)
-                except Exception:
-                    pass
-                resp = { 'reply': reply_text or '提案を作成しました。', 'places': places }
-                if route_info is not None:
-                    resp['route_info'] = route_info
-                if LOG_PAYLOADS:
-                    logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
-                if tid:
-                    resp['trace_id'] = tid
+                    except Exception: pass
+
+                logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} trace={tid}")
+                if not initialized: mark_session_initialized(user_id, session_id)
+
+                resp = { 'reply': reply_text or '提案を作成しました。', 'places': places, 'citations': citations }
+                if route_info: resp['route_info'] = route_info
+                if LOG_PAYLOADS: logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
+                if tid: resp['trace_id'] = tid
                 return jsonify(resp)
+
             except Exception:
                 logger.exception("Agent chat delegation failed")
-        else:
-            logger.warning("/api/agent/chat no ADK available (AGENT_BASE_URL not set and local ADK not detected); using fallback")
-
+        
         # フォールバック: キーワードに応じて簡易候補地を返す
         reply = '次の候補を地図に表示しました。気になる場所はありますか？'
         candidates = []
@@ -924,6 +915,7 @@ def agent_chat():
         if tid:
             resp['trace_id'] = tid
         return jsonify(resp)
+
     except Exception as e:
         tid = getattr(request, '_trace_id', None)
         logger.exception("agent_chat error")

@@ -65,7 +65,7 @@ async function sendMessage() {
   }
   scrollToBottom()
 
-  // サーバーのエージェントに問い合わせ（簡易プロトタイプ）
+  // サーバーのエージェントに問い合わせ
   try {
     const resp = await fetch('/api/agent/chat', {
       method: 'POST',
@@ -73,44 +73,29 @@ async function sendMessage() {
       body: JSON.stringify({ message: text, user_id: userId.value, session_id: sessionId.value })
     })
     if (!resp.ok) throw new Error('failed')
-  const data = await resp.json()
-  console.debug('[Chat] response', { ok: true, keys: Object.keys(data || {}), hasPlaces: Array.isArray(data?.places) })
-  const reply = data.reply || '提案を取得できませんでした。'
-  messages.value.push({ role: 'assistant', text: reply })
-  scrollToBottom()
-  const routeInfo = (data.route_info && (typeof data.route_info === 'object' || Array.isArray(data.route_info))) ? data.route_info : undefined
-
-    // 場所候補: [{ name, lat, lng, note }]
-    if (Array.isArray(data.places)) {
-      let places = data.places
-      const needGeocode = places.filter(p => typeof p?.lat !== 'number' || typeof p?.lng !== 'number')
-      if (needGeocode.length) {
-        try {
-          const resp2 = await fetch('/api/geocode', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
-            body: JSON.stringify({ names: needGeocode.map(p => p.name).filter(Boolean) })
-          })
-          if (resp2.ok) {
-            const g = await resp2.json()
-            const map = new Map((g.results || []).map(r => [r.name, r]))
-            places = places.map(p => {
-              const hit = map.get(p.name)
-              return (hit && (typeof p.lat !== 'number' || typeof p.lng !== 'number'))
-                ? { ...p, lat: hit.lat, lng: hit.lng, note: p.note || hit.formatted_address }
-                : p
-            })
-          }
-        } catch (_) { /* noop */ }
-      }
-  console.debug('[Chat] places processed', { count: places.length })
-  emit('agent-update', { reply, places, route_info: routeInfo })
-    } else {
-  emit('agent-update', { reply, route_info: routeInfo })
+    const data = await resp.json()
+    console.debug('[Chat] response', { ok: true, keys: Object.keys(data || {}), hasPlaces: Array.isArray(data?.places) })
+    
+    const reply = data.reply || ''
+    const citations = data.citations || []
+    const assistantMessage = { role: 'assistant', text: reply, citations: citations }
+    
+    // 以前の grounding_html ロジックは削除し、citations を使う
+    if (reply || citations.length > 0) {
+      messages.value.push(assistantMessage)
     }
+    scrollToBottom()
+
+    const routeInfo = data.route_info // オブジェクトまたはnull
+    const places = data.places // 配列またはnull
+
+    // 親コンポーネントに更新を通知
+    emit('agent-update', { reply, places, route_info: routeInfo, citations })
+
   } catch (e) {
     console.debug('[Chat] error', e)
-    messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。' })
-  scrollToBottom()
+    messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。', citations: [] })
+    scrollToBottom()
   } finally {
     console.debug('[Chat] send end')
     isSending.value = false
@@ -151,8 +136,18 @@ function renderHtml(text) {
   <div class="chat" ref="chatEl">
     <div class="log" ref="logEl">
       <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]">
-  <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
-  <span v-else class="bubble" v-html="renderHtml(m.text)"></span>
+        <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
+        <div v-else class="bubble">
+          <div v-if="m.text" v-html="renderHtml(m.text)"></div>
+          <div v-if="m.citations && m.citations.length" class="citations">
+            <p><strong>引用元:</strong></p>
+            <ul>
+              <li v-for="c in m.citations" :key="c.index">
+                [{{ c.index }}] <a :href="'https://www.google.com/search?q=' + encodeURIComponent(c.query)" target="_blank" rel="noopener">{{ c.query }}</a>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
       <!-- タイピング中インジケーター -->
       <div v-if="isSending" class="msg assistant">
@@ -204,6 +199,9 @@ function renderHtml(text) {
 .bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
 .bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
+.citations { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.9em; color: #6b7280; }
+.citations p { margin: 0 0 4px; }
+.citations ul { margin: 0; padding-left: 18px; }
 .bubble.typing { display:inline-flex; align-items:center; gap:6px; }
 .bubble.typing .dot { width:6px; height:6px; border-radius:50%; background:#9ca3af; display:inline-block; animation: typingBlink 1.2s infinite ease-in-out; }
 .bubble.typing .dot:nth-child(2) { animation-delay: .2s; }
