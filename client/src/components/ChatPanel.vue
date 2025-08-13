@@ -87,68 +87,7 @@ async function sendMessage() {
   let reply = data.reply || ''
   const citations = data.citations || []
     const groundingHtml = data.grounding_html || null
-    let places = Array.isArray(data.places) ? data.places : []
-    // 欠損座標の補完（最大20件をサーバーでジオコーディング）
-    if (places.length) {
-      const needGeocode = places.filter(p => typeof p?.lat !== 'number' || typeof p?.lng !== 'number')
-      if (needGeocode.length) {
-        try {
-          const resp2 = await fetch('/api/geocode', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
-            body: JSON.stringify({ names: needGeocode.map(p => p.name).filter(Boolean) })
-          })
-          if (resp2.ok) {
-            const g = await resp2.json()
-            const gMap = new Map((g.results || []).map(r => [normalizeName(r.name), r]))
-            places = places.map(p => {
-              const hit = gMap.get(normalizeName(p.name))
-              return (hit && (typeof p.lat !== 'number' || typeof p.lng !== 'number'))
-                ? { ...p, lat: hit.lat, lng: hit.lng, note: p.note || hit.formatted_address }
-                : p
-            })
-          }
-        } catch (_) { /* noop */ }
-
-        // 依然として欠損がある場合、ブラウザ側で軽量フォールバック（OSM Nominatim）を最大10件だけ試行
-        const stillMissing = places.filter(p => typeof p?.lat !== 'number' || typeof p?.lng !== 'number')
-        if (stillMissing.length) {
-          const names = stillMissing.map(p => p.name).filter(Boolean).slice(0, 10)
-          const results = []
-          for (const nm of names) {
-            try {
-              const u = new URL('https://nominatim.openstreetmap.org/search')
-              u.searchParams.set('q', nm)
-              u.searchParams.set('format', 'json')
-              u.searchParams.set('limit', '1')
-              u.searchParams.set('addressdetails', '0')
-              u.searchParams.set('accept-language', 'ja')
-              const r = await fetch(u.toString(), { headers: { 'Accept': 'application/json' } })
-              if (r.ok) {
-                const arr = await r.json()
-                if (Array.isArray(arr) && arr[0]) {
-                  const g = arr[0]
-                  const lat = g?.lat != null ? Number(g.lat) : undefined
-                  const lon = g?.lon != null ? Number(g.lon) : undefined
-                  if (Number.isFinite(lat) && Number.isFinite(lon)) {
-                    results.push({ name: nm, lat, lng: lon, formatted_address: g.display_name })
-                  }
-                }
-              }
-            } catch {}
-          }
-          if (results.length) {
-            const map2 = new Map(results.map(r => [normalizeName(r.name), r]))
-            places = places.map(p => {
-              const hit = map2.get(normalizeName(p.name))
-              return (hit && (typeof p.lat !== 'number' || typeof p.lng !== 'number'))
-                ? { ...p, lat: hit.lat, lng: hit.lng, note: p.note || hit.formatted_address }
-                : p
-            })
-          }
-        }
-      }
-    }
+  let places = Array.isArray(data.places) ? data.places : []
     const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml, places }
     
     if (reply || citations.length > 0 || groundingHtml) {

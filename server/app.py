@@ -48,6 +48,10 @@ LOG_PAYLOADS = True
 
 SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apikey", "secret", "jwt"}
 
+# Agent JSON-only compliance counters (in-memory)
+AGENT_JSON_OK = 0
+AGENT_JSON_FAIL = 0
+
 def _snip_text(s: str, limit: int = 2000) -> str:
     try:
         if s is None:
@@ -191,7 +195,8 @@ def _normalize_route_info(obj):
 
 def _extract_trailing_json(s: str):
     """Extract a trailing JSON object from text, supporting fenced code blocks and partial scans.
-    Returns (text_without_json, places, route_info).
+    Returns (text_without_json, places, route_info, text_field).
+    text_field is the optional string found at JSON["text"].
     """
     try:
         import re as _re
@@ -266,6 +271,23 @@ def _extract_trailing_json(s: str):
         # Trim trailing citation brackets once at the start
         s = _strip_trailing_citation_brackets(s)
 
+        # 0) pure JSON content: try parsing the entire string as a JSON object
+        try:
+            obj0 = json.loads(s.strip())
+            if isinstance(obj0, dict):
+                places0 = obj0.get('places') if isinstance(obj0, dict) else None
+                if places0 is None:
+                    places0 = obj0.get('place') if isinstance(obj0, dict) else None
+                route_info0 = obj0.get('route_info') if isinstance(obj0, dict) else None
+                if route_info0 is None and isinstance(obj0, dict):
+                    route_info0 = obj0.get('route') or obj0.get('routeInfo')
+                text_field0 = obj0.get('text') if isinstance(obj0, dict) else None
+                places0 = _normalize_places_list(places0)
+                route_info0 = _normalize_route_info(route_info0)
+                return "", places0, route_info0, (text_field0 if isinstance(text_field0, str) else None)
+        except Exception:
+            pass
+
         # 1) fenced code block ```json {..} ``` (prefer the last one)
         blocks = _re.findall(r"```(?:json)?\s*({[\s\S]*?})\s*```", s)
         candidate = None
@@ -279,6 +301,7 @@ def _extract_trailing_json(s: str):
                 route_info = obj.get('route_info') if isinstance(obj, dict) else None
                 if route_info is None and isinstance(obj, dict):
                     route_info = obj.get('route') or obj.get('routeInfo')
+                text_field = obj.get('text') if isinstance(obj, dict) else None
                 places = _normalize_places_list(places)
                 route_info = _normalize_route_info(route_info)
                 # remove the last fenced block
@@ -286,32 +309,10 @@ def _extract_trailing_json(s: str):
                 last_idx = s2.rfind('```')
                 if last_idx != -1:
                     s2 = s2[:last_idx].rstrip()
-                return s2, places, route_info
+                return s2, places, route_info, (text_field if isinstance(text_field, str) else None)
             except Exception:
                 candidate = None
-        # 2) scan from last '{' and expand to closing '}' progressively
-        idx = s.rfind('{')
-        if idx != -1:
-            pos = idx
-            while True:
-                end = s.find('}', pos)
-                if end == -1:
-                    break
-                chunk = s[idx:end+1]
-                try:
-                    obj = json.loads(chunk)
-                    places = obj.get('places') if isinstance(obj, dict) else None
-                    if places is None:
-                        places = obj.get('place') if isinstance(obj, dict) else None
-                    route_info = obj.get('route_info') if isinstance(obj, dict) else None
-                    if route_info is None and isinstance(obj, dict):
-                        route_info = obj.get('route') or obj.get('routeInfo')
-                    places = _normalize_places_list(places)
-                    route_info = _normalize_route_info(route_info)
-                    return s[:idx].rstrip(), places, route_info
-                except Exception:
-                    pos = end + 1
-        # 3) regex fallback: object containing keys of interest (allow trailing citation brackets)
+        # 2) regex fallback: object containing keys of interest (allow trailing citation brackets)
         m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
         if m:
             try:
@@ -322,18 +323,19 @@ def _extract_trailing_json(s: str):
                 route_info = obj.get('route_info') if isinstance(obj, dict) else None
                 if route_info is None and isinstance(obj, dict):
                     route_info = obj.get('route') or obj.get('routeInfo')
+                text_field = obj.get('text') if isinstance(obj, dict) else None
                 places = _normalize_places_list(places)
                 route_info = _normalize_route_info(route_info)
-                return s[:m.start(1)].rstrip(), places, route_info
+                return s[:m.start(1)].rstrip(), places, route_info, (text_field if isinstance(text_field, str) else None)
             except Exception:
                 pass
-        # 4) heuristic recovery for broken places arrays
+        # 3) heuristic recovery for broken places arrays
         base_text, recovered = _recover_places_fragment(s)
         if recovered:
-            return base_text, recovered, None
+            return base_text, recovered, None, None
     except Exception:
         pass
-    return s, None, None
+    return s, None, None, None
 
 def _normalize_grounding_meta(event: dict) -> dict:
     """Accepts an agent event and normalizes grounding metadata to snake_case keys.
@@ -549,7 +551,8 @@ def health():
             "env": ENV,
             "db": db_kind,
             "gemini_configured": genai_configured,
-            "jwt_configured": bool(JWT_SECRET)
+            "jwt_configured": bool(JWT_SECRET),
+            "agent_json_metrics": {"ok": AGENT_JSON_OK, "fail": AGENT_JSON_FAIL}
         })
     except Exception as e:
         logger.exception("/api/health error")
@@ -986,11 +989,16 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
 
     # 3) 実行
     run_url = f"{base}/run"
+    # 強制的にJSON-onlyを促す前置き注記（モデル/サーバ側が対応すればMIME強制に近い効果）
+    prefix = (
+        "以下の応答は、単一のJSONオブジェクトのみで返してください。"
+        "前後に説明やコードフェンス、余分な空白・句読点を一切付けないでください。\n\n"
+    )
     payload = {
         "app_name": app_name,
         "user_id": user_id,
         "session_id": session_id,
-        "new_message": { "role": "user", "parts": [{"text": message_text}] }
+        "new_message": { "role": "user", "parts": [{"text": prefix + message_text}] }
     }
     bridge_logger.info(f"Run agent: POST {run_url} app={app_name} user={user_id} session={session_id} msg_len={len(message_text)}")
     if LOG_PAYLOADS:
@@ -1186,6 +1194,7 @@ def agent_chat():
         logger.debug(f"Agent events raw: {_snip_json(events)}")
 
         reply_text, places, route_info, citations, grounding_html = None, None, None, [], None
+        raw_reply_text = None
 
         if isinstance(events, list) and events:
             final_event = events[-1]
@@ -1193,6 +1202,7 @@ def agent_chat():
             if content.get('role') == 'model':
                 # 第1段: 自然文のみ（JSONを含めない）
                 reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+                raw_reply_text = reply_text  # JSON抽出前の生文字列を保持
                 # もし誤ってJSONが混じっても本文として扱い、抽出は第2段で別途行う
 
             meta_norm = _normalize_grounding_meta(final_event)
@@ -1201,7 +1211,8 @@ def agent_chat():
                 grounding_supports = meta_norm.get('grounding_supports') or []
                 citation_map = {i + 1: (chunk.get('web', {}) if isinstance(chunk, dict) else {}) for i, chunk in enumerate(grounding_chunks)}
 
-                if reply_text and grounding_supports and citation_map:
+                # JSON本体（reply_textが '{' 始まり）の場合は、ここで本文に引用を挿入しない（JSONを破壊するため）
+                if reply_text and (not str(reply_text).lstrip().startswith('{')) and grounding_supports and citation_map:
                     segment_citations = {}
                     segment_texts = {}
                     for support in grounding_supports:
@@ -1317,32 +1328,81 @@ def agent_chat():
                     if LOG_PAYLOADS:
                         logger.info(f"grounding_html generated from web_search_queries count={len(queries or [])}")
 
-        # 第2段: 本文から場所・ルートの抽出を LLM に依頼（失敗時のみヒューリスティック）
+        # JSON-onlyバリデーション: 先頭の非JSON文字を除去し、JSON未検出なら明示的に再要求
         if isinstance(reply_text, str) and reply_text.strip():
-            p2, r2 = _extract_locations_via_llm(reply_text, req_user_id, req_session_id)
-            if p2 is not None:
-                places = p2
-            if r2 is not None:
-                route_info = r2
-            # 保険として、両方 None の時のみヒューリスティック抽出
-            if places is None and route_info is None:
-                try:
-                    reply_text2, p_h, r_h = _extract_trailing_json(reply_text)
-                    if p_h is not None:
-                        places = p_h
-                    if r_h is not None:
-                        route_info = r_h
-                    # 本文はユーザー表示が主目的なので reply_text は差し替えず（自然文のまま）
-                except Exception:
-                    pass
+            json_found = False
+            try:
+                # まず末尾JSON抽出を試行
+                reply_text2, p_h, r_h, t_h = _extract_trailing_json(reply_text)
+                json_found = (p_h is not None) or (r_h is not None) or (isinstance(t_h, str) and t_h.strip())
+                # 表示本文はJSONを除去。JSON内textがあれば優先して本文に採用。
+                reply_text = (t_h if isinstance(t_h, str) and t_h.strip() else reply_text2)
+                if p_h is not None:
+                    places = p_h
+                if r_h is not None:
+                    route_info = r_h
 
-        logger.info(f"/api/agent/chat done user={req_user_id} session={req_session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} trace={tid}")
+                # JSONが全く見つからない場合は、最後の '{' 以降のみを残して再試行（先頭非JSON除去）
+                if not json_found:
+                    try:
+                        # 生の応答からJSON開始位置を探索（本文除去後だとJSONが失われる可能性があるため）
+                        source = raw_reply_text if isinstance(raw_reply_text, str) else reply_text
+                        last_brace = source.rfind('{') if isinstance(source, str) else -1
+                        if last_brace != -1:
+                            tail = source[last_brace:]
+                            rt2, p2, r2, t2 = _extract_trailing_json(tail)
+                            if (p2 is not None) or (r2 is not None) or (isinstance(t2, str) and t2.strip()):
+                                # 採用
+                                reply_text = (t2 if isinstance(t2, str) and t2.strip() else rt2)
+                                if p2 is not None:
+                                    places = p2
+                                if r2 is not None:
+                                    route_info = r2
+                                json_found = True
+                    except Exception:
+                        pass
+
+                # それでもJSONが無い場合は、ユーザーに再要求（JSON-onlyの遵守を促す）
+                if not json_found:
+                    global AGENT_JSON_FAIL
+                    AGENT_JSON_FAIL += 1
+                    logger.warning("agent_output_not_json: no JSON detected in agent reply")
+                    msg = "内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。"
+                    return jsonify({
+                        'reply': msg,
+                        'places': None,
+                        'citations': [],
+                        'grounding_html': None,
+                        'route_info': None,
+                        'error': 'agent_output_not_json'
+                    }), 502
+            except Exception:
+                pass
+            # JSON検出成功をカウント
+            try:
+                if json_found:
+                    global AGENT_JSON_OK
+                    AGENT_JSON_OK += 1
+            except Exception:
+                pass
+
+        # 進捗ログ（route_info の有無も記録）
+        has_route = bool(route_info and isinstance(route_info, dict) and route_info.get('origin') and route_info.get('destination'))
+        logger.info(f"/api/agent/chat done user={req_user_id} session={req_session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} route={'1' if has_route else '0'} trace={tid}")
+        if has_route and LOG_PAYLOADS:
+            try:
+                logger.info(f"route_info summary: {_snip_json(route_info)}")
+            except Exception:
+                pass
         if not is_session_initialized(req_user_id, req_session_id):
             mark_session_initialized(req_user_id, req_session_id)
 
-        resp = { 'reply': reply_text or '提案を作成しました。', 'places': places, 'citations': citations, 'grounding_html': grounding_html, 'route_info': route_info }
-        if LOG_PAYLOADS: logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
-        if tid: resp['trace_id'] = tid
+        # ログで見切れないよう route_info を先に配置
+        resp = { 'reply': reply_text or '提案を作成しました。', 'route_info': route_info, 'places': places, 'citations': citations, 'grounding_html': grounding_html }
+        if LOG_PAYLOADS:
+            logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
+        if tid:
+            resp['trace_id'] = tid
         return jsonify(resp)
 
     except Exception as e:
