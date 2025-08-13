@@ -76,18 +76,18 @@ async function sendMessage() {
     
     const reply = data.reply || ''
     const citations = data.citations || []
-    const groundingHtml = data.grounding_html || null
-    const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml }
+  const groundingHtml = data.grounding_html || null
+  const places = data.places || []
+  const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml, places }
     
     if (reply || citations.length > 0 || groundingHtml) {
       messages.value.push(assistantMessage)
     }
     scrollToBottom()
 
-    const routeInfo = data.route_info
-    const places = data.places
+  const routeInfo = data.route_info
 
-    emit('agent-update', { reply, places, route_info: routeInfo, citations })
+  emit('agent-update', { reply, places, route_info: routeInfo, citations })
 
   } catch (e) {
     console.error('Chat send error', e)
@@ -132,13 +132,22 @@ function renderHtml(text) {
       <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]">
         <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
         <div v-else class="bubble">
-          <div v-if="m.grounding_html" class="grounding" v-html="renderHtml(m.grounding_html)"></div>
           <div v-if="m.text" class="text" v-html="renderHtml(m.text)"></div>
           <div v-if="m.citations && m.citations.length" class="citations">
             <p><strong>引用元:</strong></p>
             <ul>
               <li v-for="c in m.citations" :key="c.index">
                 [{{ c.index }}] <a :href="c.uri" target="_blank" rel="noopener">{{ c.title }}</a>
+              </li>
+            </ul>
+          </div>
+          <div v-if="m.grounding_html" class="grounding" v-html="m.grounding_html"></div>
+          <div v-if="m.places && m.places.length" class="places">
+            <p><strong>場所:</strong></p>
+            <ul>
+              <li v-for="(p, i) in m.places" :key="i">
+                {{ p.name || p.title }}
+                <small v-if="p.note" style="color:#6b7280;"> — {{ p.note }}</small>
               </li>
             </ul>
           </div>
@@ -194,9 +203,11 @@ function renderHtml(text) {
 .bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
 .bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
+.grounding { margin-bottom: 8px; }
 .citations { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.9em; color: #6b7280; }
 .citations p { margin: 0 0 4px; }
 .citations ul { margin: 0; padding-left: 18px; }
+.places { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e5e7eb; font-size: 0.95em; }
 .bubble.typing { display:inline-flex; align-items:center; gap:6px; }
 .bubble.typing .dot { width:6px; height:6px; border-radius:50%; background:#9ca3af; display:inline-block; animation: typingBlink 1.2s infinite ease-in-out; }
 .bubble.typing .dot:nth-child(2) { animation-delay: .2s; }

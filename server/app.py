@@ -92,6 +92,48 @@ def _snip_json(obj, limit: int = 2000) -> str:
             s = "<unserializable>"
     return _snip_text(s, limit)
 
+def _normalize_grounding_meta(event: dict) -> dict:
+    """Accepts an agent event and normalizes grounding metadata to snake_case keys.
+    Returns dict with keys: grounding_chunks, grounding_supports, search_entry_point.
+    Handles both camelCase and snake_case structures.
+    """
+    try:
+        if not isinstance(event, dict):
+            return {}
+        meta = event.get('groundingMetadata') or event.get('grounding_metadata') or {}
+        if not isinstance(meta, dict):
+            return {}
+        # Top-level lists
+        chunks = meta.get('grounding_chunks')
+        if chunks is None:
+            chunks = meta.get('groundingChunks')
+        supports = meta.get('grounding_supports')
+        if supports is None:
+            supports = meta.get('groundingSupports')
+
+        # search entry point
+        sep = meta.get('search_entry_point')
+        if sep is None:
+            sep = meta.get('searchEntryPoint')
+        if isinstance(sep, dict):
+            rendered = sep.get('rendered_content')
+            if rendered is None:
+                rendered = sep.get('renderedContent')
+            queries = sep.get('web_search_queries')
+            if queries is None:
+                queries = sep.get('webSearchQueries')
+            sep = {'rendered_content': rendered, 'web_search_queries': queries}
+        else:
+            sep = None
+
+        return {
+            'grounding_chunks': chunks or [],
+            'grounding_supports': supports or [],
+            'search_entry_point': sep or {}
+        }
+    except Exception:
+        return {}
+
 @app.before_request
 def _start_timer():
     try:
@@ -696,6 +738,7 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     dt = (monotonic() - t0) * 1000
     j = r2.json()
     bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
+    bridge_logger.debug(f"Raw agent response: {_snip_json(j)}")
     if LOG_PAYLOADS:
         try:
             bridge_logger.info(f"Run response: {_snip_json(j)}")
@@ -790,52 +833,65 @@ def agent_chat():
             if content.get('role') == 'model':
                 reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
 
-            meta = final_event.get('groundingMetadata') or {}
-            if isinstance(meta, dict):
-                grounding_chunks = meta.get('grounding_chunks') or []
-                grounding_supports = meta.get('grounding_supports') or []
-                
-                citation_map = {i + 1: chunk.get('web', {}) for i, chunk in enumerate(grounding_chunks)}
-                
+            meta_norm = _normalize_grounding_meta(final_event)
+            if meta_norm:
+                grounding_chunks = meta_norm.get('grounding_chunks') or []
+                grounding_supports = meta_norm.get('grounding_supports') or []
+                citation_map = {i + 1: (chunk.get('web', {}) if isinstance(chunk, dict) else {}) for i, chunk in enumerate(grounding_chunks)}
+
                 if reply_text and grounding_supports and citation_map:
                     segment_citations = {}
                     for support in grounding_supports:
-                        segment = support.get('segment')
+                        segment = support.get('segment') if isinstance(support, dict) else None
                         if not segment: continue
-                        key = (segment['start_index'], segment['end_index'])
-                        if key not in segment_citations: segment_citations[key] = set()
+                        try:
+                            start = segment.get('start_index'); end = segment.get('end_index')
+                            key = (int(start), int(end))
+                        except Exception:
+                            continue
+                        if key not in segment_citations:
+                            segment_citations[key] = set()
                         for chunk_idx in support.get('grounding_chunk_indices', []):
-                            segment_citations[key].add(chunk_idx + 1)
-                    
+                            try:
+                                segment_citations[key].add(int(chunk_idx) + 1)
+                            except Exception:
+                                continue
                     sorted_segments = sorted(segment_citations.items(), key=lambda item: item[0][0], reverse=True)
                     for (start, end), indices in sorted_segments:
                         if not indices: continue
                         citation_str = f" [{' '.join(map(str, sorted(list(indices))))}]"
-                        reply_text = reply_text[:end] + citation_str + reply_text[end:]
-                
+                        try:
+                            reply_text = reply_text[:end] + citation_str + reply_text[end:]
+                        except Exception:
+                            pass
+
                 citations = []
                 for i, c in citation_map.items():
-                    original_uri = c.get('uri')
+                    original_uri = c.get('uri') if isinstance(c, dict) else None
+                    title = c.get('title') if isinstance(c, dict) else None
                     if original_uri and "vertexaisearch.cloud.google.com/grounding-api-redirect/" in original_uri:
-                        search_query = c.get('title', '')
-                        if search_query:
-                            citations.append({"index": i, "title": c.get('title'), "uri": f"https://www.google.com/search?q={requests.utils.quote(search_query)}"})
+                        if title:
+                            citations.append({"index": i, "title": title, "uri": f"https://www.google.com/search?q={requests.utils.quote(title)}"})
                         else:
-                            citations.append({"index": i, "title": c.get('title'), "uri": original_uri})
+                            citations.append({"index": i, "title": title, "uri": original_uri})
                     else:
-                        citations.append({"index": i, "title": c.get('title'), "uri": original_uri})
+                        citations.append({"index": i, "title": title, "uri": original_uri})
 
-                if isinstance(meta.get('search_entry_point'), dict):
-                    search_entry_point = meta['search_entry_point']
-                    web_search_queries = search_entry_point.get('web_search_queries')
-                    if web_search_queries:
-                        chips_html = []
-                        for query in web_search_queries:
-                            encoded_query = requests.utils.quote(query)
-                            chips_html.append(f'<a href="https://www.google.com/search?q={encoded_query}" target="_blank" rel="noopener" style="display:inline-block; border:solid 1px; border-radius:16px; min-width:14px; padding:5px 16px; text-align:center; margin: 0 8px;">{query}</a>')
-                        grounding_html = f'<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">{" ".join(chips_html)}</div>'
-                    else:
-                        grounding_html = search_entry_point.get('rendered_content')
+                sep = meta_norm.get('search_entry_point') or {}
+                rendered = sep.get('rendered_content') if isinstance(sep, dict) else None
+                queries = sep.get('web_search_queries') if isinstance(sep, dict) else None
+                if rendered:
+                    grounding_html = rendered
+                    if LOG_PAYLOADS:
+                        logger.info(f"grounding_html set from rendered_content len={len(grounding_html or '')}")
+                elif queries:
+                    chips_html = []
+                    for query in queries:
+                        encoded_query = requests.utils.quote(str(query))
+                        chips_html.append(f'<a href="https://www.google.com/search?q={encoded_query}" target="_blank" rel="noopener" style="display:inline-block; border:solid 1px; border-radius:16px; min-width:14px; padding:5px 16px; text-align:center; margin: 0 8px;">{query}</a>')
+                    grounding_html = f'<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">{" ".join(chips_html)}</div>'
+                    if LOG_PAYLOADS:
+                        logger.info(f"grounding_html generated from web_search_queries count={len(queries or [])}")
 
         if reply_text:
             try:
