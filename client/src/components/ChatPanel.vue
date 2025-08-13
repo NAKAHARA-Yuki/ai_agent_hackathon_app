@@ -14,6 +14,7 @@ const isSending = ref(false)
 const inputEl = ref(null)
 const isComposing = ref(false)
 const logEl = ref(null)
+const chatEl = ref(null)
 
 // セッションIDはページライフサイクル内でのみ保持（リロードで新規発行）
 const userId = computed(() => auth.user?.id || 'u_local')
@@ -44,7 +45,10 @@ const emit = defineEmits(['agent-update', 'open-map'])
 
 function scrollToBottom() {
   nextTick(() => {
-    try { if (logEl.value) { logEl.value.scrollTop = logEl.value.scrollHeight } } catch {}
+    try {
+      const el = chatEl.value || logEl.value
+      if (el) el.scrollTop = el.scrollHeight
+    } catch {}
   })
 }
 
@@ -140,7 +144,7 @@ function renderHtml(text) {
  </script>
 
 <template>
-  <div class="chat">
+  <div class="chat" ref="chatEl">
     <div class="log" ref="logEl">
       <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]">
   <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
@@ -185,8 +189,8 @@ function renderHtml(text) {
 </template>
 
 <style scoped>
-.chat { display:flex; flex-direction:column; width:100%; }
-.log { flex:1; overflow:auto; padding: 8px 12px; display:flex; flex-direction:column; gap:8px; }
+.chat { display:flex; flex-direction:column; width:100%; overflow:auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; min-height: 0; }
+.log { flex:1; overflow: visible; padding: 8px 12px; display:flex; flex-direction:column; gap:8px; }
 .msg { display:flex; }
 .msg.user { justify-content:flex-end; }
 .bubble { background:#f3f4f6; padding:10px 12px; border-radius: 10px; max-width: 80%; }
@@ -220,7 +224,7 @@ function renderHtml(text) {
   /* モバイルではコンポーザー一式を下部にピン留め */
   .composer-area { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
   .composer-actions { display: block; }
-  .log { padding-bottom: 108px; }
+  .log { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
   /* ボタンはコンパクトに */
   .composer { --composer-h: 42px; }
 }

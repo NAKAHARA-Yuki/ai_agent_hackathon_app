@@ -174,5 +174,6 @@ onUnmounted(() => {
   justify-content: flex-start;
   padding: 16px; /* 余白はここで持つ */
   overflow: auto; /* ページではなく、コンテンツ領域でスクロール */
+  min-height: 0; /* 内側スクロールを有効化 */
 }
 </style>
