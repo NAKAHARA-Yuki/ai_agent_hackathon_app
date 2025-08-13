@@ -123,11 +123,16 @@ function autoResize(e) {
 
 function renderHtml(text) {
   try {
+    // Enable GFM (tables, strikethrough, task lists) and soft line breaks
+    marked.setOptions({ gfm: true, breaks: true, headerIds: false, mangle: false })
     const raw = marked.parse(text || '')
-    // Allow more tags for grounding results
+    // Allow table and related tags for nicer markdown tables
     return DOMPurify.sanitize(raw, {
-      ADD_TAGS: ['svg', 'path', 'circle', 'div', 'g', 'a'],
-      ADD_ATTR: ['fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href', 'target', 'rel']
+      ADD_TAGS: ['svg', 'path', 'circle', 'div', 'g', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption'],
+      ADD_ATTR: [
+        'fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href', 'target', 'rel',
+        'colspan', 'rowspan', 'align', 'scope'
+      ]
     })
   } catch {
     return text
@@ -213,6 +218,29 @@ function renderHtml(text) {
 .bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
 .bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
+/* Markdown tables */
+.bubble :where(table){
+  border-collapse: collapse;
+  border-spacing: 0;
+  display: block; /* enable horizontal scroll if wide */
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 8px 0;
+}
+.bubble :where(thead){ background: #f8fafc; }
+.bubble :where(th, td){
+  border: 1px solid #e5e7eb;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.bubble :where(th){ font-weight: 700; color: #111827; }
+.bubble :where(tbody tr:nth-child(odd)){ background: #fafafa; }
+.bubble :where(caption){ caption-side: bottom; color:#6b7280; font-size: 0.9em; padding-top: 6px; }
+.msg.assistant .bubble{ max-width: 100%; } /* 表などを詰め込みすぎないように拡張 */
 .grounding { margin-bottom: 8px; }
 .citations { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.9em; color: #6b7280; }
 .citations p { margin: 0 0 4px; }
