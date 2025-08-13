@@ -59,16 +59,16 @@ function goBack() {
   font-weight: 600;
   cursor: pointer;
 }
-.back-btn:hover { background: #f3f4f6; }
+.back-btn:hover { background: #f8fafc; }
 
 .back-btn.icon {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: inline-grid;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 10px;
   padding: 0;
   transition: background 0.2s ease;
 }
-.back-btn.icon:hover { background: #e5e7eb; }
+.back-btn.icon:hover { background: #eef2f7; }
 </style>

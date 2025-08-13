@@ -84,7 +84,7 @@ watch(isMapOpen, async (open) => {
 .left { display:flex; flex-direction: column; }
 .left > .chat { flex: 1; }
 .right { position: relative; }
-.left-header { position: sticky; top: 0; z-index: 5; padding: 8px; background: #fff; border-bottom: 1px solid #eee; }
+.left-header { position: sticky; top: 0; z-index: 5; padding: 6px; background: rgba(255,255,255,0.92); backdrop-filter: blur(6px); border-bottom: 1px solid #f1f5f9; }
 
 /* 全画面マップオーバーレイ */
 .map-overlay {

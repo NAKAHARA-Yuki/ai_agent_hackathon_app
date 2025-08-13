@@ -167,12 +167,14 @@ function renderHtml(text) {
           @input="autoResize"
           :disabled="isSending"
         />
-        <button type="submit" :disabled="isSending">
-          <svg v-if="!isSending" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button type="submit" :disabled="isSending" aria-label="送信">
+          <svg v-if="!isSending" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"></line>
             <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
           </svg>
-          <span v-else>送信中…</span>
+          <svg v-else class="spinner" width="18" height="18" viewBox="0 0 50 50" aria-hidden="true">
+            <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="4" stroke-linecap="round" />
+          </svg>
         </button>
       </form>
       <div class="composer-actions">
@@ -199,23 +201,27 @@ function renderHtml(text) {
 .bubble.typing .dot:nth-child(2) { animation-delay: .2s; }
 .bubble.typing .dot:nth-child(3) { animation-delay: .4s; }
 @keyframes typingBlink { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
-.composer-area { position: static; background:#fff; border-top:1px solid #eee; padding: 8px 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.05); }
-.composer { display:flex; gap:8px; align-items:stretch; background:#fff; width: 100%; padding: 0 12px; box-sizing: border-box; }
-/* 入力欄: 広め、送信ボタン: 固定幅で比率を安定化（約85:15想定） */
-.composer textarea { flex: 1 1 0%; min-width: 0; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; font-size:14px; line-height:1.4; resize: none; height: 40px; max-height: 160px; box-sizing: border-box; }
+.composer-area { position: static; background:#fff; border-top:1px solid #eee; padding: 6px 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.05); }
+.composer { --composer-h: 44px; display:flex; gap:8px; align-items:stretch; background:#fff; width: 100%; padding: 6px 12px; box-sizing: border-box; }
+/* 入力欄と送信ボタンの高さを統一 */
+.composer textarea { flex: 1 1 0%; min-width: 0; padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; font-size:15px; line-height:1.4; resize: none; height: auto; min-height: var(--composer-h); max-height: 160px; box-sizing: border-box; }
 .composer textarea:disabled { background: #f9fafb; cursor: not-allowed; }
-.composer button { flex: 0 0 40px; height: 40px; align-self: flex-end; display:flex; align-items:center; justify-content:center; background:#2d7ef7; color:#fff; border:none; border-radius:8px; font-weight:600; min-height: 40px; padding: 0; }
-.composer button[disabled] { opacity: 0.6; cursor: not-allowed; }
+.composer button { flex: 0 0 auto; width: var(--composer-h); height: auto; min-height: var(--composer-h); align-self: stretch; display:grid; place-items:center; background:#111827; color:#fff; border:none; border-radius:12px; font-weight:600; padding: 0; }
+.composer button[disabled] { opacity: 0.7; cursor: not-allowed; }
+.composer button .spinner { animation: rot 1s linear infinite; }
+.composer button .spinner .path { stroke: #fff; stroke-dasharray: 90, 150; stroke-dashoffset: 0; animation: dash 1.2s ease-in-out infinite; }
+@keyframes rot { 100% { transform: rotate(360deg); } }
+@keyframes dash { 0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; } 50% { stroke-dasharray: 90, 150; stroke-dashoffset: -40px; } 100% { stroke-dasharray: 90, 150; stroke-dashoffset: -120px; } }
 
 .composer-actions { margin-top: 6px; display: none; padding: 0 12px; box-sizing: border-box; }
 .map-open-btn { width: 100%; background:#111827; color:#fff; border:none; border-radius:10px; padding:10px; font-weight:700; }
 
 @media (max-width: 600px) {
   /* モバイルではコンポーザー一式を下部にピン留め */
-  .composer-area { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .composer-area { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
   .composer-actions { display: block; }
-  .log { padding-bottom: 120px; }
-  /* ボタン幅を少し小さくする（約80:20） */
-  .composer button { flex-basis: 96px; }
+  .log { padding-bottom: 108px; }
+  /* ボタンはコンパクトに */
+  .composer { --composer-h: 42px; }
 }
 </style>

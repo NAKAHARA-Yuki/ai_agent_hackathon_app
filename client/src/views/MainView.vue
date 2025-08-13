@@ -63,7 +63,7 @@ function restart() {
 
 <style scoped>
 .main { display:grid; place-items:center; padding:32px 16px; height:100%; width:100%; overflow:hidden; }
-.panel { width:min(920px,100%); background:white; padding:28px 22px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+.panel { width:min(920px,100%); background:white; padding:24px 20px; border-radius:14px; box-shadow:0 10px 24px rgba(0,0,0,0.06); border:1px solid #eef2f7; }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
 .actions { margin-top: 16px; display:flex; gap: 12px; }
