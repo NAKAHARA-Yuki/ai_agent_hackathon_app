@@ -360,8 +360,8 @@ function switchScheduleView(idx, mode) {
         <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
         <div v-else class="bubble">
           <div v-if="scheduleStates[idx]?.found" class="schedule-actions">
-            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='accordion' }" @click="switchScheduleView(idx, 'accordion')">アコーディオン</button>
-            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='table' }" @click="switchScheduleView(idx, 'table')">表</button>
+            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='accordion' }" @click="switchScheduleView(idx, 'accordion')">簡易表示</button>
+            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='table' }" @click="switchScheduleView(idx, 'table')">詳細表示</button>
           </div>
           <div class="accordion-mount" v-if="scheduleStates[idx]?.found"></div>
           <div
