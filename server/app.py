@@ -580,6 +580,17 @@ def require_auth(req):
         return verify_jwt(token)
     return None
 
+def _claims_or_dev():
+    """Return JWT claims if present; in development, fall back to a dummy dev user.
+    This avoids 401 spam in local no-auth sessions.
+    """
+    claims = require_auth(request)
+    if claims:
+        return claims
+    if (os.getenv("FLASK_ENV", "").lower() == "development") or (ENV.lower() == "development"):
+        return { 'sub': 'devuser' }
+    return None
+
 
 @app.get('/api/maps-key')
 def get_maps_js_key():
@@ -1875,7 +1886,7 @@ def create_persona():
 # ==== Current user info ====
 @app.route('/api/me', methods=['GET'])
 def me():
-    claims = require_auth(request)
+    claims = _claims_or_dev()
     if not claims:
         return jsonify({"error": "unauthorized"}), 401
     try:
@@ -1896,7 +1907,7 @@ def me():
 # ==== Latest persona ====
 @app.route('/api/persona/latest', methods=['GET'])
 def persona_latest():
-    claims = require_auth(request)
+    claims = _claims_or_dev()
     if not claims:
         return jsonify({"error": "unauthorized"}), 401
     try:
@@ -1915,18 +1926,12 @@ def persona_latest():
         logger.exception("/api/persona/latest error")
         return jsonify({}), 404
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if path!= "" and os.path.exists(app.static_folder + '/' + path):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
+# (removed: duplicate catch-all route; use spa_fallback below)
 
 # ==== User profile (basic) ====
 @app.route('/api/profile', methods=['GET', 'POST'])
 def profile():
-    claims = require_auth(request)
+    claims = _claims_or_dev()
     if not claims:
         return jsonify({"error": "unauthorized"}), 401
     user_id = claims['sub']
