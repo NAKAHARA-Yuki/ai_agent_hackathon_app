@@ -119,7 +119,7 @@ onUnmounted(() => {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px calc(16px + env(safe-area-inset-right)) 12px calc(16px + env(safe-area-inset-left)); background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; box-sizing: border-box; }
+.site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:8px calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left)); background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; box-sizing: border-box; border-bottom: 1px solid rgba(0,0,0,0.04); }
 .brand { font-weight: 700; color:#1f2937; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .brand-link { color: inherit; text-decoration: none; cursor: pointer; display: inline-block; padding: 4px 6px; border-radius: 6px; }
 .brand-link:hover { background: rgba(0,0,0,0.05); }
@@ -129,12 +129,9 @@ onUnmounted(() => {
 .user-name { color:#111827; font-weight: 600; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .menu { position: relative; }
-.icon-btn {
-  width: 36px; height: 32px; border:none; background:transparent; cursor:pointer; padding: 4px; border-radius: 8px;
-  display:flex; flex-direction: column; justify-content: center; gap:4px; margin-left: 6px;
-}
+.icon-btn { width: 36px; height: 36px; border:1px solid rgba(0,0,0,0.06); background:rgba(255,255,255,0.6); cursor:pointer; padding: 6px; border-radius: 10px; display:flex; flex-direction: column; justify-content: center; align-items:center; gap:4px; margin-left: 6px; }
 .icon-btn:hover { background: rgba(0,0,0,0.05); }
-.bar { display:block; width: 20px; height: 2px; background:#1f2937; border-radius: 2px; }
+.bar { display:block; width: 18px; height: 2px; background:#1f2937; border-radius: 2px; }
 
 .drawer {
   position: fixed; right: 0; top: 0; height: 100vh; width: min(88vw, 320px); background: #ffffff;
