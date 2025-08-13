@@ -82,7 +82,7 @@ watch(isMapOpen, async (open) => {
   height: 100%;
 }
 .left { display:flex; flex-direction: column; }
-.left > .chat { flex: 1; }
+.left > .chat { flex: 1; min-height: 0; }
 .right { position: relative; }
 .left-header { position: sticky; top: 0; z-index: 5; padding: 6px; background: rgba(255,255,255,0.92); backdrop-filter: blur(6px); border-bottom: 1px solid #f1f5f9; }
 
