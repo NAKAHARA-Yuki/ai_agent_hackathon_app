@@ -1029,7 +1029,17 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     # 強制的にJSON-onlyを促す前置き注記（モデル/サーバ側が対応すればMIME強制に近い効果）
     prefix = (
         "以下の応答は、単一のJSONオブジェクトのみで返してください。"
-        "前後に説明やコードフェンス、余分な空白・句読点を一切付けないでください。\n\n"
+        "前後に説明やコードフェンス、余分な空白・句読点を一切付けないでください。\n"
+        "必ず次のスキーマに厳密に従ってください。\n"
+        "{\n"
+        "  \"text\": \"ユーザーへ見せる本文。GFMのMarkdownを使用可（見出し・箇条書き・表）。表はパイプ区切りのMarkdownテーブルで記述してください。\",\n"
+        "  \"places\": [ { \"name\": string, \"lat\": number|null, \"lng\": number|null, \"note\": string|null, \"url\": string|null } ] (省略可),\n"
+        "  \"route_info\": { \"origin\": string, \"destination\": string, \"waypoints\": [string], \"mode\": \"driving|walking|bicycling|transit\" } (省略可)\n"
+        "}\n\n"
+        "注意: \n"
+        "- 本文(text)にリストや比較を載せる場合はMarkdownテーブルを活用してください。\n"
+    "- 旅行日程(スケジュール)は、可能なら以下の列を持つ表で提示してください: アイコン|時間|予定|詳細|[その他(場所/費用/備考など)]。\n"
+        "- URLは本文かplaces.urlに含められます。\n"
     )
     payload = {
         "app_name": app_name,

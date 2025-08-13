@@ -25,6 +25,14 @@ const inputEl = ref(null)
 const isComposing = ref(false)
 const logEl = ref(null)
 const chatEl = ref(null)
+// メッセージDOM参照（表抽出や画像化に利用）
+const msgEls = ref({})
+function setMsgRef(idx, el) { if (el) msgEls.value[idx] = el }
+
+// 表の状態管理（大きい表は既定で折り畳み）
+const tableStates = ref({}) // { [idx]: { collapsed: boolean, hasTable: boolean } }
+// スケジュール表示モード
+const scheduleStates = ref({}) // { [idx]: { found: boolean, mode: 'accordion'|'table' } }
 
 // セッションIDはページライフサイクル内でのみ保持（リロードで新規発行）
 const userId = computed(() => auth.user?.id || 'u_local')
@@ -90,8 +98,16 @@ async function sendMessage() {
   let places = Array.isArray(data.places) ? data.places : []
     const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml, places }
     
-    if (reply || citations.length > 0 || groundingHtml) {
+  if (reply || citations.length > 0 || groundingHtml) {
       messages.value.push(assistantMessage)
+      // 表の有無/大きさに応じて初期状態セット
+      try {
+        const html = renderHtml(reply || '')
+        const idx = messages.value.length - 1
+        ensureTableState(idx, html)
+    // 次tickでDOM構築後にアコーディオン生成
+    nextTick(() => enhanceScheduleTables(idx))
+      } catch {}
     }
     scrollToBottom()
 
@@ -123,15 +139,217 @@ function autoResize(e) {
 
 function renderHtml(text) {
   try {
+    // Enable GFM (tables, strikethrough, task lists) and soft line breaks
+    marked.setOptions({ gfm: true, breaks: true, headerIds: false, mangle: false })
     const raw = marked.parse(text || '')
-    // Allow more tags for grounding results
+    // Allow table and related tags for nicer markdown tables
     return DOMPurify.sanitize(raw, {
-      ADD_TAGS: ['svg', 'path', 'circle', 'div', 'g', 'a'],
-      ADD_ATTR: ['fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href', 'target', 'rel']
+      ADD_TAGS: ['svg', 'path', 'circle', 'div', 'g', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption', 'details', 'summary', 'span', 'section', 'dl', 'dt', 'dd'],
+      ADD_ATTR: [
+        'fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href', 'target', 'rel',
+        'colspan', 'rowspan', 'align', 'scope'
+      ]
     })
   } catch {
     return text
   }
+}
+
+function hasTableInHtml(html) {
+  try {
+    const div = document.createElement('div')
+    div.innerHTML = html || ''
+    return !!div.querySelector('table')
+  } catch { return false }
+}
+
+function isLargeTableInHtml(html, rowThr = 12, colThr = 6) {
+  try {
+    const div = document.createElement('div')
+    div.innerHTML = html || ''
+    const tbl = div.querySelector('table')
+    if (!tbl) return false
+    const rows = tbl.querySelectorAll('tr').length
+    const firstRow = tbl.querySelector('tr')
+    const cols = firstRow ? firstRow.querySelectorAll('th,td').length : 0
+    return rows > rowThr || cols > colThr
+  } catch { return false }
+}
+
+function ensureTableState(idx, html) {
+  const st = tableStates.value[idx]
+  if (st && typeof st.collapsed === 'boolean') return st
+  const hasTbl = hasTableInHtml(html)
+  const large = hasTbl && isLargeTableInHtml(html)
+  const next = { collapsed: !!large, hasTable: !!hasTbl }
+  tableStates.value = { ...tableStates.value, [idx]: next }
+  return next
+}
+
+function toggleTableCollapse(idx) {
+  const st = tableStates.value[idx] || { collapsed: false, hasTable: false }
+  tableStates.value = { ...tableStates.value, [idx]: { ...st, collapsed: !st.collapsed } }
+}
+
+async function exportTableAsCSV(idx) {
+  try {
+    const root = msgEls.value[idx]
+    if (!root) return
+    const tbl = root.querySelector('table')
+    if (!tbl) return
+    const rows = Array.from(tbl.querySelectorAll('tr'))
+    const csv = rows.map(tr => {
+      const cells = Array.from(tr.querySelectorAll('th,td')).map(td => {
+        const t = (td.textContent || '').replace(/\r?\n|\r/g, ' ').trim()
+        const esc = t.replace(/"/g, '""')
+        if (/[",\n]/.test(esc)) return `"${esc}"`
+        return esc
+      })
+      return cells.join(',')
+    }).join('\n')
+    const bom = '\ufeff'
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `table-${idx + 1}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } catch (e) { console.error('CSV export failed', e) }
+}
+
+async function exportTableAsImage(idx) {
+  try {
+    const root = msgEls.value[idx]
+    if (!root) return
+    const tbl = root.querySelector('table')
+    if (!tbl) return
+    const { default: html2canvas } = await import('html2canvas')
+    // 一時的に折り畳み解除して全体を撮影
+    const st = tableStates.value[idx] || { collapsed: false }
+    const wasCollapsed = !!st.collapsed
+    if (wasCollapsed) toggleTableCollapse(idx)
+    // スケジュール表示がアコーディオンなら一時的にテーブル表示へ
+    const sch = scheduleStates.value[idx]
+    const wasAccordion = sch && sch.mode === 'accordion'
+    if (wasAccordion) switchScheduleView(idx, 'table')
+    await nextTick()
+    const canvas = await html2canvas(tbl, { backgroundColor: '#ffffff', scale: 2, useCORS: true })
+    const url = canvas.toDataURL('image/png')
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `table-${idx + 1}.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    if (wasAccordion) switchScheduleView(idx, 'accordion')
+    if (wasCollapsed) { toggleTableCollapse(idx); await nextTick() }
+  } catch (e) { console.error('Image export failed', e) }
+}
+
+function isScheduleTable(tableEl) {
+  try {
+    const ths = Array.from(tableEl.querySelectorAll('thead th, tr:first-child th, tr:first-child td')).map(x => (x.textContent || '').trim())
+    const hasTime = ths.some(t => /時間|時刻|time/i.test(t))
+    const hasPlan = ths.some(t => /予定|プラン|行程|title|内容/i.test(t))
+    return hasTime && hasPlan
+  } catch { return false }
+}
+
+function buildAccordionFromTable(tableEl) {
+  const container = document.createElement('div')
+  container.className = 'accordion-block'
+  const rows = Array.from(tableEl.querySelectorAll('tr'))
+  if (!rows.length) return container
+  // header
+  const headers = Array.from(rows[0].querySelectorAll('th,td')).map(x => (x.textContent || '').trim())
+  const idxIcon = headers.findIndex(h => /アイコン|icon|emoji/i.test(h))
+  const idxTime = headers.findIndex(h => /時間|時刻|time/i.test(h))
+  const idxTitle = headers.findIndex(h => /予定|プラン|行程|title|内容/i.test(h))
+  const idxDetail = headers.findIndex(h => /詳細|detail|説明/i.test(h))
+  // data rows
+  for (let i = 1; i < rows.length; i++) {
+    const cells = Array.from(rows[i].querySelectorAll('th,td'))
+    const get = (idx) => (idx >= 0 && cells[idx]) ? (cells[idx].textContent || '').trim() : ''
+    const icon = get(idxIcon) || '•'
+    const time = get(idxTime)
+    const title = get(idxTitle)
+    const detail = get(idxDetail)
+    const otherPairs = []
+    headers.forEach((h, j) => {
+      if (![idxIcon, idxTime, idxTitle, idxDetail].includes(j) && (cells[j] && (cells[j].textContent || '').trim())) {
+        otherPairs.push([h, (cells[j].textContent || '').trim()])
+      }
+    })
+    const detailsEl = document.createElement('details')
+    const summaryEl = document.createElement('summary')
+    summaryEl.innerHTML = `<span class="it-icon">${icon}</span><span class="it-time">${time}</span><span class="it-title">${title}</span>`
+    const bodyEl = document.createElement('div')
+    bodyEl.className = 'it-body'
+    if (detail) {
+      const p = document.createElement('p')
+      p.textContent = detail
+      bodyEl.appendChild(p)
+    }
+    if (otherPairs.length) {
+      const dl = document.createElement('dl')
+      otherPairs.forEach(([k, v]) => {
+        const dt = document.createElement('dt'); dt.textContent = k
+        const dd = document.createElement('dd'); dd.textContent = v
+        dl.appendChild(dt); dl.appendChild(dd)
+      })
+      bodyEl.appendChild(dl)
+    }
+    detailsEl.appendChild(summaryEl)
+    detailsEl.appendChild(bodyEl)
+    container.appendChild(detailsEl)
+  }
+  return container
+}
+
+function enhanceScheduleTables(idx) {
+  try {
+    const root = msgEls.value[idx]
+    if (!root) return
+    const table = root.querySelector('.bubble .text table')
+    if (!table) return
+    if (!isScheduleTable(table)) return
+    // 生成・配置
+    const acc = buildAccordionFromTable(table)
+    let mount = root.querySelector('.bubble .accordion-mount')
+    if (!mount) {
+      mount = document.createElement('div')
+      mount.className = 'accordion-mount'
+      const bubble = root.querySelector('.bubble')
+      if (bubble) bubble.insertBefore(mount, bubble.firstChild)
+    }
+    // 既存クリアして追加
+    mount.innerHTML = ''
+    mount.appendChild(acc)
+    // 表示モード既定はアコーディオン
+    scheduleStates.value = { ...scheduleStates.value, [idx]: { found: true, mode: 'accordion' } }
+    table.classList.add('hidden-table')
+  } catch (e) { console.error('enhanceScheduleTables failed', e) }
+}
+
+function switchScheduleView(idx, mode) {
+  try {
+    const root = msgEls.value[idx]
+    if (!root) return
+    const table = root.querySelector('.bubble .text table')
+    const mount = root.querySelector('.bubble .accordion-mount')
+    const acc = mount && mount.querySelector('.accordion-block')
+    if (!table || !mount || !acc) return
+    if (mode === 'table') {
+      table.classList.remove('hidden-table')
+      mount.style.display = 'none'
+    } else {
+      table.classList.add('hidden-table')
+      mount.style.display = ''
+    }
+    const st = scheduleStates.value[idx] || { found: true, mode: 'accordion' }
+    scheduleStates.value = { ...scheduleStates.value, [idx]: { ...st, mode } }
+  } catch {}
 }
 
  </script>
@@ -139,10 +357,28 @@ function renderHtml(text) {
 <template>
   <div class="chat" ref="chatEl">
     <div class="log" ref="logEl">
-      <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]">
+      <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]" :ref="el => setMsgRef(idx, el)">
         <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
         <div v-else class="bubble">
-          <div v-if="m.text" class="text" v-html="renderHtml(m.text)"></div>
+          <div v-if="scheduleStates[idx]?.found" class="schedule-actions">
+            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='accordion' }" @click="switchScheduleView(idx, 'accordion')">アコーディオン</button>
+            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='table' }" @click="switchScheduleView(idx, 'table')">表</button>
+          </div>
+          <div class="accordion-mount" v-if="scheduleStates[idx]?.found"></div>
+          <div
+            v-if="m.text"
+            class="text"
+            :class="{ 'table-collapsed': (tableStates[idx]?.collapsed && tableStates[idx]?.hasTable) }"
+            v-html="renderHtml(m.text)"
+          ></div>
+          <div v-if="ensureTableState(idx, renderHtml(m.text)).hasTable" class="table-actions">
+            <button type="button" class="btn small" @click="toggleTableCollapse(idx)">
+              {{ tableStates[idx]?.collapsed ? '表を展開' : '表を折りたたむ' }}
+            </button>
+            <div class="spacer"></div>
+            <button type="button" class="btn small" @click="exportTableAsImage(idx)">画像で保存</button>
+            <button type="button" class="btn small" @click="exportTableAsCSV(idx)">CSVで保存</button>
+          </div>
           <div v-if="m.citations && m.citations.length" class="citations">
             <p><strong>引用元:</strong></p>
             <ul>
@@ -213,6 +449,54 @@ function renderHtml(text) {
 .bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
 .bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
+/* Markdown tables */
+.bubble :where(table){
+  border-collapse: collapse;
+  border-spacing: 0;
+  display: block; /* enable horizontal scroll if wide */
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 8px 0;
+}
+.bubble :where(thead){ background: #f8fafc; }
+.bubble :where(th, td){
+  border: 1px solid #e5e7eb;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.bubble :where(th){ font-weight: 700; color: #111827; }
+.bubble :where(tbody tr:nth-child(odd)){ background: #fafafa; }
+.bubble :where(caption){ caption-side: bottom; color:#6b7280; font-size: 0.9em; padding-top: 6px; }
+.msg.assistant .bubble{ max-width: 100%; } /* 表などを詰め込みすぎないように拡張 */
+.hidden-table{ display: none; }
+.schedule-actions{ display:flex; gap:8px; margin-bottom: 6px; }
+.btn.small.active{ outline: 2px solid #2563eb; }
+.accordion-block details{ border:1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin: 6px 0; background:#fff; }
+.accordion-block summary{ cursor: pointer; list-style: none; display:flex; align-items:center; gap:10px; }
+.accordion-block summary::-webkit-details-marker{ display:none; }
+.accordion-block .it-icon{ width: 24px; text-align: center; }
+.accordion-block .it-time{ font-weight: 700; color:#111827; min-width:76px; }
+.accordion-block .it-title{ font-weight: 600; color:#111827; }
+.accordion-block .it-body{ color:#374151; padding: 6px 2px 2px; }
+.table-actions{ display:flex; align-items:center; gap:8px; margin-top: 6px; }
+.table-actions .spacer{ flex: 1 1 auto; }
+.btn.small{ background:#111827; color:#fff; border:none; border-radius:8px; padding:6px 10px; font-size: 12px; }
+
+/* 大きな表の折り畳み */
+.text.table-collapsed :where(table){ max-height: 240px; overflow: hidden; position: relative; }
+.text.table-collapsed { position: relative; }
+.text.table-collapsed::after{
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+  pointer-events: none;
+}
 .grounding { margin-bottom: 8px; }
 .citations { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.9em; color: #6b7280; }
 .citations p { margin: 0 0 4px; }
@@ -252,5 +536,22 @@ function renderHtml(text) {
   .composer-area { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
   .composer-actions { display: block; }
   .log { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+}
+
+/* ダークテーマ（自動） */
+@media (prefers-color-scheme: dark) {
+  .bubble { background:#111827; color:#e5e7eb; }
+  .msg.user .bubble { background:#2563eb; color:#fff; }
+  .bubble :where(pre){ background: #0b1220; color:#e5e7eb; }
+  .bubble :where(table){ background: #0b1220; }
+  .bubble :where(thead){ background: #0f172a; }
+  .bubble :where(th, td){ border-color: #334155; }
+  .bubble :where(tbody tr:nth-child(odd)){ background: #0f172a; }
+  .bubble :where(caption){ color:#94a3b8; }
+  .btn.small{ background:#374151; color:#e5e7eb; }
+  .text.table-collapsed::after{ background: linear-gradient(to bottom, rgba(17,24,39,0), rgba(17,24,39,1)); }
+  .accordion-block details{ border-color:#334155; background:#0b1220; }
+  .accordion-block .it-time, .accordion-block .it-title{ color:#e5e7eb; }
+  .accordion-block .it-body{ color:#cbd5e1; }
 }
 </style>
