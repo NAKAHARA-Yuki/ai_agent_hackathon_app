@@ -1038,6 +1038,7 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
         "}\n\n"
         "注意: \n"
         "- 本文(text)にリストや比較を載せる場合はMarkdownテーブルを活用してください。\n"
+    "- 旅行日程(スケジュール)は、可能なら以下の列を持つ表で提示してください: アイコン|時間|予定|詳細|[その他(場所/費用/備考など)]。\n"
         "- URLは本文かplaces.urlに含められます。\n"
     )
     payload = {
