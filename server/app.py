@@ -29,8 +29,30 @@ except Exception as e:
     load_dotenv(override=True)
 
 # Resolve absolute path to client/dist so SPA can be served reliably from the backend
-_repo_root = Path(__file__).resolve().parent.parent
-_client_dist = _repo_root / 'client' / 'dist'
+_here = Path(__file__).resolve().parent
+_client_dist_env = os.getenv('CLIENT_DIST')
+_candidates = []
+if _client_dist_env:
+    _candidates.append(Path(_client_dist_env))
+# Local dev layout: <repo>/server/app.py -> <repo>/client/dist
+_candidates.append(_here.parent / 'client' / 'dist')
+# Container layout: /app/app.py -> /app/client/dist
+_candidates.append(_here / 'client' / 'dist')
+_client_dist = None
+for _p in _candidates:
+    try:
+        if _p and _p.is_dir():
+            _client_dist = _p
+            break
+    except Exception:
+        pass
+if _client_dist is None:
+    # Fallback to current dir; SPA will 404 for assets, so log a warning
+    _client_dist = _here
+    logging.warning(f"client/dist not found in candidates: {[str(p) for p in _candidates]}. Falling back to {_client_dist}")
+else:
+    logging.info(f"Static assets directory: {_client_dist}")
+
 # Use a non-root static_url_path to avoid conflicts with SPA fallback
 app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/static')
 
