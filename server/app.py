@@ -92,6 +92,249 @@ def _snip_json(obj, limit: int = 2000) -> str:
             s = "<unserializable>"
     return _snip_text(s, limit)
 
+def _to_float(v):
+    try:
+        if v is None:
+            return None
+        return float(v)
+    except Exception:
+        return None
+
+def _normalize_places_list(raw):
+    """Normalize various shapes of places into list[{name,lat,lng,note}]."""
+    if raw is None:
+        return None
+    out = []
+    try:
+        if isinstance(raw, dict):
+            # Sometimes single object
+            raw = [raw]
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, str):
+                    out.append({ 'name': item, 'lat': None, 'lng': None })
+                    continue
+                if not isinstance(item, dict):
+                    continue
+                name = item.get('name') or item.get('title') or item.get('label') or item.get('place')
+                lat = item.get('lat') if 'lat' in item else item.get('latitude')
+                lng = item.get('lng') if 'lng' in item else item.get('lon') if 'lon' in item else item.get('longitude')
+                # location: {lat, lng}
+                loc = item.get('location')
+                if isinstance(loc, dict):
+                    lat = lat if lat is not None else loc.get('lat')
+                    lng = lng if lng is not None else (loc.get('lng') if 'lng' in loc else loc.get('lon') if 'lon' in loc else loc.get('longitude'))
+                note = item.get('note') or item.get('description') or item.get('address')
+                # optional rich fields for client map
+                url = item.get('url') or item.get('link')
+                image_url = item.get('imageUrl') or item.get('image') or item.get('thumbnail')
+                icon_url = item.get('iconUrl') or item.get('icon')
+                label = item.get('label') if isinstance(item.get('label'), str) else None
+                color = item.get('color') if isinstance(item.get('color'), str) else None
+                address = item.get('address')
+                out.append({
+                    'name': name,
+                    'lat': _to_float(lat),
+                    'lng': _to_float(lng),
+                    'note': note,
+                    'url': url,
+                    'imageUrl': image_url,
+                    'iconUrl': icon_url,
+                    'label': label,
+                    'color': color,
+                    'address': address
+                })
+        return out
+    except Exception:
+        return None
+
+def _normalize_route_info(obj):
+    if not isinstance(obj, dict):
+        return None
+    origin = obj.get('origin') or obj.get('from') or obj.get('start')
+    dest = obj.get('destination') or obj.get('to') or obj.get('end')
+    # optional: waypoints and travel mode
+    wps = obj.get('waypoints') or obj.get('via') or obj.get('stops')
+    if isinstance(wps, (list, tuple)):
+        # keep only strings or {lat,lng}/{name}
+        norm_wps = []
+        for w in wps:
+            if isinstance(w, str):
+                norm_wps.append(w)
+            elif isinstance(w, dict):
+                nm = w.get('name')
+                lat = w.get('lat') if 'lat' in w else w.get('latitude')
+                lng = w.get('lng') if 'lng' in w else w.get('lon') if 'lon' in w else w.get('longitude')
+                if isinstance(nm, str) and nm:
+                    norm_wps.append(nm)
+                elif lat is not None and lng is not None:
+                    try:
+                        norm_wps.append(f"{float(lat)},{float(lng)}")
+                    except Exception:
+                        pass
+        wps = norm_wps
+    else:
+        wps = None
+    mode = (obj.get('mode') or obj.get('travel_mode') or obj.get('travelMode'))
+    if isinstance(mode, str):
+        mode = mode.lower()
+        if mode not in ('driving','walking','bicycling','transit'):
+            mode = None
+    else:
+        mode = None
+    if not origin and not dest:
+        return None
+    out = { 'origin': origin, 'destination': dest }
+    if wps: out['waypoints'] = wps
+    if mode: out['mode'] = mode
+    return out
+
+def _extract_trailing_json(s: str):
+    """Extract a trailing JSON object from text, supporting fenced code blocks and partial scans.
+    Returns (text_without_json, places, route_info).
+    """
+    try:
+        import re as _re
+
+        def _strip_trailing_citation_brackets(txt: str) -> str:
+            # remove trailing " [1, 2] [3]" like annotations
+            return _re.sub(r"(?:\s*\[[0-9,\s]+\])+\s*$", "", txt or "")
+
+        def _recover_places_fragment(txt: str):
+            """Heuristic recovery for broken {"places":[{...}, {...}, ... [1,2]} missing closing ]}.
+            Returns (text_without_fragment, places_list) or (None, None) if not found.
+            """
+            try:
+                m = _re.search(r"\{\s*\"(places|place)\"\s*:\s*\[", txt)
+                if not m:
+                    return None, None
+                start = m.start()
+                rest = txt[m.end():]
+                rest = _strip_trailing_citation_brackets(rest)
+                # scan rest to collect top-level JSON objects within the array
+                objs = []
+                i = 0
+                n = len(rest)
+                while i < n:
+                    if rest[i] == '{':
+                        depth = 1
+                        j = i + 1
+                        while j < n and depth > 0:
+                            ch = rest[j]
+                            if ch == '"':
+                                # skip string
+                                j += 1
+                                while j < n:
+                                    if rest[j] == '\\':
+                                        j += 2
+                                        continue
+                                    if rest[j] == '"':
+                                        j += 1
+                                        break
+                                    j += 1
+                                continue
+                            elif ch == '{':
+                                depth += 1
+                            elif ch == '}':
+                                depth -= 1
+                            j += 1
+                        if depth == 0:
+                            objs.append(rest[i:j])
+                            i = j
+                            # skip comma and spaces
+                            while i < n and rest[i] in ' \t\r\n,':
+                                i += 1
+                            continue
+                        else:
+                            break
+                    else:
+                        i += 1
+                if not objs:
+                    return None, None
+                places = []
+                for o in objs:
+                    try:
+                        places.append(json.loads(o))
+                    except Exception:
+                        continue
+                places = _normalize_places_list(places)
+                if places:
+                    return txt[:start].rstrip(), places
+                return None, None
+            except Exception:
+                return None, None
+        # Trim trailing citation brackets once at the start
+        s = _strip_trailing_citation_brackets(s)
+
+        # 1) fenced code block ```json {..} ``` (prefer the last one)
+        blocks = _re.findall(r"```(?:json)?\s*({[\s\S]*?})\s*```", s)
+        candidate = None
+        if blocks:
+            candidate = blocks[-1]
+            try:
+                obj = json.loads(candidate)
+                places = obj.get('places') if isinstance(obj, dict) else None
+                if places is None:
+                    places = obj.get('place') if isinstance(obj, dict) else None
+                route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                if route_info is None and isinstance(obj, dict):
+                    route_info = obj.get('route') or obj.get('routeInfo')
+                places = _normalize_places_list(places)
+                route_info = _normalize_route_info(route_info)
+                # remove the last fenced block
+                s2 = s
+                last_idx = s2.rfind('```')
+                if last_idx != -1:
+                    s2 = s2[:last_idx].rstrip()
+                return s2, places, route_info
+            except Exception:
+                candidate = None
+        # 2) scan from last '{' and expand to closing '}' progressively
+        idx = s.rfind('{')
+        if idx != -1:
+            pos = idx
+            while True:
+                end = s.find('}', pos)
+                if end == -1:
+                    break
+                chunk = s[idx:end+1]
+                try:
+                    obj = json.loads(chunk)
+                    places = obj.get('places') if isinstance(obj, dict) else None
+                    if places is None:
+                        places = obj.get('place') if isinstance(obj, dict) else None
+                    route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                    if route_info is None and isinstance(obj, dict):
+                        route_info = obj.get('route') or obj.get('routeInfo')
+                    places = _normalize_places_list(places)
+                    route_info = _normalize_route_info(route_info)
+                    return s[:idx].rstrip(), places, route_info
+                except Exception:
+                    pos = end + 1
+        # 3) regex fallback: object containing keys of interest (allow trailing citation brackets)
+        m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
+        if m:
+            try:
+                obj = json.loads(m.group(1))
+                places = obj.get('places') if isinstance(obj, dict) else None
+                if places is None:
+                    places = obj.get('place') if isinstance(obj, dict) else None
+                route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                if route_info is None and isinstance(obj, dict):
+                    route_info = obj.get('route') or obj.get('routeInfo')
+                places = _normalize_places_list(places)
+                route_info = _normalize_route_info(route_info)
+                return s[:m.start(1)].rstrip(), places, route_info
+            except Exception:
+                pass
+        # 4) heuristic recovery for broken places arrays
+        base_text, recovered = _recover_places_fragment(s)
+        if recovered:
+            return base_text, recovered, None
+    except Exception:
+        pass
+    return s, None, None
+
 def _normalize_grounding_meta(event: dict) -> dict:
     """Accepts an agent event and normalizes grounding metadata to snake_case keys.
     Returns dict with keys: grounding_chunks, grounding_supports, search_entry_point.
@@ -344,7 +587,42 @@ def get_maps_js_key():
     # avoid returning placeholder text
     if key == 'YOUR_API_KEY_HERE':
         key = ''
-    return jsonify({ 'key': key })
+    # sanitize: 改行漏れやURLエンコードされた連結を切り落とす
+    try:
+        key = (key or '').strip()
+        # 代表的なセパレータで最初に分割
+        for sep in ['FLASK_ENV', 'ENV=', '%3D', '&', '?', '\n', '\r']:
+            if sep in key:
+                key = key.split(sep)[0].strip()
+        # 許可文字以外で早期終了
+        import re as _re
+        m = _re.match(r'^([A-Za-z0-9_\-]+)', key)
+        if m:
+            key = m.group(1)
+    except Exception:
+        pass
+    # mapId の取得とサニタイズ（Advanced Marker で推奨）
+    map_id = os.getenv('VITE_GOOGLE_MAPS_MAP_ID') or os.getenv('GOOGLE_MAPS_MAP_ID') or ''
+    try:
+        map_id = (map_id or '').strip()
+        import re as _re
+        m2 = _re.match(r'^([A-Za-z0-9_\-]+)', map_id)
+        if m2:
+            map_id = m2.group(1)
+    except Exception:
+        pass
+    # Advanced Marker の有効化フラグ（サーバー側で制御可能）
+    adv_env = (
+        os.getenv('ENABLE_ADVANCED_MARKER')
+        or os.getenv('VITE_ENABLE_ADVANCED_MARKER')
+        or os.getenv('GOOGLE_MAPS_ENABLE_ADVANCED_MARKER')
+        or ''
+    )
+    adv = str(adv_env).strip().lower() in ['1','true','yes','on']
+    # mapId 未設定なら Advanced を無効化（警告抑止と確実性のため）
+    if not map_id:
+        adv = False
+    return jsonify({ 'key': key, 'mapId': map_id, 'advanced': adv })
 
 
 
@@ -735,6 +1013,8 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
         body_snip = (body[:500] + '…') if body and len(body) > 500 else (body or '')
         bridge_logger.error(f"Run agent failed: status={status} {int(dt)}ms body={body_snip}")
         raise
+
+    # 成功時の処理
     dt = (monotonic() - t0) * 1000
     j = r2.json()
     bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
@@ -745,6 +1025,86 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
         except Exception:
             pass
     return j
+
+def _extract_locations_via_llm(reply_text: str, user_id: str, session_id: str, timeout_sec: int = 30):
+    """第二段: 本文から場所とルートを抽出するために、非エージェントのLLM（Gemini REST）を優先して使用。
+    返信は JSON オブジェクトのみを期待。失敗時は (None, None) を返す。
+    """
+    try:
+        # 1) Gemini REST を優先
+        if genai_configured:
+            model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+            prompt = (
+                "以下の文章から、旅行に関係する場所候補（places）と任意のルート情報（route_info）を抽出してください。\n"
+                "要件:\n"
+                "- 出力は JSON オブジェクトのみ（前後に説明やコードフェンスを付けない）\n"
+                "- 形式: {\"places\":[{\"name\":\"…\",\"lat\":null,\"lng\":null,\"note\":\"…\",\"url\":null,\"imageUrl\":null,\"iconUrl\":null,\"label\":null,\"color\":null,\"address\":null}], \"route_info\":{\"origin\":\"…\",\"destination\":\"…\",\"waypoints\":[""],\"mode\":\"driving|walking|bicycling|transit\"}}\n"
+                "- places は最大10件。name は自然言語の地名・施設名。lat/lng が不明なら null。\n"
+                "- route_info は存在する場合のみ。waypoints は文字列の配列で良い。\n\n"
+                "[対象テキスト]\n" + (reply_text or "")
+            )
+            try:
+                resp = call_gemini_api(prompt, model_name=model)
+                text_out = ''
+                try:
+                    for c in (resp.get('candidates') or []):
+                        parts = ((c.get('content') or {}).get('parts') or [])
+                        for p in parts:
+                            t = p.get('text')
+                            if isinstance(t, str):
+                                text_out += t
+                except Exception:
+                    text_out = ''
+                places, route_info = None, None
+                if isinstance(text_out, str) and text_out.strip():
+                    try:
+                        obj = json.loads(text_out.strip())
+                        places = obj.get('places') if isinstance(obj, dict) else None
+                        if places is None and isinstance(obj, dict):
+                            places = obj.get('place')
+                        route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                        if route_info is None and isinstance(obj, dict):
+                            route_info = obj.get('route') or obj.get('routeInfo')
+                        places = _normalize_places_list(places)
+                        route_info = _normalize_route_info(route_info)
+                    except Exception:
+                        try:
+                            # フェンス/余白混入時は末尾抽出で救済
+                            _, places, route_info = _extract_trailing_json(text_out.strip())
+                        except Exception:
+                            places, route_info = None, None
+                if places is not None or route_info is not None:
+                    return places, route_info
+            except Exception as e:
+                logging.getLogger('extract').warning(f"Gemini extraction failed: {e}")
+
+        # 2) フォールバック: （オプション）ADKエージェントに抽出依頼（利用不可や失敗時はスキップ）
+        try:
+            extract_sid = f"{session_id}-extract"
+            prompt2 = (
+                "以下の文章から、旅行に関係する場所候補（places）と任意のルート情報（route_info）を抽出してください。\n"
+                "出力は JSON オブジェクトのみで、説明やコードフェンスは不要です。\n\n"
+                "[対象テキスト]\n" + (reply_text or "")
+            )
+            events = call_adk_agent_chat('travel_planner', user_id, extract_sid, prompt2, timeout_sec=timeout_sec, ensure_session=True)
+            if isinstance(events, list) and events:
+                final_event = events[-1]
+                content = final_event.get('content') or {}
+                if content.get('role') == 'model':
+                    text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+                    try:
+                        _, places, route_info = _extract_trailing_json(text.strip())
+                        if places is not None or route_info is not None:
+                            return places, route_info
+                    except Exception:
+                        pass
+        except Exception as e:
+            logging.getLogger('extract').warning(f"Agent fallback extraction failed: {e}")
+
+        return None, None
+    except Exception as e:
+        logging.getLogger('extract').warning(f"LLM extraction wrapper failed: {e}")
+        return None, None
 
 # ---- Session initialization tracking (first-message detection) ----
 _primed_sessions = set()
@@ -831,20 +1191,9 @@ def agent_chat():
             final_event = events[-1]
             content = final_event.get('content') or {}
             if content.get('role') == 'model':
+                # 第1段: 自然文のみ（JSONを含めない）
                 reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
-                # 先に本文末尾のJSON（places/route_info）を切り出す
-                try:
-                    s = reply_text
-                    idx = s.rfind('{')
-                    if idx != -1:
-                        tail = s[idx:].strip()
-                        obj = json.loads(tail)
-                        if isinstance(obj, dict):
-                            places = obj.get('places')
-                            route_info = obj.get('route_info')
-                            reply_text = s[:idx].rstrip()
-                except Exception:
-                    pass
+                # もし誤ってJSONが混じっても本文として扱い、抽出は第2段で別途行う
 
             meta_norm = _normalize_grounding_meta(final_event)
             if meta_norm:
@@ -968,7 +1317,24 @@ def agent_chat():
                     if LOG_PAYLOADS:
                         logger.info(f"grounding_html generated from web_search_queries count={len(queries or [])}")
 
-    # 末尾JSONの切り出しは上で処理済み
+        # 第2段: 本文から場所・ルートの抽出を LLM に依頼（失敗時のみヒューリスティック）
+        if isinstance(reply_text, str) and reply_text.strip():
+            p2, r2 = _extract_locations_via_llm(reply_text, req_user_id, req_session_id)
+            if p2 is not None:
+                places = p2
+            if r2 is not None:
+                route_info = r2
+            # 保険として、両方 None の時のみヒューリスティック抽出
+            if places is None and route_info is None:
+                try:
+                    reply_text2, p_h, r_h = _extract_trailing_json(reply_text)
+                    if p_h is not None:
+                        places = p_h
+                    if r_h is not None:
+                        route_info = r_h
+                    # 本文はユーザー表示が主目的なので reply_text は差し替えず（自然文のまま）
+                except Exception:
+                    pass
 
         logger.info(f"/api/agent/chat done user={req_user_id} session={req_session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} trace={tid}")
         if not is_session_initialized(req_user_id, req_session_id):
@@ -1000,8 +1366,34 @@ def geocode_places():
         api_key = os.getenv('GOOGLE_MAPS_API_KEY')
         results = []
         if not api_key:
-            # APIキー未設定時は空で返す（フロントは名称のみで処理可能）
+            # Googleキーが無い場合は軽量な OSM Nominatim をフォールバックで利用
+            # 注意: 公開環境での大量利用は避け、User-Agent を明示
+            headers = {
+                'User-Agent': os.getenv('NOMINATIM_UA', 'izatabi-app/1.0 (+https://example.com/contact)')
+            }
+            for nm in names[:15]:
+                try:
+                    url = 'https://nominatim.openstreetmap.org/search'
+                    params = {
+                        'q': nm,
+                        'format': 'json',
+                        'limit': 1,
+                        'addressdetails': 0,
+                        'accept-language': 'ja'
+                    }
+                    r = requests.get(url, params=params, headers=headers, timeout=10)
+                    if r.ok:
+                        arr = r.json() or []
+                        if arr:
+                            g = arr[0]
+                            lat = float(g.get('lat')) if g.get('lat') is not None else None
+                            lon = float(g.get('lon')) if g.get('lon') is not None else None
+                            disp = g.get('display_name')
+                            results.append({ 'name': nm, 'lat': lat, 'lng': lon, 'formatted_address': disp })
+                except Exception:
+                    continue
             return jsonify({ 'results': results })
+        # Google Geocoding を使用
         for nm in names[:20]:
             try:
                 url = 'https://maps.googleapis.com/maps/api/geocode/json'

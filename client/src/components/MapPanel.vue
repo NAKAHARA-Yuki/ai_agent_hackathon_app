@@ -1,11 +1,16 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 
+// Advanced Marker の利用可否フラグと mapId はサーバー設定から取得
+const ENABLE_ADVANCED_MARKER = ref(false)
+const MAP_ID = ref('')
+
 const props = defineProps({
   places: { type: Array, default: () => [] },
   routeInfo: { type: Object, default: () => null }
 })
 
+// Google Maps の埋め込みは www.google.com を使用
 const baseEmbed = 'https://www.google.com/maps?output=embed'
 const iframeSrc = ref('')
 const staticImgSrc = ref('')
@@ -17,37 +22,53 @@ let markers = []
 let cluster = null
 
 const hasRoute = computed(() => !!(props.routeInfo && props.routeInfo.origin && props.routeInfo.destination))
-const placesWithCoords = computed(() => (props.places || []).filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number'))
+const placesWithCoords = computed(() => (props.places || []).filter(p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng)))
 
 async function fetchMapsKey() {
   try {
     const r = await fetch('/api/maps-key')
     if (r.ok) {
       const j = await r.json()
-      mapsApiKey.value = j.key || ''
+  mapsApiKey.value = j.key || ''
+  ENABLE_ADVANCED_MARKER.value = !!j.advanced
+  MAP_ID.value = j.mapId || ''
     }
   } catch {}
 }
 
 function buildRouteEmbed() {
-  const origin = encodeURIComponent(props.routeInfo.origin)
-  const destination = encodeURIComponent(props.routeInfo.destination)
-  iframeSrc.value = `${baseEmbed}&saddr=${origin}&daddr=${destination}`
+  const originStr = String(props.routeInfo.origin || '')
+  const destStr = String(props.routeInfo.destination || '')
+  const wps = Array.isArray(props.routeInfo.waypoints) ? props.routeInfo.waypoints.filter(Boolean) : []
+  const mode = (props.routeInfo.mode || '').toLowerCase()
+
+  // キー不要の q=dir 形式を常に使用（キー不正でも確実に表示）
+  const parts = [`dir:${originStr}`]
+  for (const w of wps) parts.push(`to:${w}`)
+  parts.push(`to:${destStr}`)
+  const q = encodeURIComponent(parts.join(' '))
+  const params = new URLSearchParams({ q })
+  if (['driving','walking','bicycling','transit'].includes(mode)) params.set('travelmode', mode)
+  iframeSrc.value = `https://www.google.com/maps?output=embed&${params.toString()}`
   staticImgSrc.value = ''
 }
 
 function buildPlaceEmbed() {
   const first = (props.places || [])[0]
   if (!first) {
-    iframeSrc.value = `${baseEmbed}&ll=35.68,139.77&z=5`
+  // 日本付近にズームしたデフォルトビュー
+  iframeSrc.value = `${baseEmbed}&ll=35.68,139.77&z=5`
     staticImgSrc.value = ''
     return
   }
   const q = encodeURIComponent(first.name || `${first.lat},${first.lng}`)
   if (first.lat && first.lng) {
-    iframeSrc.value = `${baseEmbed}&z=15&ll=${first.lat},${first.lng}&q=${q}`
+  // 座標がある場合は ll + q で強制ズーム
+  iframeSrc.value = `${baseEmbed}&z=15&ll=${first.lat},${first.lng}&q=${q}`
   } else {
-    iframeSrc.value = `${baseEmbed}&q=${q}`
+  // 座標が無い場合は検索埋め込みの互換フォーマット
+  // 例: https://www.google.com/maps?q=嬉野温泉&t=&z=13&ie=UTF8&iwloc=&output=embed
+  iframeSrc.value = `https://www.google.com/maps?q=${q}&t=&z=13&ie=UTF8&iwloc=&output=embed`
   }
   staticImgSrc.value = ''
 }
@@ -67,7 +88,7 @@ function injectScript(src) {
 async function ensureMapsJs() {
   if (!mapsApiKey.value) return false
   if (window.google?.maps) return true
-  const src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsApiKey.value)}&v=weekly&language=ja`
+  const src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsApiKey.value)}&v=weekly&language=ja&libraries=marker&loading=async`
   await injectScript(src)
   return !!window.google?.maps
 }
@@ -137,55 +158,82 @@ function infoHtml(p, idx) {
   </div>`
 }
 
-function renderJsMap() {
-  if (!rootEl.value) return
-  const coords = placesWithCoords.value
-  if (!coords.length) return
-  if (!map) {
-    map = new google.maps.Map(rootEl.value, { center: { lat: coords[0].lat, lng: coords[0].lng }, zoom: 12, mapTypeControl: false })
-  }
-  clearMap()
-  const bounds = new google.maps.LatLngBounds()
-  const iw = new google.maps.InfoWindow({ content: '' })
-  coords.forEach((p, idx) => {
-    const color = p.color || colorForIndex(idx)
-    const labelText = p.label || letterForIndex(idx)
-    const icon = p.iconUrl ? { url: p.iconUrl, scaledSize: new google.maps.Size(28, 28), anchor: new google.maps.Point(14, 28) } : buildMarkerIcon(color)
-    const marker = new google.maps.Marker({
-      position: { lat: p.lat, lng: p.lng },
-      map,
-      title: p.name || '',
-      icon,
-      label: { text: labelText, color: '#ffffff', fontWeight: '700', fontSize: '12px' }
-    })
-    marker.addListener('click', () => {
-      iw.setContent(infoHtml(p, idx))
-      iw.open({ map, anchor: marker })
-    })
-    markers.push(marker)
-    try { bounds.extend(marker.getPosition()) } catch {}
-  })
-  if (window.markerClusterer?.MarkerClusterer) {
-    cluster = new window.markerClusterer.MarkerClusterer({ markers, map })
-  }
-  try { map.fitBounds(bounds) } catch {}
-}
-
 // ---- Static Maps (APIレス) フォールバック（OSM） ----
 function buildOsmStaticUrl(points) {
   // 例: https://staticmap.openstreetmap.de/staticmap.php?size=800x600&markers=lat,lng,lightblue1|lat,lng,red1
   const size = '800x600'
   const colorKeys = ['lightblue1','red1','yellow1','green1','purple1','blue1','orange1','black1']
-  const markersParam = points.map((p, i) => `${p.lat},${p.lng},${colorKeys[i % colorKeys.length]}`).join('|')
+  const markersParam = (points || []).map((p, i) => `${p.lat},${p.lng},${colorKeys[i % colorKeys.length]}`).join('|')
   const params = new URLSearchParams()
   params.set('size', size)
   params.set('maptype', 'mapnik')
-  params.set('markers', markersParam)
+  if (markersParam) params.set('markers', markersParam)
   return `https://staticmap.openstreetmap.de/staticmap.php?${params.toString()}`
 }
 
+function renderJsMap() {
+  if (!rootEl.value) return false
+  const coords = placesWithCoords.value
+  if (!coords.length) return false
+  if (!map) {
+    try {
+      const options = { center: { lat: coords[0].lat, lng: coords[0].lng }, zoom: 12, mapTypeControl: false }
+      if (ENABLE_ADVANCED_MARKER.value && MAP_ID.value) {
+        options.mapId = MAP_ID.value
+      }
+      map = new google.maps.Map(rootEl.value, options)
+    } catch (e) {
+      return false
+    }
+  }
+  clearMap()
+  const bounds = new google.maps.LatLngBounds()
+  const iw = new google.maps.InfoWindow({ content: '' })
+  const hasAdvanced = ENABLE_ADVANCED_MARKER.value && !!google.maps.marker?.AdvancedMarkerElement
+  try {
+    coords.forEach((p, idx) => {
+      const color = p.color || colorForIndex(idx)
+      const labelText = p.label || letterForIndex(idx)
+      const icon = p.iconUrl ? { url: p.iconUrl, scaledSize: new google.maps.Size(28, 28), anchor: new google.maps.Point(14, 28) } : buildMarkerIcon(color)
+
+  if (hasAdvanced) {
+        const el = document.createElement('div')
+        el.style.width = '28px'
+        el.style.height = '28px'
+        el.style.borderRadius = '50%'
+        el.style.background = color
+        el.style.color = '#fff'
+        el.style.display = 'flex'
+        el.style.alignItems = 'center'
+        el.style.justifyContent = 'center'
+        el.style.fontWeight = '700'
+        el.style.fontSize = '12px'
+        el.textContent = labelText
+  const marker = new google.maps.marker.AdvancedMarkerElement({ position: { lat: p.lat, lng: p.lng }, map, title: p.name || '', content: el })
+        marker.addListener('gmp-click', () => { iw.setContent(infoHtml(p, idx)); iw.open({ map, anchor: marker }) })
+        markers.push(marker)
+        try { bounds.extend(marker.position) } catch {}
+      } else {
+        const marker = new google.maps.Marker({ position: { lat: p.lat, lng: p.lng }, map, title: p.name || '', icon, label: { text: labelText, color: '#ffffff', fontWeight: '700', fontSize: '12px' } })
+        marker.addListener('click', () => { iw.setContent(infoHtml(p, idx)); iw.open({ map, anchor: marker }) })
+        markers.push(marker)
+        try { bounds.extend(marker.getPosition()) } catch {}
+      }
+    })
+  } catch (e) {
+    // マーカー生成でエラー（無効キーなど）の場合はフォールバック
+    clearMap()
+    return false
+  }
+  if (window.markerClusterer?.MarkerClusterer && markers.length && typeof markers[0].getPosition === 'function') {
+    try { cluster = new window.markerClusterer.MarkerClusterer({ markers, map }) } catch {}
+  }
+  try { map.fitBounds(bounds) } catch {}
+  return true
+}
+
 async function updateMap() {
-  // ルートがあれば埋め込み優先
+  // ルートがあれば埋め込み優先（キー不要のq=dir形式）
   if (hasRoute.value) {
     useJsMap.value = false
     buildRouteEmbed()
@@ -200,18 +248,19 @@ async function updateMap() {
       iframeSrc.value = ''
       staticImgSrc.value = ''
       await nextTick()
-      renderJsMap()
-      return
+      const success = renderJsMap()
+      if (success) return
+      // 失敗したらフォールバックへ
+      useJsMap.value = false
+      map = null
     }
   }
   // フォールバック
   useJsMap.value = false
   if (coordsCount >= 2) {
-    // APIキーなしでも複数マーカー表示できる静的マップ（OSM）を使用
     iframeSrc.value = ''
     staticImgSrc.value = buildOsmStaticUrl(placesWithCoords.value)
   } else {
-    // 単一地点/未指定は従来のGoogle埋め込み
     staticImgSrc.value = ''
     buildPlaceEmbed()
   }
