@@ -135,7 +135,11 @@ function autoResize(e) {
 function renderHtml(text) {
   try {
     const raw = marked.parse(text || '')
-    return DOMPurify.sanitize(raw)
+    const sanitized = DOMPurify.sanitize(raw, {
+      ADD_TAGS: ['svg', 'path', 'circle', 'div'],
+      ADD_ATTR: ['fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href']
+    })
+    return sanitized
   } catch {
     return text
   }
