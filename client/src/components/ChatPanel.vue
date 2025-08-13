@@ -76,9 +76,32 @@ async function sendMessage() {
     
     const reply = data.reply || ''
     const citations = data.citations || []
-  const groundingHtml = data.grounding_html || null
-  const places = data.places || []
-  const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml, places }
+    const groundingHtml = data.grounding_html || null
+    let places = Array.isArray(data.places) ? data.places : []
+    // 欠損座標の補完（最大20件をサーバーでジオコーディング）
+    if (places.length) {
+      const needGeocode = places.filter(p => typeof p?.lat !== 'number' || typeof p?.lng !== 'number')
+      if (needGeocode.length) {
+        try {
+          const resp2 = await fetch('/api/geocode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
+            body: JSON.stringify({ names: needGeocode.map(p => p.name).filter(Boolean) })
+          })
+          if (resp2.ok) {
+            const g = await resp2.json()
+            const map = new Map((g.results || []).map(r => [r.name, r]))
+            places = places.map(p => {
+              const hit = map.get(p.name)
+              return (hit && (typeof p.lat !== 'number' || typeof p.lng !== 'number'))
+                ? { ...p, lat: hit.lat, lng: hit.lng, note: p.note || hit.formatted_address }
+                : p
+            })
+          }
+        } catch (_) { /* noop */ }
+      }
+    }
+    const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml, places }
     
     if (reply || citations.length > 0 || groundingHtml) {
       messages.value.push(assistantMessage)
@@ -235,5 +258,12 @@ function renderHtml(text) {
   .log { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
   /* ボタンはコンパクトに */
   .composer { --composer-h: 42px; }
+}
+
+/* タブレット幅でも右ペインのマップは非表示のため、地図ボタンを出す */
+@media (max-width: 960px) {
+  .composer-area { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+  .composer-actions { display: block; }
+  .log { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
 }
 </style>
