@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 
 // Advanced Marker の利用可否フラグと mapId はサーバー設定から取得
-const ENABLE_ADVANCED_MARKER = ref(false)
+const ENABLE_ADVANCED_MARKER = ref(false) // server hint; we'll still prefer AdvancedMarker if available at runtime
 const MAP_ID = ref('')
 
 const props = defineProps({
@@ -20,6 +20,8 @@ const rootEl = ref(null)
 let map = null
 let markers = []
 let cluster = null
+let directionsService = null
+let directionsRenderer = null
 
 const hasRoute = computed(() => !!(props.routeInfo && props.routeInfo.origin && props.routeInfo.destination))
 const placesWithCoords = computed(() => (props.places || []).filter(p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng)))
@@ -61,9 +63,10 @@ function buildPlaceEmbed() {
     staticImgSrc.value = ''
     return
   }
-  const q = encodeURIComponent(first.name || `${first.lat},${first.lng}`)
-  if (first.lat && first.lng) {
-  // 座標がある場合は ll + q で強制ズーム
+  const hasCoords = Number.isFinite(first?.lat) && Number.isFinite(first?.lng)
+  const q = encodeURIComponent(hasCoords ? `${first.lat},${first.lng}` : (first.name || ''))
+  if (hasCoords) {
+  // 座標がある場合は ll + q(lat,lng) で確実にピンを出す
   iframeSrc.value = `${baseEmbed}&z=15&ll=${first.lat},${first.lng}&q=${q}`
   } else {
   // 座標が無い場合は検索埋め込みの互換フォーマット
@@ -94,9 +97,13 @@ async function ensureMapsJs() {
 }
 
 async function ensureClusterer() {
-  if (window.markerClusterer?.MarkerClusterer) return true
-  await injectScript('https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js')
-  return !!window.markerClusterer?.MarkerClusterer
+  try {
+    if (window.markerClusterer?.MarkerClusterer) return true
+    await injectScript('https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js')
+    return !!window.markerClusterer?.MarkerClusterer
+  } catch {
+    return false // クラスタリングは任意
+  }
 }
 
 function clearMap() {
@@ -108,6 +115,10 @@ function clearMap() {
     try { cluster.clearMarkers() } catch {}
   }
   cluster = null
+  if (directionsRenderer) {
+    try { directionsRenderer.setMap(null) } catch {}
+  }
+  directionsRenderer = null
 }
 
 // ---- カスタムピン/テンプレ補助関数 ----
@@ -158,18 +169,7 @@ function infoHtml(p, idx) {
   </div>`
 }
 
-// ---- Static Maps (APIレス) フォールバック（OSM） ----
-function buildOsmStaticUrl(points) {
-  // 例: https://staticmap.openstreetmap.de/staticmap.php?size=800x600&markers=lat,lng,lightblue1|lat,lng,red1
-  const size = '800x600'
-  const colorKeys = ['lightblue1','red1','yellow1','green1','purple1','blue1','orange1','black1']
-  const markersParam = (points || []).map((p, i) => `${p.lat},${p.lng},${colorKeys[i % colorKeys.length]}`).join('|')
-  const params = new URLSearchParams()
-  params.set('size', size)
-  params.set('maptype', 'mapnik')
-  if (markersParam) params.set('markers', markersParam)
-  return `https://staticmap.openstreetmap.de/staticmap.php?${params.toString()}`
-}
+// OSM フォールバックは使用しない（Google のみ）
 
 function renderJsMap() {
   if (!rootEl.value) return false
@@ -178,9 +178,8 @@ function renderJsMap() {
   if (!map) {
     try {
       const options = { center: { lat: coords[0].lat, lng: coords[0].lng }, zoom: 12, mapTypeControl: false }
-      if (ENABLE_ADVANCED_MARKER.value && MAP_ID.value) {
-        options.mapId = MAP_ID.value
-      }
+      // mapId があれば常に付与（AdvancedMarker 利用時の警告回避）
+      if (MAP_ID.value) { options.mapId = MAP_ID.value }
       map = new google.maps.Map(rootEl.value, options)
     } catch (e) {
       return false
@@ -189,7 +188,8 @@ function renderJsMap() {
   clearMap()
   const bounds = new google.maps.LatLngBounds()
   const iw = new google.maps.InfoWindow({ content: '' })
-  const hasAdvanced = ENABLE_ADVANCED_MARKER.value && !!google.maps.marker?.AdvancedMarkerElement
+  // AdvancedMarker は mapId が設定されている場合のみ使用
+  const hasAdvanced = !!google.maps.marker?.AdvancedMarkerElement && !!MAP_ID.value
   try {
     coords.forEach((p, idx) => {
       const color = p.color || colorForIndex(idx)
@@ -225,25 +225,96 @@ function renderJsMap() {
     clearMap()
     return false
   }
+  // AdvancedMarker はクラスタ対象外。通常マーカーのときだけ有効
   if (window.markerClusterer?.MarkerClusterer && markers.length && typeof markers[0].getPosition === 'function') {
     try { cluster = new window.markerClusterer.MarkerClusterer({ markers, map }) } catch {}
   }
-  try { map.fitBounds(bounds) } catch {}
+  try {
+    if (coords.length === 1) {
+      map.setCenter({ lat: coords[0].lat, lng: coords[0].lng })
+      map.setZoom(15)
+    } else {
+      map.fitBounds(bounds)
+    }
+  } catch {}
   return true
 }
 
+async function renderJsRoute() {
+  if (!rootEl.value) return false
+  const ri = props.routeInfo || {}
+  const origin = ri.origin
+  const destination = ri.destination
+  if (!origin || !destination) return false
+  // 初期化
+  if (!map) {
+    try {
+      const options = { center: { lat: 35.68, lng: 139.77 }, zoom: 6, mapTypeControl: false }
+      // ルート描画時も mapId があれば必ず付与
+      if (MAP_ID.value) options.mapId = MAP_ID.value
+      map = new google.maps.Map(rootEl.value, options)
+    } catch (e) {
+      return false
+    }
+  }
+  clearMap()
+  try {
+    if (!directionsService) directionsService = new google.maps.DirectionsService()
+    if (!directionsRenderer) directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: false, preserveViewport: false })
+    directionsRenderer.setMap(map)
+    const mode = (ri.mode || '').toLowerCase()
+    const travelMode = ['driving','walking','bicycling','transit'].includes(mode) ? mode.toUpperCase() : 'DRIVING'
+    const wps = Array.isArray(ri.waypoints) ? ri.waypoints.filter(Boolean).map(w => ({ location: w, stopover: true })) : undefined
+    const req = { origin, destination, travelMode, waypoints: wps }
+    await new Promise((resolve, reject) => {
+      directionsService.route(req, (result, status) => {
+        try {
+          if (status === 'OK' && result) {
+            directionsRenderer.setDirections(result)
+            resolve()
+          } else {
+            reject(new Error(String(status)))
+          }
+        } catch (e) { reject(e) }
+      })
+    })
+    return true
+  } catch (e) {
+    // Directions 失敗時はフォールバック
+    try { directionsRenderer && directionsRenderer.setMap(null) } catch {}
+    directionsRenderer = null
+    return false
+  }
+}
+
 async function updateMap() {
-  // ルートがあれば埋め込み優先（キー不要のq=dir形式）
+  // ルートがあれば: キーがあればJSで描画、無ければ埋め込み（q=dir）
   if (hasRoute.value) {
+    if (mapsApiKey.value) {
+      const ok = await ensureMapsJs()
+      if (ok) {
+        useJsMap.value = true
+        iframeSrc.value = ''
+        staticImgSrc.value = ''
+        await nextTick()
+        const success = await renderJsRoute()
+        if (success) return
+        // JS失敗時は埋め込みへ
+        useJsMap.value = false
+      }
+    }
+    // フォールバック: 埋め込み（キー不要）
     useJsMap.value = false
     buildRouteEmbed()
     return
   }
   const coordsCount = placesWithCoords.value.length
-  if (coordsCount >= 2 && mapsApiKey.value) {
+  // 座標が1件以上でもJSでマーカーを表示（クラスタは任意）
+  if (coordsCount >= 1 && mapsApiKey.value) {
     const ok = await ensureMapsJs()
-    const ok2 = await ensureClusterer()
-    if (ok && ok2) {
+    if (ok) {
+      // クラスタは背景で読み込み（失敗しても描画は続行）
+      ensureClusterer()
       useJsMap.value = true
       iframeSrc.value = ''
       staticImgSrc.value = ''
@@ -255,15 +326,10 @@ async function updateMap() {
       map = null
     }
   }
-  // フォールバック
+  // フォールバック（Google の埋め込みのみ使用）
   useJsMap.value = false
-  if (coordsCount >= 2) {
-    iframeSrc.value = ''
-    staticImgSrc.value = buildOsmStaticUrl(placesWithCoords.value)
-  } else {
-    staticImgSrc.value = ''
-    buildPlaceEmbed()
-  }
+  staticImgSrc.value = ''
+  buildPlaceEmbed()
 }
 
 function refresh() {
@@ -291,7 +357,6 @@ watch(() => [props.routeInfo, props.places, mapsApiKey.value], () => { updateMap
   <div class="wrap">
   <iframe v-if="!useJsMap && iframeSrc" class="map-iframe" :src="iframeSrc" style="border:0;" allowfullscreen="false" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
   <img v-else-if="!useJsMap && staticImgSrc" class="map-img" :src="staticImgSrc" alt="静的マップ" loading="lazy" />
-  <div v-if="!useJsMap && staticImgSrc" class="attrib">© OpenStreetMap contributors</div>
   <div v-else ref="rootEl" class="map-div" aria-label="Google マップ"></div>
   </div>
 </template>
