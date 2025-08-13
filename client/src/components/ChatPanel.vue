@@ -74,8 +74,8 @@ async function sendMessage() {
     if (!resp.ok) throw new Error('failed')
     const data = await resp.json()
     
-    const reply = data.reply || ''
-    const citations = data.citations || []
+  let reply = data.reply || ''
+  const citations = data.citations || []
     const groundingHtml = data.grounding_html || null
     let places = Array.isArray(data.places) ? data.places : []
     // 欠損座標の補完（最大20件をサーバーでジオコーディング）

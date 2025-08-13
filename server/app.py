@@ -832,6 +832,19 @@ def agent_chat():
             content = final_event.get('content') or {}
             if content.get('role') == 'model':
                 reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+                # 先に本文末尾のJSON（places/route_info）を切り出す
+                try:
+                    s = reply_text
+                    idx = s.rfind('{')
+                    if idx != -1:
+                        tail = s[idx:].strip()
+                        obj = json.loads(tail)
+                        if isinstance(obj, dict):
+                            places = obj.get('places')
+                            route_info = obj.get('route_info')
+                            reply_text = s[:idx].rstrip()
+                except Exception:
+                    pass
 
             meta_norm = _normalize_grounding_meta(final_event)
             if meta_norm:
@@ -841,29 +854,91 @@ def agent_chat():
 
                 if reply_text and grounding_supports and citation_map:
                     segment_citations = {}
+                    segment_texts = {}
                     for support in grounding_supports:
                         segment = support.get('segment') if isinstance(support, dict) else None
-                        if not segment: continue
-                        try:
-                            start = segment.get('start_index'); end = segment.get('end_index')
-                            key = (int(start), int(end))
-                        except Exception:
+                        if not segment:
                             continue
-                        if key not in segment_citations:
-                            segment_citations[key] = set()
+                        try:
+                            start = int(segment.get('start_index'))
+                            end = int(segment.get('end_index'))
+                        except Exception:
+                            start = None
+                            end = None
+                        seg_key = (start, end)
+                        if seg_key not in segment_citations:
+                            segment_citations[seg_key] = set()
+                        # Keep segment text if available for fallback search
+                        if isinstance(segment.get('text'), str):
+                            segment_texts[seg_key] = segment.get('text')
                         for chunk_idx in support.get('grounding_chunk_indices', []):
                             try:
-                                segment_citations[key].add(int(chunk_idx) + 1)
+                                segment_citations[seg_key].add(int(chunk_idx) + 1)
                             except Exception:
                                 continue
-                    sorted_segments = sorted(segment_citations.items(), key=lambda item: item[0][0], reverse=True)
+
+                    # Sort by start desc so string indices remain valid as we insert
+                    sorted_segments = sorted(segment_citations.items(), key=lambda item: (item[0][0] if isinstance(item[0][0], int) else -1), reverse=True)
+                    inserted_any = False
                     for (start, end), indices in sorted_segments:
-                        if not indices: continue
-                        citation_str = f" [{' '.join(map(str, sorted(list(indices))))}]"
+                        if not indices:
+                            continue
+                        # Prefer a compact readable list with comma separation
+                        citation_str = f" [{', '.join(map(str, sorted(list(indices))))}]"
+                        inserted = False
+                        # 1) If end index looks valid, clamp and insert
+                        if isinstance(end, int) and end >= 0:
+                            try:
+                                e = min(max(end, 0), len(reply_text))
+                                reply_text = reply_text[:e] + citation_str + reply_text[e:]
+                                inserted = True
+                            except Exception:
+                                inserted = False
+                        # 2) Fallback: search by segment text and insert after its last occurrence
+                        if not inserted:
+                            seg_text = segment_texts.get((start, end))
+                            if seg_text:
+                                try:
+                                    idx = reply_text.rfind(seg_text)
+                                    if idx != -1:
+                                        e = idx + len(seg_text)
+                                        reply_text = reply_text[:e] + citation_str + reply_text[e:]
+                                        inserted = True
+                                except Exception:
+                                    inserted = False
+                        if inserted:
+                            inserted_any = True
+                    if not inserted_any and citation_map and isinstance(reply_text, str):
+                        # Fallback: match by citation title text and append [n] after the last occurrence
+                        inserts = []
+                        for i, c in citation_map.items():
+                            title = c.get('title') if isinstance(c, dict) else None
+                            if not title or not isinstance(title, str):
+                                continue
+                            try:
+                                pos = reply_text.rfind(title)
+                                if pos != -1:
+                                    inserts.append((pos + len(title), f" [{i}]"))
+                            except Exception:
+                                continue
+                        # apply from back to front to keep indices stable
+                        for pos, frag in sorted(inserts, key=lambda x: x[0], reverse=True):
+                            try:
+                                reply_text = reply_text[:pos] + frag + reply_text[pos:]
+                                inserted_any = True
+                            except Exception:
+                                continue
+                    # Final fallback: append consolidated indices at the tail if nothing was inserted
+                    if not inserted_any and citation_map and isinstance(reply_text, str) and len(reply_text) > 0:
                         try:
-                            reply_text = reply_text[:end] + citation_str + reply_text[end:]
+                            all_idx = sorted([i for i in citation_map.keys() if isinstance(i, int)])
+                            if all_idx:
+                                reply_text = reply_text.rstrip() + f" [{', '.join(map(str, all_idx))}]"
+                                inserted_any = True
                         except Exception:
                             pass
+                    if LOG_PAYLOADS:
+                        logger.info(f"inline citations inserted={inserted_any} segments={len(sorted_segments)}")
 
                 citations = []
                 for i, c in citation_map.items():
@@ -893,17 +968,7 @@ def agent_chat():
                     if LOG_PAYLOADS:
                         logger.info(f"grounding_html generated from web_search_queries count={len(queries or [])}")
 
-        if reply_text:
-            try:
-                s, idx = reply_text, reply_text.rfind('{')
-                if idx != -1:
-                    tail = s[idx:].strip()
-                    obj = json.loads(tail)
-                    if isinstance(obj, dict):
-                        places = obj.get('places')
-                        route_info = obj.get('route_info')
-                        reply_text = s[:idx].rstrip()
-            except Exception: pass
+    # 末尾JSONの切り出しは上で処理済み
 
         logger.info(f"/api/agent/chat done user={req_user_id} session={req_session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} trace={tid}")
         if not is_session_initialized(req_user_id, req_session_id):

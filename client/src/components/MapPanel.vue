@@ -116,8 +116,10 @@ function infoHtml(p, idx) {
   const name = p?.name || '場所'
   const link = placeToGMapsLink(p)
   const subtitle = p?.address || p?.note || ''
-  const tag = p?.role ? `<span style="display:inline-block;background:#EEF2FF;color:#3730A3;font-size:11px;padding:2px 6px;border-radius:999px;margin-right:6px;">${p.role}</span>` : ''
   const label = letterForIndex(idx)
+  const hasImg = !!p?.imageUrl
+  const dest = p?.name ? p.name : (typeof p?.lat === 'number' && typeof p?.lng === 'number' ? `${p.lat},${p.lng}` : '')
+  const dirLink = dest ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}` : ''
   return `
   <div style="max-width:240px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';">
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -127,6 +129,11 @@ function infoHtml(p, idx) {
       </div>
     </div>
     ${subtitle ? `<div style="color:#6B7280;font-size:12px;">${subtitle}</div>` : ''}
+    ${hasImg ? `<img src="${p.imageUrl}" alt="${name}" style="width:100%;height:auto;border-radius:8px;margin-top:6px;"/>` : ''}
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      ${link ? `<a href="${link}" target="_blank" rel="noopener" style="color:#2563EB;font-size:12px;">Googleで開く</a>` : ''}
+      ${dirLink ? `<a href="${dirLink}" target="_blank" rel="noopener" style="color:#2563EB;font-size:12px;">経路</a>` : ''}
+    </div>
   </div>`
 }
 
@@ -235,6 +242,7 @@ watch(() => [props.routeInfo, props.places, mapsApiKey.value], () => { updateMap
   <div class="wrap">
   <iframe v-if="!useJsMap && iframeSrc" class="map-iframe" :src="iframeSrc" style="border:0;" allowfullscreen="false" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
   <img v-else-if="!useJsMap && staticImgSrc" class="map-img" :src="staticImgSrc" alt="静的マップ" loading="lazy" />
+  <div v-if="!useJsMap && staticImgSrc" class="attrib">© OpenStreetMap contributors</div>
   <div v-else ref="rootEl" class="map-div" aria-label="Google マップ"></div>
   </div>
 </template>
@@ -243,4 +251,5 @@ watch(() => [props.routeInfo, props.places, mapsApiKey.value], () => { updateMap
 .wrap { position: absolute; inset: 0; }
 .map-iframe, .map-div, .map-img { width: 100%; height: 100%; }
 .map-img { object-fit: cover; }
+.attrib { position: absolute; right: 8px; bottom: 6px; background: rgba(255,255,255,0.8); border-radius: 4px; padding: 2px 6px; font-size: 11px; color: #374151; }
 </style>
