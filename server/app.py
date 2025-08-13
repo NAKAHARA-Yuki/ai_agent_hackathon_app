@@ -16,22 +16,31 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # Ensure we load env from this directory (server/.env) even if CWD is repo root
 _env_path = Path(__file__).resolve().parent / '.env'
+logging.info(f"Attempting to load .env file from: {_env_path}")
 try:
-    load_dotenv(dotenv_path=str(_env_path))
-except Exception:
+    if _env_path.exists():
+        load_dotenv(dotenv_path=str(_env_path), override=True)
+        logging.info(".env file loaded successfully.")
+    else:
+        logging.warning(".env file not found at the specified path.")
+except Exception as e:
+    logging.error(f"Error loading .env file: {e}")
     # fallback to default search if direct load fails
-    load_dotenv()
+    load_dotenv(override=True)
 
 app = Flask(__name__, static_folder='client/dist', static_url_path='/')
 
 # Logging setup
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
-LOG_FORMAT = os.getenv("LOG_FORMAT") or "%(asctime)s %(levelname)s %(name)s - %(message)s"
-try:
-    logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO), format=LOG_FORMAT)
-except Exception:
-    logging.basicConfig(level=logging.INFO)
+numeric_level = getattr(logging, LOG_LEVEL, logging.INFO)
+logging.basicConfig(
+    level=numeric_level,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    force=True
+)
 logger = logging.getLogger("server")
+logger.setLevel(numeric_level)
+app.logger.setLevel(numeric_level)
 
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 # Forced to True as requested
@@ -83,6 +92,291 @@ def _snip_json(obj, limit: int = 2000) -> str:
             s = "<unserializable>"
     return _snip_text(s, limit)
 
+def _to_float(v):
+    try:
+        if v is None:
+            return None
+        return float(v)
+    except Exception:
+        return None
+
+def _normalize_places_list(raw):
+    """Normalize various shapes of places into list[{name,lat,lng,note}]."""
+    if raw is None:
+        return None
+    out = []
+    try:
+        if isinstance(raw, dict):
+            # Sometimes single object
+            raw = [raw]
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, str):
+                    out.append({ 'name': item, 'lat': None, 'lng': None })
+                    continue
+                if not isinstance(item, dict):
+                    continue
+                name = item.get('name') or item.get('title') or item.get('label') or item.get('place')
+                lat = item.get('lat') if 'lat' in item else item.get('latitude')
+                lng = item.get('lng') if 'lng' in item else item.get('lon') if 'lon' in item else item.get('longitude')
+                # location: {lat, lng}
+                loc = item.get('location')
+                if isinstance(loc, dict):
+                    lat = lat if lat is not None else loc.get('lat')
+                    lng = lng if lng is not None else (loc.get('lng') if 'lng' in loc else loc.get('lon') if 'lon' in loc else loc.get('longitude'))
+                note = item.get('note') or item.get('description') or item.get('address')
+                # optional rich fields for client map
+                url = item.get('url') or item.get('link')
+                image_url = item.get('imageUrl') or item.get('image') or item.get('thumbnail')
+                icon_url = item.get('iconUrl') or item.get('icon')
+                label = item.get('label') if isinstance(item.get('label'), str) else None
+                color = item.get('color') if isinstance(item.get('color'), str) else None
+                address = item.get('address')
+                out.append({
+                    'name': name,
+                    'lat': _to_float(lat),
+                    'lng': _to_float(lng),
+                    'note': note,
+                    'url': url,
+                    'imageUrl': image_url,
+                    'iconUrl': icon_url,
+                    'label': label,
+                    'color': color,
+                    'address': address
+                })
+        return out
+    except Exception:
+        return None
+
+def _normalize_route_info(obj):
+    if not isinstance(obj, dict):
+        return None
+    origin = obj.get('origin') or obj.get('from') or obj.get('start')
+    dest = obj.get('destination') or obj.get('to') or obj.get('end')
+    # optional: waypoints and travel mode
+    wps = obj.get('waypoints') or obj.get('via') or obj.get('stops')
+    if isinstance(wps, (list, tuple)):
+        # keep only strings or {lat,lng}/{name}
+        norm_wps = []
+        for w in wps:
+            if isinstance(w, str):
+                norm_wps.append(w)
+            elif isinstance(w, dict):
+                nm = w.get('name')
+                lat = w.get('lat') if 'lat' in w else w.get('latitude')
+                lng = w.get('lng') if 'lng' in w else w.get('lon') if 'lon' in w else w.get('longitude')
+                if isinstance(nm, str) and nm:
+                    norm_wps.append(nm)
+                elif lat is not None and lng is not None:
+                    try:
+                        norm_wps.append(f"{float(lat)},{float(lng)}")
+                    except Exception:
+                        pass
+        wps = norm_wps
+    else:
+        wps = None
+    mode = (obj.get('mode') or obj.get('travel_mode') or obj.get('travelMode'))
+    if isinstance(mode, str):
+        mode = mode.lower()
+        if mode not in ('driving','walking','bicycling','transit'):
+            mode = None
+    else:
+        mode = None
+    if not origin and not dest:
+        return None
+    out = { 'origin': origin, 'destination': dest }
+    if wps: out['waypoints'] = wps
+    if mode: out['mode'] = mode
+    return out
+
+def _extract_trailing_json(s: str):
+    """Extract a trailing JSON object from text, supporting fenced code blocks and partial scans.
+    Returns (text_without_json, places, route_info).
+    """
+    try:
+        import re as _re
+
+        def _strip_trailing_citation_brackets(txt: str) -> str:
+            # remove trailing " [1, 2] [3]" like annotations
+            return _re.sub(r"(?:\s*\[[0-9,\s]+\])+\s*$", "", txt or "")
+
+        def _recover_places_fragment(txt: str):
+            """Heuristic recovery for broken {"places":[{...}, {...}, ... [1,2]} missing closing ]}.
+            Returns (text_without_fragment, places_list) or (None, None) if not found.
+            """
+            try:
+                m = _re.search(r"\{\s*\"(places|place)\"\s*:\s*\[", txt)
+                if not m:
+                    return None, None
+                start = m.start()
+                rest = txt[m.end():]
+                rest = _strip_trailing_citation_brackets(rest)
+                # scan rest to collect top-level JSON objects within the array
+                objs = []
+                i = 0
+                n = len(rest)
+                while i < n:
+                    if rest[i] == '{':
+                        depth = 1
+                        j = i + 1
+                        while j < n and depth > 0:
+                            ch = rest[j]
+                            if ch == '"':
+                                # skip string
+                                j += 1
+                                while j < n:
+                                    if rest[j] == '\\':
+                                        j += 2
+                                        continue
+                                    if rest[j] == '"':
+                                        j += 1
+                                        break
+                                    j += 1
+                                continue
+                            elif ch == '{':
+                                depth += 1
+                            elif ch == '}':
+                                depth -= 1
+                            j += 1
+                        if depth == 0:
+                            objs.append(rest[i:j])
+                            i = j
+                            # skip comma and spaces
+                            while i < n and rest[i] in ' \t\r\n,':
+                                i += 1
+                            continue
+                        else:
+                            break
+                    else:
+                        i += 1
+                if not objs:
+                    return None, None
+                places = []
+                for o in objs:
+                    try:
+                        places.append(json.loads(o))
+                    except Exception:
+                        continue
+                places = _normalize_places_list(places)
+                if places:
+                    return txt[:start].rstrip(), places
+                return None, None
+            except Exception:
+                return None, None
+        # Trim trailing citation brackets once at the start
+        s = _strip_trailing_citation_brackets(s)
+
+        # 1) fenced code block ```json {..} ``` (prefer the last one)
+        blocks = _re.findall(r"```(?:json)?\s*({[\s\S]*?})\s*```", s)
+        candidate = None
+        if blocks:
+            candidate = blocks[-1]
+            try:
+                obj = json.loads(candidate)
+                places = obj.get('places') if isinstance(obj, dict) else None
+                if places is None:
+                    places = obj.get('place') if isinstance(obj, dict) else None
+                route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                if route_info is None and isinstance(obj, dict):
+                    route_info = obj.get('route') or obj.get('routeInfo')
+                places = _normalize_places_list(places)
+                route_info = _normalize_route_info(route_info)
+                # remove the last fenced block
+                s2 = s
+                last_idx = s2.rfind('```')
+                if last_idx != -1:
+                    s2 = s2[:last_idx].rstrip()
+                return s2, places, route_info
+            except Exception:
+                candidate = None
+        # 2) scan from last '{' and expand to closing '}' progressively
+        idx = s.rfind('{')
+        if idx != -1:
+            pos = idx
+            while True:
+                end = s.find('}', pos)
+                if end == -1:
+                    break
+                chunk = s[idx:end+1]
+                try:
+                    obj = json.loads(chunk)
+                    places = obj.get('places') if isinstance(obj, dict) else None
+                    if places is None:
+                        places = obj.get('place') if isinstance(obj, dict) else None
+                    route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                    if route_info is None and isinstance(obj, dict):
+                        route_info = obj.get('route') or obj.get('routeInfo')
+                    places = _normalize_places_list(places)
+                    route_info = _normalize_route_info(route_info)
+                    return s[:idx].rstrip(), places, route_info
+                except Exception:
+                    pos = end + 1
+        # 3) regex fallback: object containing keys of interest (allow trailing citation brackets)
+        m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
+        if m:
+            try:
+                obj = json.loads(m.group(1))
+                places = obj.get('places') if isinstance(obj, dict) else None
+                if places is None:
+                    places = obj.get('place') if isinstance(obj, dict) else None
+                route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                if route_info is None and isinstance(obj, dict):
+                    route_info = obj.get('route') or obj.get('routeInfo')
+                places = _normalize_places_list(places)
+                route_info = _normalize_route_info(route_info)
+                return s[:m.start(1)].rstrip(), places, route_info
+            except Exception:
+                pass
+        # 4) heuristic recovery for broken places arrays
+        base_text, recovered = _recover_places_fragment(s)
+        if recovered:
+            return base_text, recovered, None
+    except Exception:
+        pass
+    return s, None, None
+
+def _normalize_grounding_meta(event: dict) -> dict:
+    """Accepts an agent event and normalizes grounding metadata to snake_case keys.
+    Returns dict with keys: grounding_chunks, grounding_supports, search_entry_point.
+    Handles both camelCase and snake_case structures.
+    """
+    try:
+        if not isinstance(event, dict):
+            return {}
+        meta = event.get('groundingMetadata') or event.get('grounding_metadata') or {}
+        if not isinstance(meta, dict):
+            return {}
+        # Top-level lists
+        chunks = meta.get('grounding_chunks')
+        if chunks is None:
+            chunks = meta.get('groundingChunks')
+        supports = meta.get('grounding_supports')
+        if supports is None:
+            supports = meta.get('groundingSupports')
+
+        # search entry point
+        sep = meta.get('search_entry_point')
+        if sep is None:
+            sep = meta.get('searchEntryPoint')
+        if isinstance(sep, dict):
+            rendered = sep.get('rendered_content')
+            if rendered is None:
+                rendered = sep.get('renderedContent')
+            queries = sep.get('web_search_queries')
+            if queries is None:
+                queries = sep.get('webSearchQueries')
+            sep = {'rendered_content': rendered, 'web_search_queries': queries}
+        else:
+            sep = None
+
+        return {
+            'grounding_chunks': chunks or [],
+            'grounding_supports': supports or [],
+            'search_entry_point': sep or {}
+        }
+    except Exception:
+        return {}
+
 @app.before_request
 def _start_timer():
     try:
@@ -131,6 +425,9 @@ FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJE
 
 # JWT Secret 強化: 本番では未設定を許可しない
 ENV = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
+logger.info(f"Starting server in {ENV.upper()} mode.")
+
+_jwt_from_env = os.getenv("JWT_SECRET")
 _jwt_from_env = os.getenv("JWT_SECRET")
 if ENV.lower() == "development":
     JWT_SECRET = _jwt_from_env or "dev-secret-change-me"
@@ -290,7 +587,42 @@ def get_maps_js_key():
     # avoid returning placeholder text
     if key == 'YOUR_API_KEY_HERE':
         key = ''
-    return jsonify({ 'key': key })
+    # sanitize: 改行漏れやURLエンコードされた連結を切り落とす
+    try:
+        key = (key or '').strip()
+        # 代表的なセパレータで最初に分割
+        for sep in ['FLASK_ENV', 'ENV=', '%3D', '&', '?', '\n', '\r']:
+            if sep in key:
+                key = key.split(sep)[0].strip()
+        # 許可文字以外で早期終了
+        import re as _re
+        m = _re.match(r'^([A-Za-z0-9_\-]+)', key)
+        if m:
+            key = m.group(1)
+    except Exception:
+        pass
+    # mapId の取得とサニタイズ（Advanced Marker で推奨）
+    map_id = os.getenv('VITE_GOOGLE_MAPS_MAP_ID') or os.getenv('GOOGLE_MAPS_MAP_ID') or ''
+    try:
+        map_id = (map_id or '').strip()
+        import re as _re
+        m2 = _re.match(r'^([A-Za-z0-9_\-]+)', map_id)
+        if m2:
+            map_id = m2.group(1)
+    except Exception:
+        pass
+    # Advanced Marker の有効化フラグ（サーバー側で制御可能）
+    adv_env = (
+        os.getenv('ENABLE_ADVANCED_MARKER')
+        or os.getenv('VITE_ENABLE_ADVANCED_MARKER')
+        or os.getenv('GOOGLE_MAPS_ENABLE_ADVANCED_MARKER')
+        or ''
+    )
+    adv = str(adv_env).strip().lower() in ['1','true','yes','on']
+    # mapId 未設定なら Advanced を無効化（警告抑止と確実性のため）
+    if not map_id:
+        adv = False
+    return jsonify({ 'key': key, 'mapId': map_id, 'advanced': adv })
 
 
 
@@ -681,15 +1013,98 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
         body_snip = (body[:500] + '…') if body and len(body) > 500 else (body or '')
         bridge_logger.error(f"Run agent failed: status={status} {int(dt)}ms body={body_snip}")
         raise
+
+    # 成功時の処理
     dt = (monotonic() - t0) * 1000
     j = r2.json()
     bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
+    bridge_logger.debug(f"Raw agent response: {_snip_json(j)}")
     if LOG_PAYLOADS:
         try:
             bridge_logger.info(f"Run response: {_snip_json(j)}")
         except Exception:
             pass
     return j
+
+def _extract_locations_via_llm(reply_text: str, user_id: str, session_id: str, timeout_sec: int = 30):
+    """第二段: 本文から場所とルートを抽出するために、非エージェントのLLM（Gemini REST）を優先して使用。
+    返信は JSON オブジェクトのみを期待。失敗時は (None, None) を返す。
+    """
+    try:
+        # 1) Gemini REST を優先
+        if genai_configured:
+            model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+            prompt = (
+                "以下の文章から、旅行に関係する場所候補（places）と任意のルート情報（route_info）を抽出してください。\n"
+                "要件:\n"
+                "- 出力は JSON オブジェクトのみ（前後に説明やコードフェンスを付けない）\n"
+                "- 形式: {\"places\":[{\"name\":\"…\",\"lat\":null,\"lng\":null,\"note\":\"…\",\"url\":null,\"imageUrl\":null,\"iconUrl\":null,\"label\":null,\"color\":null,\"address\":null}], \"route_info\":{\"origin\":\"…\",\"destination\":\"…\",\"waypoints\":[""],\"mode\":\"driving|walking|bicycling|transit\"}}\n"
+                "- places は最大10件。name は自然言語の地名・施設名。lat/lng が不明なら null。\n"
+                "- route_info は存在する場合のみ。waypoints は文字列の配列で良い。\n\n"
+                "[対象テキスト]\n" + (reply_text or "")
+            )
+            try:
+                resp = call_gemini_api(prompt, model_name=model)
+                text_out = ''
+                try:
+                    for c in (resp.get('candidates') or []):
+                        parts = ((c.get('content') or {}).get('parts') or [])
+                        for p in parts:
+                            t = p.get('text')
+                            if isinstance(t, str):
+                                text_out += t
+                except Exception:
+                    text_out = ''
+                places, route_info = None, None
+                if isinstance(text_out, str) and text_out.strip():
+                    try:
+                        obj = json.loads(text_out.strip())
+                        places = obj.get('places') if isinstance(obj, dict) else None
+                        if places is None and isinstance(obj, dict):
+                            places = obj.get('place')
+                        route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                        if route_info is None and isinstance(obj, dict):
+                            route_info = obj.get('route') or obj.get('routeInfo')
+                        places = _normalize_places_list(places)
+                        route_info = _normalize_route_info(route_info)
+                    except Exception:
+                        try:
+                            # フェンス/余白混入時は末尾抽出で救済
+                            _, places, route_info = _extract_trailing_json(text_out.strip())
+                        except Exception:
+                            places, route_info = None, None
+                if places is not None or route_info is not None:
+                    return places, route_info
+            except Exception as e:
+                logging.getLogger('extract').warning(f"Gemini extraction failed: {e}")
+
+        # 2) フォールバック: （オプション）ADKエージェントに抽出依頼（利用不可や失敗時はスキップ）
+        try:
+            extract_sid = f"{session_id}-extract"
+            prompt2 = (
+                "以下の文章から、旅行に関係する場所候補（places）と任意のルート情報（route_info）を抽出してください。\n"
+                "出力は JSON オブジェクトのみで、説明やコードフェンスは不要です。\n\n"
+                "[対象テキスト]\n" + (reply_text or "")
+            )
+            events = call_adk_agent_chat('travel_planner', user_id, extract_sid, prompt2, timeout_sec=timeout_sec, ensure_session=True)
+            if isinstance(events, list) and events:
+                final_event = events[-1]
+                content = final_event.get('content') or {}
+                if content.get('role') == 'model':
+                    text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+                    try:
+                        _, places, route_info = _extract_trailing_json(text.strip())
+                        if places is not None or route_info is not None:
+                            return places, route_info
+                    except Exception:
+                        pass
+        except Exception as e:
+            logging.getLogger('extract').warning(f"Agent fallback extraction failed: {e}")
+
+        return None, None
+    except Exception as e:
+        logging.getLogger('extract').warning(f"LLM extraction wrapper failed: {e}")
+        return None, None
 
 # ---- Session initialization tracking (first-message detection) ----
 _primed_sessions = set()
@@ -725,11 +1140,7 @@ def mark_session_initialized(user_id: str, session_id: str):
 
 @app.post('/api/agent/chat')
 def agent_chat():
-    """チャットAPI。
-    仕様: { message: string, user_id?: string, session_id?: string } -> { reply: string, places?: [{name, lat, lng, note?}] }
-    - user_id: ADKの user_id に使用。未指定時は認証のsubまたは 'u_local' を使用。
-    - session_id: ADKのセッションID。フロント(Vue)で生成したUUIDを必須で渡す。
-    """
+    """チャットAPI。"""
     try:
         data = request.get_json() or {}
         tid = getattr(request, '_trace_id', None)
@@ -737,195 +1148,204 @@ def agent_chat():
             logger.info(f"/api/agent/chat request body: {_snip_json(data)} trace={tid}")
         message = (data.get('message') or '').strip()
         if not message:
-            return jsonify({"reply": "ご希望を教えてください（例: 温泉と美術館を楽しみたい）。"})
+            return jsonify({"reply": "ご希望を教えてください。"})
 
-        # Agentサービスに委譲（ADK api_server 準拠）
-        # 有効なADKベースURLを決定（環境設定 or ローカル自動検出）
-        effective_base = AGENT_BASE_URL
-        if not effective_base:
+        effective_base = AGENT_BASE_URL or 'http://localhost:8080'
+        logger.info(f"/api/agent/chat delegating to ADK base={effective_base}")
+
+        req_user_id = (data.get('user_id') or '').strip() or 'u_local'
+        req_session_id = (data.get('session_id') or '').strip()
+        if not req_session_id:
+            return jsonify({"error": "session_id is required"}), 400
+        logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
+
+        claims = require_auth(request)
+        user_info, last_persona = None, None
+        if claims and db:
             try:
-                probe = requests.get("http://localhost:8080/list-apps", timeout=1.5)
-                if probe.ok:
-                    effective_base = "http://localhost:8080"
-                    logger.info("Detected local ADK at http://localhost:8080")
-            except Exception:
-                effective_base = None
+                udoc = db.collection('users').document(claims['sub']).get(timeout=3)
+                if udoc.exists:
+                    u = udoc.to_dict() or {}
+                    user_info = {'id': claims['sub'], 'name': u.get('name'), 'profile': u.get('profile') or {}}
+                    last_id = u.get('last_persona_id')
+                    if last_id:
+                        pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=3)
+                        if pdoc.exists:
+                            last_persona = (pdoc.to_dict() or {}).get('profile')
+            except Exception as e:
+                logger.warning(f"Error fetching user/persona info: {e}")
 
-        if effective_base:
-            logger.info(f"/api/agent/chat delegating to ADK base={effective_base}")
-            try:
-                # リクエストで渡された user_id / session_id を採用
-                req_user_id = (data.get('user_id') or '').strip() or None
-                req_session_id = (data.get('session_id') or '').strip() or None
-                if not req_session_id:
-                    return jsonify({"error": "session_id is required"}), 400
-                logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
+        message_to_send = message
+        if not is_session_initialized(req_user_id, req_session_id):
+            context = {'user': user_info, 'persona': last_persona}
+            message_to_send = "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) + "\n\n[ユーザーからの依頼]\n" + message
+        
+        logger.info(f"About to call agent with message: {message_to_send[:100]}...")
+        events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=True)
+        logger.info(f"Agent call returned {len(events) if events else 0} events.")
+        logger.debug(f"Agent events raw: {_snip_json(events)}")
 
-                # 可能ならユーザー情報/ペルソナを付与して前置きコンテキストを作る
-                claims = require_auth(request)
-                user_info = None
-                last_persona = None
-                if claims and db is not None:
-                    try:
-                        udoc = db.collection('users').document(claims['sub']).get(timeout=3)
-                        if udoc and udoc.exists:
-                            u = udoc.to_dict() or {}
-                            user_info = {
-                                'id': claims['sub'],
-                                'name': u.get('name'),
-                                'profile': u.get('profile') or {}
-                            }
-                            last_id = u.get('last_persona_id')
-                            if last_id:
-                                pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=3)
-                                if pdoc and pdoc.exists:
-                                    pd = pdoc.to_dict() or {}
-                                    last_persona = {
-                                        'id': last_id,
-                                        'profile': pd.get('profile'),
-                                        'system_prompt': pd.get('system_prompt')
-                                    }
-                    except Exception:
-                        pass
+        reply_text, places, route_info, citations, grounding_html = None, None, None, [], None
 
-                # ADK呼び出し
-                app_name = 'travel_planner'
-                # user_id は優先的にリクエスト値を使用、なければ claims → 'u_local'
-                user_id = req_user_id or (user_info.get('id') if isinstance(user_info, dict) and user_info.get('id') else 'u_local')
-                session_id = req_session_id
+        if isinstance(events, list) and events:
+            final_event = events[-1]
+            content = final_event.get('content') or {}
+            if content.get('role') == 'model':
+                # 第1段: 自然文のみ（JSONを含めない）
+                reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+                # もし誤ってJSONが混じっても本文として扱い、抽出は第2段で別途行う
 
-                # 前置きユーザー情報の id をADKの user_id に合わせる
-                if user_info is None:
-                    user_info = { 'id': user_id }
-                else:
-                    try:
-                        user_info['id'] = user_id
-                    except Exception:
-                        pass
+            meta_norm = _normalize_grounding_meta(final_event)
+            if meta_norm:
+                grounding_chunks = meta_norm.get('grounding_chunks') or []
+                grounding_supports = meta_norm.get('grounding_supports') or []
+                citation_map = {i + 1: (chunk.get('web', {}) if isinstance(chunk, dict) else {}) for i, chunk in enumerate(grounding_chunks)}
 
-                # 出力フォーマットの指針（旅程はMarkdown表）
-                formatting_hint = (
-                    "\n\n[出力フォーマットの指針]\n"
-                    "- 日別・時系列の旅程を提案するときは、Markdown表で提示してください。\n"
-                    "- 列例: 日/時間帯 | 場所 | アクティビティ/見どころ | 移動手段/所要 | メモ\n"
-                    "- コードブロックで囲まず、通常のMarkdown表で。\n"
-                )
-
-                # 初回のみユーザー情報を前置、それ以降はプロンプトのみ
-                initialized = is_session_initialized(user_id, session_id)
-                if not initialized:
-                    context = {
-                        'user': user_info,
-                        'persona': last_persona.get('profile') if isinstance(last_persona, dict) else None,
-                        'persona_system_prompt': last_persona.get('system_prompt') if isinstance(last_persona, dict) else None,
-                    }
-                    message_to_send = (
-                        "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) +
-                        "\n\n[ユーザーからの依頼]\n" + message + formatting_hint
-                    )
-                    logger.info(f"/api/agent/chat using INIT message (include user info) user={user_id} session={session_id} trace={tid}")
-                else:
-                    message_to_send = message + formatting_hint
-                    logger.info(f"/api/agent/chat using CONTINUE message user={user_id} session={session_id} trace={tid}")
-
-                events = call_adk_agent_chat(app_name, user_id, session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=(not initialized))
-
-                # eventsからreply, places, route_info を抽出
-                reply_text = None
-                places = None
-                route_info = None
-                if isinstance(events, list):
-                    for ev in events:
-                        if isinstance(ev, dict):
-                            content = ev.get('content') or {}
-                            parts = content.get('parts') if isinstance(content, dict) else None
-                            if isinstance(parts, list):
-                                for p in parts:
-                                    t = p.get('text') if isinstance(p, dict) else None
-                                    if t:
-                                        reply_text = t
-                # JSON末尾抽出（エージェント約束のフォーマット: { places: [...], route_info: ... } など）
-                if reply_text:
-                    try:
-                        s = reply_text
-                        idx = s.rfind('{')
-                        while idx != -1:
-                            tail = s[idx:].strip()
+                if reply_text and grounding_supports and citation_map:
+                    segment_citations = {}
+                    segment_texts = {}
+                    for support in grounding_supports:
+                        segment = support.get('segment') if isinstance(support, dict) else None
+                        if not segment:
+                            continue
+                        try:
+                            start = int(segment.get('start_index'))
+                            end = int(segment.get('end_index'))
+                        except Exception:
+                            start = None
+                            end = None
+                        seg_key = (start, end)
+                        if seg_key not in segment_citations:
+                            segment_citations[seg_key] = set()
+                        # Keep segment text if available for fallback search
+                        if isinstance(segment.get('text'), str):
+                            segment_texts[seg_key] = segment.get('text')
+                        for chunk_idx in support.get('grounding_chunk_indices', []):
                             try:
-                                obj = json.loads(tail)
-                                if isinstance(obj, dict) and (('places' in obj) or ('route_info' in obj)):
-                                    if 'places' in obj and places is None:
-                                        if isinstance(obj['places'], list):
-                                            places = obj['places']
-                                    if 'route_info' in obj and route_info is None:
-                                        route_info = obj['route_info']
-                                    # 本文からこのJSONを取り除く
-                                    reply_text = s[:idx].rstrip()
-                                    break
+                                segment_citations[seg_key].add(int(chunk_idx) + 1)
                             except Exception:
-                                pass
-                            idx = s.rfind('{', 0, idx)
-                    except Exception:
-                        pass
-                logger.info(f"/api/agent/chat done user={user_id} session={session_id} reply_len={len(reply_text or '')} places={len(places or [])} trace={tid}")
-                # 初回が成功したら初期化フラグを立てる
+                                continue
+
+                    # Sort by start desc so string indices remain valid as we insert
+                    sorted_segments = sorted(segment_citations.items(), key=lambda item: (item[0][0] if isinstance(item[0][0], int) else -1), reverse=True)
+                    inserted_any = False
+                    for (start, end), indices in sorted_segments:
+                        if not indices:
+                            continue
+                        # Prefer a compact readable list with comma separation
+                        citation_str = f" [{', '.join(map(str, sorted(list(indices))))}]"
+                        inserted = False
+                        # 1) If end index looks valid, clamp and insert
+                        if isinstance(end, int) and end >= 0:
+                            try:
+                                e = min(max(end, 0), len(reply_text))
+                                reply_text = reply_text[:e] + citation_str + reply_text[e:]
+                                inserted = True
+                            except Exception:
+                                inserted = False
+                        # 2) Fallback: search by segment text and insert after its last occurrence
+                        if not inserted:
+                            seg_text = segment_texts.get((start, end))
+                            if seg_text:
+                                try:
+                                    idx = reply_text.rfind(seg_text)
+                                    if idx != -1:
+                                        e = idx + len(seg_text)
+                                        reply_text = reply_text[:e] + citation_str + reply_text[e:]
+                                        inserted = True
+                                except Exception:
+                                    inserted = False
+                        if inserted:
+                            inserted_any = True
+                    if not inserted_any and citation_map and isinstance(reply_text, str):
+                        # Fallback: match by citation title text and append [n] after the last occurrence
+                        inserts = []
+                        for i, c in citation_map.items():
+                            title = c.get('title') if isinstance(c, dict) else None
+                            if not title or not isinstance(title, str):
+                                continue
+                            try:
+                                pos = reply_text.rfind(title)
+                                if pos != -1:
+                                    inserts.append((pos + len(title), f" [{i}]"))
+                            except Exception:
+                                continue
+                        # apply from back to front to keep indices stable
+                        for pos, frag in sorted(inserts, key=lambda x: x[0], reverse=True):
+                            try:
+                                reply_text = reply_text[:pos] + frag + reply_text[pos:]
+                                inserted_any = True
+                            except Exception:
+                                continue
+                    # Final fallback: append consolidated indices at the tail if nothing was inserted
+                    if not inserted_any and citation_map and isinstance(reply_text, str) and len(reply_text) > 0:
+                        try:
+                            all_idx = sorted([i for i in citation_map.keys() if isinstance(i, int)])
+                            if all_idx:
+                                reply_text = reply_text.rstrip() + f" [{', '.join(map(str, all_idx))}]"
+                                inserted_any = True
+                        except Exception:
+                            pass
+                    if LOG_PAYLOADS:
+                        logger.info(f"inline citations inserted={inserted_any} segments={len(sorted_segments)}")
+
+                citations = []
+                for i, c in citation_map.items():
+                    original_uri = c.get('uri') if isinstance(c, dict) else None
+                    title = c.get('title') if isinstance(c, dict) else None
+                    if original_uri and "vertexaisearch.cloud.google.com/grounding-api-redirect/" in original_uri:
+                        if title:
+                            citations.append({"index": i, "title": title, "uri": f"https://www.google.com/search?q={requests.utils.quote(title)}"})
+                        else:
+                            citations.append({"index": i, "title": title, "uri": original_uri})
+                    else:
+                        citations.append({"index": i, "title": title, "uri": original_uri})
+
+                sep = meta_norm.get('search_entry_point') or {}
+                rendered = sep.get('rendered_content') if isinstance(sep, dict) else None
+                queries = sep.get('web_search_queries') if isinstance(sep, dict) else None
+                if rendered:
+                    grounding_html = rendered
+                    if LOG_PAYLOADS:
+                        logger.info(f"grounding_html set from rendered_content len={len(grounding_html or '')}")
+                elif queries:
+                    chips_html = []
+                    for query in queries:
+                        encoded_query = requests.utils.quote(str(query))
+                        chips_html.append(f'<a href="https://www.google.com/search?q={encoded_query}" target="_blank" rel="noopener" style="display:inline-block; border:solid 1px; border-radius:16px; min-width:14px; padding:5px 16px; text-align:center; margin: 0 8px;">{query}</a>')
+                    grounding_html = f'<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">{" ".join(chips_html)}</div>'
+                    if LOG_PAYLOADS:
+                        logger.info(f"grounding_html generated from web_search_queries count={len(queries or [])}")
+
+        # 第2段: 本文から場所・ルートの抽出を LLM に依頼（失敗時のみヒューリスティック）
+        if isinstance(reply_text, str) and reply_text.strip():
+            p2, r2 = _extract_locations_via_llm(reply_text, req_user_id, req_session_id)
+            if p2 is not None:
+                places = p2
+            if r2 is not None:
+                route_info = r2
+            # 保険として、両方 None の時のみヒューリスティック抽出
+            if places is None and route_info is None:
                 try:
-                    if not initialized:
-                        mark_session_initialized(user_id, session_id)
+                    reply_text2, p_h, r_h = _extract_trailing_json(reply_text)
+                    if p_h is not None:
+                        places = p_h
+                    if r_h is not None:
+                        route_info = r_h
+                    # 本文はユーザー表示が主目的なので reply_text は差し替えず（自然文のまま）
                 except Exception:
                     pass
-                resp = { 'reply': reply_text or '提案を作成しました。', 'places': places }
-                if route_info is not None:
-                    resp['route_info'] = route_info
-                if LOG_PAYLOADS:
-                    logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
-                if tid:
-                    resp['trace_id'] = tid
-                return jsonify(resp)
-            except Exception:
-                logger.exception("Agent chat delegation failed")
-        else:
-            logger.warning("/api/agent/chat no ADK available (AGENT_BASE_URL not set and local ADK not detected); using fallback")
 
-        # フォールバック: キーワードに応じて簡易候補地を返す
-        reply = '次の候補を地図に表示しました。気になる場所はありますか？'
-        candidates = []
-        s = message
-        if any(k in s for k in ['温泉','箱根','湯']):
-            candidates.append({ 'name': '箱根温泉', 'lat': 35.232, 'lng': 139.106, 'note': '美術館と温泉巡り' })
-        if any(k in s for k in ['美術','アート','直島']):
-            candidates.append({ 'name': '直島 ベネッセハウス', 'lat': 34.459, 'lng': 134.009, 'note': '現代アート' })
-        if any(k in s for k in ['自然','登山','屋久島']):
-            candidates.append({ 'name': '屋久島 縄文杉', 'lat': 30.358, 'lng': 130.531, 'note': 'トレッキング' })
-        if not candidates:
-            candidates = [
-                { 'name': '東京駅', 'lat': 35.681236, 'lng': 139.767125, 'note': '基準点' },
-                { 'name': '京都駅', 'lat': 34.985849, 'lng': 135.758766, 'note': '観光拠点' },
-            ]
-        # 旅程系のキーワードがあれば簡易Markdown表を付与
-        if any(k in s for k in ['旅程','日程','スケジュール','行程','プラン','泊','日']):
-            reply = (
-                "サンプル旅程（Markdown表）:\n\n"
-                "| 日/時間帯 | 場所 | アクティビティ/見どころ | 移動手段/所要 | メモ |\n"
-                "|--|--|--|--|--|\n"
-                "| 1日目 午前 | 東京駅 → 箱根 | 移動・早めのランチ | JR/小田急 約90分 | 休日は混雑 |\n"
-                "| 1日目 午後 | 彫刻の森美術館 | 屋外アート鑑賞 | 駅から徒歩 | 雨天可 |\n"
-                "| 1日目 夜 | 箱根温泉 | 旅館チェックイン・温泉 | バス/送迎 | 夕食付 |\n"
-                "| 2日目 朝 | 早朝散歩 | 芦ノ湖畔散策 | 徒歩 | 写真スポット |\n"
-                "| 2日目 昼 | 大涌谷 | ロープウェイ観光 | 乗換約30分 | 黒たまご |\n"
-                "| 2日目 夕方 | 箱根 → 東京 | 帰路 | 小田急/新幹線 | 余裕を持って |\n\n"
-                "地図の候補地も併せてご確認ください。"
-            )
-        tid = getattr(request, '_trace_id', None)
-        logger.info(f"/api/agent/chat fallback used candidates={len(candidates)} trace={tid}")
-        resp = { 'reply': reply, 'places': candidates }
-        if LOG_PAYLOADS:
-            logger.info(f"/api/agent/chat response body (fallback): {_snip_json(resp)} trace={tid}")
-        if tid:
-            resp['trace_id'] = tid
+        logger.info(f"/api/agent/chat done user={req_user_id} session={req_session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} trace={tid}")
+        if not is_session_initialized(req_user_id, req_session_id):
+            mark_session_initialized(req_user_id, req_session_id)
+
+        resp = { 'reply': reply_text or '提案を作成しました。', 'places': places, 'citations': citations, 'grounding_html': grounding_html, 'route_info': route_info }
+        if LOG_PAYLOADS: logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
+        if tid: resp['trace_id'] = tid
         return jsonify(resp)
+
     except Exception as e:
-        tid = getattr(request, '_trace_id', None)
         logger.exception("agent_chat error")
         resp = { 'reply': 'エラーが発生しました。時間をおいて再試行してください。' }
         if tid:
@@ -946,8 +1366,34 @@ def geocode_places():
         api_key = os.getenv('GOOGLE_MAPS_API_KEY')
         results = []
         if not api_key:
-            # APIキー未設定時は空で返す（フロントは名称のみで処理可能）
+            # Googleキーが無い場合は軽量な OSM Nominatim をフォールバックで利用
+            # 注意: 公開環境での大量利用は避け、User-Agent を明示
+            headers = {
+                'User-Agent': os.getenv('NOMINATIM_UA', 'izatabi-app/1.0 (+https://example.com/contact)')
+            }
+            for nm in names[:15]:
+                try:
+                    url = 'https://nominatim.openstreetmap.org/search'
+                    params = {
+                        'q': nm,
+                        'format': 'json',
+                        'limit': 1,
+                        'addressdetails': 0,
+                        'accept-language': 'ja'
+                    }
+                    r = requests.get(url, params=params, headers=headers, timeout=10)
+                    if r.ok:
+                        arr = r.json() or []
+                        if arr:
+                            g = arr[0]
+                            lat = float(g.get('lat')) if g.get('lat') is not None else None
+                            lon = float(g.get('lon')) if g.get('lon') is not None else None
+                            disp = g.get('display_name')
+                            results.append({ 'name': nm, 'lat': lat, 'lng': lon, 'formatted_address': disp })
+                except Exception:
+                    continue
             return jsonify({ 'results': results })
+        # Google Geocoding を使用
         for nm in names[:20]:
             try:
                 url = 'https://maps.googleapis.com/maps/api/geocode/json'
@@ -1578,7 +2024,79 @@ def spa_fallback(path: str):
         # As a last resort, return 404 to avoid masking real backend errors
         return jsonify({ 'error': 'not_found' }), 404
 
+def create_dummy_user_if_needed():
+    if ENV.lower() != 'development' or db is None:
+        return
+    
+    dummy_user_id = 'devuser'
+    dummy_password = 'password'
+    users_ref = db.collection('users')
+    doc_ref = users_ref.document(dummy_user_id)
+    
+    try:
+        user_exists = doc_ref.get(timeout=5).exists
+        if user_exists:
+            user_data = doc_ref.get().to_dict()
+            if user_data.get('diagnosis_completed'):
+                logger.info(f"Dummy user '{dummy_user_id}' already exists and has a persona.")
+                return
+            else:
+                logger.info(f"Dummy user '{dummy_user_id}' exists but needs a persona. Creating one...")
+        else:
+            logger.info(f"Creating dummy user '{dummy_user_id}'...")
+            user_doc = {
+                'name': 'Dev User',
+                'user_id': dummy_user_id,
+                'password_hash': generate_password_hash(dummy_password),
+                'profile': {
+                    'display_name': 'Dev User',
+                    'age': 30,
+                    'gender': 'その他',
+                    'hobbies': ['温泉・サウナ', 'グルメ・食べ歩き'],
+                    'location': '東京',
+                    'budget': '気にしない',
+                    'notes': '開発用のダミーユーザーです。'
+                },
+                'created_at': firestore.SERVER_TIMESTAMP,
+            }
+            doc_ref.set(user_doc, timeout=5)
+            logger.info(f"Dummy user '{dummy_user_id}' created with password '{dummy_password}'.")
+
+        # Create a dummy persona
+        personas_ref = doc_ref.collection('personas')
+        persona_doc_ref = personas_ref.document()
+        dummy_persona_profile = {
+            'title': '冒険グルメ探検家',
+            'description': '未知の味と体験を求めて、計画や予算にとらわれず自由な旅を楽しむ。美味しいもののためなら、どこへでも足を運ぶ情熱的な冒険家。',
+            'traitScores': {
+                '新規性追求': 4, '旅程密度': 2, '予算哲学': 3, '社会的志向性': 3,
+                '主な興味関心': 2, '計画志向性': 1, '快適性水準': 2, '活動レベル': 3,
+                '安全性の閾値': 2, 'デジタル統合度': 3
+            }
+        }
+        dummy_system_prompt = "あなたは、ユーザーの診断結果「冒険グルメ探検家」に基づき、日本国内のユニークな食体験を提案する専門家です。予算や計画よりも、その場でしか味わえない特別な体験を重視します。ユーザーの趣味である「温泉・サウナ」も考慮に入れ、食と癒やしを組み合わせた最高の旅を提案してください。"
+        
+        persona_doc = {
+            'profile': dummy_persona_profile,
+            'system_prompt': dummy_system_prompt,
+            'created_at': firestore.SERVER_TIMESTAMP
+        }
+        persona_doc_ref.set(persona_doc, timeout=5)
+        
+        # Update user with diagnosis_completed and last_persona_id
+        doc_ref.update({
+            'diagnosis_completed': True,
+            'last_persona_id': persona_doc_ref.id,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }, timeout=5)
+        
+        logger.info(f"Dummy persona created for user '{dummy_user_id}'.")
+
+    except Exception as e:
+        logger.error(f"Failed to create/update dummy user or persona: {e}")
+
 if __name__ == '__main__':
+    create_dummy_user_if_needed()
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 
 

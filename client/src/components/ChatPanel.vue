@@ -4,10 +4,20 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAuthStore } from '@/stores/authStore'
 
+function normalizeName(s) {
+  try {
+    return String(s || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/[\u3000\s]+/g, ' ')
+      .toLowerCase()
+  } catch { return String(s || '') }
+}
+
 const auth = useAuthStore()
 
 const messages = ref([
-  { role: 'assistant', text: 'こんにちは。どんな旅がしたいですか？（例: 美術館めぐり、温泉、自然、グルメ）' }
+  { role: 'assistant', text: 'こんにちは。どんな旅がしたいですか？（例: 美術館めぐり、温泉、自然、グルメ）', citations: [], grounding_html: null }
 ])
 const userInput = ref('')
 const isSending = ref(false)
@@ -56,7 +66,6 @@ async function sendMessage() {
   const text = userInput.value.trim()
   if (!text || isSending.value) return
   isSending.value = true
-  console.debug('[Chat] send start', { user_id: userId.value, session_id: sessionId.value, len: text.length })
   messages.value.push({ role: 'user', text })
   userInput.value = ''
   await nextTick()
@@ -65,7 +74,7 @@ async function sendMessage() {
   }
   scrollToBottom()
 
-  // サーバーのエージェントに問い合わせ（簡易プロトタイプ）
+  // サーバーのエージェントに問い合わせ
   try {
     const resp = await fetch('/api/agent/chat', {
       method: 'POST',
@@ -73,54 +82,95 @@ async function sendMessage() {
       body: JSON.stringify({ message: text, user_id: userId.value, session_id: sessionId.value })
     })
     if (!resp.ok) throw new Error('failed')
-  const data = await resp.json()
-  console.debug('[Chat] response', { ok: true, keys: Object.keys(data || {}), hasPlaces: Array.isArray(data?.places) })
-  const reply = data.reply || '提案を取得できませんでした。'
-  messages.value.push({ role: 'assistant', text: reply })
-  scrollToBottom()
-  const routeInfo = (data.route_info && (typeof data.route_info === 'object' || Array.isArray(data.route_info))) ? data.route_info : undefined
-
-    // 場所候補: [{ name, lat, lng, note }]
-    if (Array.isArray(data.places)) {
-      let places = data.places
+    const data = await resp.json()
+    
+  let reply = data.reply || ''
+  const citations = data.citations || []
+    const groundingHtml = data.grounding_html || null
+    let places = Array.isArray(data.places) ? data.places : []
+    // 欠損座標の補完（最大20件をサーバーでジオコーディング）
+    if (places.length) {
       const needGeocode = places.filter(p => typeof p?.lat !== 'number' || typeof p?.lng !== 'number')
       if (needGeocode.length) {
         try {
           const resp2 = await fetch('/api/geocode', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
             body: JSON.stringify({ names: needGeocode.map(p => p.name).filter(Boolean) })
           })
           if (resp2.ok) {
             const g = await resp2.json()
-            const map = new Map((g.results || []).map(r => [r.name, r]))
+            const gMap = new Map((g.results || []).map(r => [normalizeName(r.name), r]))
             places = places.map(p => {
-              const hit = map.get(p.name)
+              const hit = gMap.get(normalizeName(p.name))
               return (hit && (typeof p.lat !== 'number' || typeof p.lng !== 'number'))
                 ? { ...p, lat: hit.lat, lng: hit.lng, note: p.note || hit.formatted_address }
                 : p
             })
           }
         } catch (_) { /* noop */ }
+
+        // 依然として欠損がある場合、ブラウザ側で軽量フォールバック（OSM Nominatim）を最大10件だけ試行
+        const stillMissing = places.filter(p => typeof p?.lat !== 'number' || typeof p?.lng !== 'number')
+        if (stillMissing.length) {
+          const names = stillMissing.map(p => p.name).filter(Boolean).slice(0, 10)
+          const results = []
+          for (const nm of names) {
+            try {
+              const u = new URL('https://nominatim.openstreetmap.org/search')
+              u.searchParams.set('q', nm)
+              u.searchParams.set('format', 'json')
+              u.searchParams.set('limit', '1')
+              u.searchParams.set('addressdetails', '0')
+              u.searchParams.set('accept-language', 'ja')
+              const r = await fetch(u.toString(), { headers: { 'Accept': 'application/json' } })
+              if (r.ok) {
+                const arr = await r.json()
+                if (Array.isArray(arr) && arr[0]) {
+                  const g = arr[0]
+                  const lat = g?.lat != null ? Number(g.lat) : undefined
+                  const lon = g?.lon != null ? Number(g.lon) : undefined
+                  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                    results.push({ name: nm, lat, lng: lon, formatted_address: g.display_name })
+                  }
+                }
+              }
+            } catch {}
+          }
+          if (results.length) {
+            const map2 = new Map(results.map(r => [normalizeName(r.name), r]))
+            places = places.map(p => {
+              const hit = map2.get(normalizeName(p.name))
+              return (hit && (typeof p.lat !== 'number' || typeof p.lng !== 'number'))
+                ? { ...p, lat: hit.lat, lng: hit.lng, note: p.note || hit.formatted_address }
+                : p
+            })
+          }
+        }
       }
-  console.debug('[Chat] places processed', { count: places.length })
-  emit('agent-update', { reply, places, route_info: routeInfo })
-    } else {
-  emit('agent-update', { reply, route_info: routeInfo })
     }
+    const assistantMessage = { role: 'assistant', text: reply, citations: citations, grounding_html: groundingHtml, places }
+    
+    if (reply || citations.length > 0 || groundingHtml) {
+      messages.value.push(assistantMessage)
+    }
+    scrollToBottom()
+
+  const routeInfo = data.route_info
+
+  emit('agent-update', { reply, places, route_info: routeInfo, citations })
+
   } catch (e) {
-    console.debug('[Chat] error', e)
-    messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。' })
-  scrollToBottom()
+    console.error('Chat send error', e)
+    messages.value.push({ role: 'assistant', text: 'エラーが発生しました。少し待って再試行してください。', citations: [], grounding_html: null })
+    scrollToBottom()
   } finally {
-    console.debug('[Chat] send end')
     isSending.value = false
   }
 }
 
 function onEnter(e) {
-  // IME 変換中は送信しない（Enterは変換確定用）
   if (e.isComposing || isComposing.value) return
-  // Shift+Enter で改行、Enterのみで送信
   if (e.shiftKey) return
   e.preventDefault()
   sendMessage()
@@ -135,11 +185,11 @@ function autoResize(e) {
 function renderHtml(text) {
   try {
     const raw = marked.parse(text || '')
-    const sanitized = DOMPurify.sanitize(raw, {
-      ADD_TAGS: ['svg', 'path', 'circle', 'div'],
-      ADD_ATTR: ['fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href']
+    // Allow more tags for grounding results
+    return DOMPurify.sanitize(raw, {
+      ADD_TAGS: ['svg', 'path', 'circle', 'div', 'g', 'a'],
+      ADD_ATTR: ['fill-rule', 'clip-rule', 'd', 'fill', 'class', 'width', 'height', 'viewBox', 'xmlns', 'cx', 'cy', 'r', 'href', 'target', 'rel']
     })
-    return sanitized
   } catch {
     return text
   }
@@ -151,8 +201,28 @@ function renderHtml(text) {
   <div class="chat" ref="chatEl">
     <div class="log" ref="logEl">
       <div v-for="(m, idx) in messages" :key="idx" :class="['msg', m.role]">
-  <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
-  <span v-else class="bubble" v-html="renderHtml(m.text)"></span>
+        <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
+        <div v-else class="bubble">
+          <div v-if="m.text" class="text" v-html="renderHtml(m.text)"></div>
+          <div v-if="m.citations && m.citations.length" class="citations">
+            <p><strong>引用元:</strong></p>
+            <ul>
+              <li v-for="c in m.citations" :key="c.index">
+                [{{ c.index }}] <a :href="c.uri" target="_blank" rel="noopener">{{ c.title }}</a>
+              </li>
+            </ul>
+          </div>
+          <div v-if="m.grounding_html" class="grounding" v-html="m.grounding_html"></div>
+          <div v-if="m.places && m.places.length" class="places">
+            <p><strong>場所:</strong></p>
+            <ul>
+              <li v-for="(p, i) in m.places" :key="i">
+                {{ p.name || p.title }}
+                <small v-if="p.note" style="color:#6b7280;"> — {{ p.note }}</small>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
       <!-- タイピング中インジケーター -->
       <div v-if="isSending" class="msg assistant">
@@ -204,6 +274,11 @@ function renderHtml(text) {
 .bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
 .bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
+.grounding { margin-bottom: 8px; }
+.citations { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.9em; color: #6b7280; }
+.citations p { margin: 0 0 4px; }
+.citations ul { margin: 0; padding-left: 18px; }
+.places { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e5e7eb; font-size: 0.95em; }
 .bubble.typing { display:inline-flex; align-items:center; gap:6px; }
 .bubble.typing .dot { width:6px; height:6px; border-radius:50%; background:#9ca3af; display:inline-block; animation: typingBlink 1.2s infinite ease-in-out; }
 .bubble.typing .dot:nth-child(2) { animation-delay: .2s; }
@@ -231,5 +306,12 @@ function renderHtml(text) {
   .log { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
   /* ボタンはコンパクトに */
   .composer { --composer-h: 42px; }
+}
+
+/* タブレット幅でも右ペインのマップは非表示のため、地図ボタンを出す */
+@media (max-width: 960px) {
+  .composer-area { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 12px rgba(0,0,0,0.05); padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+  .composer-actions { display: block; }
+  .log { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
 }
 </style>

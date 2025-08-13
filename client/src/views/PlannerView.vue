@@ -14,9 +14,8 @@ const overlayMapRef = ref(null)
 function handleAgentUpdate(payload) {
   // payload: { reply, places?, route_info? }
   if (Array.isArray(payload?.places)) {
-    places.value = payload.places
-      .filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number')
-      .slice(0, 50)
+    // 緯度経度が無くても、名前でのクエリに利用できるため保持
+    places.value = payload.places.slice(0, 50)
   }
 
   if (payload?.route_info && typeof payload.route_info === 'object' && payload.route_info.origin && payload.route_info.destination) {
