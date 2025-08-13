@@ -314,21 +314,20 @@ function enhanceScheduleTables(idx) {
     const table = root.querySelector('.bubble .text table')
     if (!table) return
     if (!isScheduleTable(table)) return
-    // 生成・配置
-    const acc = buildAccordionFromTable(table)
-    let mount = root.querySelector('.bubble .accordion-mount')
-    if (!mount) {
-      mount = document.createElement('div')
-      mount.className = 'accordion-mount'
-      const bubble = root.querySelector('.bubble')
-      if (bubble) bubble.insertBefore(mount, bubble.firstChild)
-    }
-    // 既存クリアして追加
-    mount.innerHTML = ''
-    mount.appendChild(acc)
-    // 表示モード既定はアコーディオン
+    // 先に状態を立ててテンプレートのマウントを出す
     scheduleStates.value = { ...scheduleStates.value, [idx]: { found: true, mode: 'accordion' } }
-    table.classList.add('hidden-table')
+    const acc = buildAccordionFromTable(table)
+    nextTick(() => {
+      try {
+        const root2 = msgEls.value[idx]
+        if (!root2) return
+        const mount = root2.querySelector('.bubble .accordion-mount')
+        if (!mount) return
+        mount.innerHTML = ''
+        mount.appendChild(acc)
+        table.classList.add('hidden-table')
+      } catch {}
+    })
   } catch (e) { console.error('enhanceScheduleTables failed', e) }
 }
 
@@ -361,8 +360,8 @@ function switchScheduleView(idx, mode) {
         <span v-if="m.role !== 'assistant'" class="bubble">{{ m.text }}</span>
         <div v-else class="bubble">
           <div v-if="scheduleStates[idx]?.found" class="schedule-actions">
-            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='accordion' }" @click="switchScheduleView(idx, 'accordion')">アコーディオン</button>
-            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='table' }" @click="switchScheduleView(idx, 'table')">表</button>
+            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='accordion' }" @click="switchScheduleView(idx, 'accordion')">簡易表示</button>
+            <button type="button" class="btn small" :class="{ active: scheduleStates[idx]?.mode==='table' }" @click="switchScheduleView(idx, 'table')">詳細表示</button>
           </div>
           <div class="accordion-mount" v-if="scheduleStates[idx]?.found"></div>
           <div
@@ -472,7 +471,7 @@ function switchScheduleView(idx, mode) {
 .bubble :where(tbody tr:nth-child(odd)){ background: #fafafa; }
 .bubble :where(caption){ caption-side: bottom; color:#6b7280; font-size: 0.9em; padding-top: 6px; }
 .msg.assistant .bubble{ max-width: 100%; } /* 表などを詰め込みすぎないように拡張 */
-.hidden-table{ display: none; }
+.bubble :deep(.hidden-table){ display: none; }
 .schedule-actions{ display:flex; gap:8px; margin-bottom: 6px; }
 .btn.small.active{ outline: 2px solid #2563eb; }
 .accordion-block details{ border:1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin: 6px 0; background:#fff; }
