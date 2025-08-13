@@ -28,7 +28,11 @@ except Exception as e:
     # fallback to default search if direct load fails
     load_dotenv(override=True)
 
-app = Flask(__name__, static_folder='client/dist', static_url_path='/')
+# Resolve absolute path to client/dist so SPA can be served reliably from the backend
+_repo_root = Path(__file__).resolve().parent.parent
+_client_dist = _repo_root / 'client' / 'dist'
+# Use a non-root static_url_path to avoid conflicts with SPA fallback
+app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/static')
 
 # Logging setup
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
@@ -578,6 +582,17 @@ def require_auth(req):
     if authz.startswith("Bearer "):
         token = authz.split(" ", 1)[1]
         return verify_jwt(token)
+    return None
+
+def _claims_or_dev():
+    """Return JWT claims if present; in development, fall back to a dummy dev user.
+    This avoids 401 spam in local no-auth sessions.
+    """
+    claims = require_auth(request)
+    if claims:
+        return claims
+    if (os.getenv("FLASK_ENV", "").lower() == "development") or (ENV.lower() == "development"):
+        return { 'sub': 'devuser' }
     return None
 
 
@@ -1408,9 +1423,13 @@ def agent_chat():
     except Exception as e:
         logger.exception("agent_chat error")
         resp = { 'reply': 'エラーが発生しました。時間をおいて再試行してください。' }
-        if tid:
-            resp['trace_id'] = tid
-        return jsonify(resp)
+        try:
+            _tid = getattr(request, '_trace_id', None)
+            if _tid:
+                resp['trace_id'] = _tid
+        except Exception:
+            pass
+        return jsonify(resp), 500
 
 @app.post('/api/geocode')
 def geocode_places():
@@ -1875,7 +1894,7 @@ def create_persona():
 # ==== Current user info ====
 @app.route('/api/me', methods=['GET'])
 def me():
-    claims = require_auth(request)
+    claims = _claims_or_dev()
     if not claims:
         return jsonify({"error": "unauthorized"}), 401
     try:
@@ -1896,7 +1915,7 @@ def me():
 # ==== Latest persona ====
 @app.route('/api/persona/latest', methods=['GET'])
 def persona_latest():
-    claims = require_auth(request)
+    claims = _claims_or_dev()
     if not claims:
         return jsonify({"error": "unauthorized"}), 401
     try:
@@ -1915,18 +1934,12 @@ def persona_latest():
         logger.exception("/api/persona/latest error")
         return jsonify({}), 404
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if path!= "" and os.path.exists(app.static_folder + '/' + path):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
+# (removed: duplicate catch-all route; use spa_fallback below)
 
 # ==== User profile (basic) ====
 @app.route('/api/profile', methods=['GET', 'POST'])
 def profile():
-    claims = require_auth(request)
+    claims = _claims_or_dev()
     if not claims:
         return jsonify({"error": "unauthorized"}), 401
     user_id = claims['sub']
@@ -2072,11 +2085,16 @@ def spa_fallback(path: str):
     if path.startswith('api/'):
         return jsonify({ 'error': 'not_found' }), 404
     try:
-        # If the requested static asset exists, serve it
+        # Serve known static assets under /static path
         static_root = app.static_folder or ''
-        if path:
-            full_path = os.path.join(static_root, path)
-            if os.path.isfile(full_path):
+        if path in ('favicon.ico',):
+            fp = os.path.join(static_root, path)
+            if os.path.isfile(fp):
+                return app.send_static_file(path)
+        if path.startswith('assets/'):
+            fp = os.path.join(static_root, path)
+            if os.path.isfile(fp):
+                # Prefix with static_url_path to satisfy Flask's static route
                 return app.send_static_file(path)
         # Otherwise serve the SPA entrypoint
         return app.send_static_file('index.html')
