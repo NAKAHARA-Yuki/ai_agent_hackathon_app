@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import MapPanel from '@/components/MapPanel.vue'
 import BackButton from '@/components/BackButton.vue'
@@ -14,6 +14,12 @@ const lastAssistantText = ref('')
 const saving = ref(false)
 const saveMsg = ref('')
 const auth = useAuthStore()
+
+// 保存UIは「本文がある場合のみ」表示（場所だけ/ルートだけでは非表示）
+const canSave = computed(() => {
+  const hasText = !!(lastAssistantText.value && String(lastAssistantText.value).trim())
+  return hasText
+})
 
 // チャットの送信イベントでエージェント応答と場所候補を反映
 function handleAgentUpdate(payload) {
@@ -89,7 +95,7 @@ async function onSavePlan() {
     <section class="left">
   <div class="left-header"><BackButton :icon-only="true" icon="home" label="メインへ" :fallback-name="'main'" /></div>
   <ChatPanel @agent-update="handleAgentUpdate" @open-map="isMapOpen = true" />
-  <div class="save-bar">
+  <div v-if="canSave" class="save-bar">
     <button class="save-btn" :disabled="saving" @click="onSavePlan">{{ saving ? '保存中…' : 'このプランを保存する' }}</button>
     <span v-if="saveMsg" class="save-msg">{{ saveMsg }}</span>
   </div>
