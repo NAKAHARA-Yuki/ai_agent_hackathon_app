@@ -211,3 +211,32 @@ jobs:
             --port=8080 \
             --max-instances=3 \
             --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp.outputs.agent_url }}
+
+      - name: Resolve App URL
+        id: resolve_app_url
+        env:
+          REGION: ${{ env.REGION }}
+          SERVICE: ${{ env.SERVICE }}
+        run: |
+          set -e
+          APP_URL=$(gcloud run services describe ${SERVICE} --region ${REGION} --format 'value(status.url)')
+          if [ -z "${APP_URL}" ]; then
+            echo "Failed to resolve app service URL" >&2
+            exit 1
+          fi
+          echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
+
+      - name: Update Agent with APP_SERVER_BASE
+        env:
+          REGION: ${{ env.REGION }}
+          APP_URL: ${{ steps.resolve_app_url.outputs.app_url }}
+        run: |
+          set -e
+          if [ -z "${APP_URL}" ]; then
+            echo "APP_URL is empty; cannot update Agent env" >&2
+            exit 1
+          fi
+          # Update Agent service to include APP_SERVER_BASE without overwriting other env vars
+          gcloud run services update travel-agent-service \
+            --region ${REGION} \
+            --update-env-vars=APP_SERVER_BASE=${APP_URL}
