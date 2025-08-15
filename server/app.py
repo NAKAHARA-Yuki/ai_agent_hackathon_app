@@ -593,6 +593,16 @@ def create_jwt(user_id: str):
     }
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
+def create_jwt_with_ttl(user_id: str, ttl_min: int):
+    now = datetime.now(timezone.utc)
+    ttl_min = max(1, min(int(ttl_min or 15), 24 * 60))
+    payload = {
+        "sub": user_id,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=ttl_min)).timestamp())
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
 def verify_jwt(token: str):
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
@@ -1234,6 +1244,14 @@ def agent_chat():
         if not is_session_initialized(req_user_id, req_session_id):
             context = {'user': user_info, 'persona': last_persona}
             message_to_send = "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) + "\n\n[ユーザーからの依頼]\n" + message
+        # If user asked to save, append a short-lived token for the agent tool
+        try:
+            if claims and isinstance(message, str):
+                if re.search(r"保存(して|する|お願い|ください)", message):
+                    token = create_jwt_with_ttl(claims['sub'], 15)
+                    message_to_send = (message_to_send or message) + "\n\n[SAVE_TOKEN]\n" + token
+        except Exception:
+            pass
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
         events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=True)
@@ -1832,6 +1850,21 @@ def login():
     token = create_jwt(user_id)
     return jsonify({"token": token, "user": {"id": user_id, "name": user.get('name'), "diagnosis_completed": bool(user.get('diagnosis_completed'))}})
 
+# Issue a short-lived confirmation token for plan saving (for agent tool use)
+@app.post('/api/plans/issue-token')
+def issue_plan_token():
+    claims = _claims_or_dev()
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json() or {}
+    try:
+        ttl = int(data.get('ttl_min', 15))
+    except Exception:
+        ttl = 15
+    ttl = max(5, min(ttl, 120))
+    token = create_jwt_with_ttl(claims['sub'], ttl)
+    return jsonify({"token": token, "ttl_min": ttl})
+
 
 # ==== Persona generation and storage ====
 @app.route('/api/persona', methods=['POST'])
@@ -2107,6 +2140,199 @@ def profile():
                 logger.exception("/api/profile POST error")
                 return jsonify({"error": "database unavailable"}), 503
         return jsonify({"profile": base if base else sanitized})
+
+# ==== Travel Plans (save to Firestore) ====
+def _sanitize_title(s: str) -> str:
+    try:
+        s = str(s or '').strip()
+        # Remove control chars and angle brackets
+        s = re.sub(r'[\x00-\x1F<>]', '', s)
+        return s[:120]
+    except Exception:
+        return ''
+
+def _sanitize_text(s: str) -> str:
+    try:
+        s = str(s or '')
+        # Limit very long texts (frontend has full copy anyway)
+        if len(s) > 200000:
+            s = s[:200000]
+        return s
+    except Exception:
+        return ''
+
+@app.route('/api/plans', methods=['GET', 'POST'])
+def plans_collection():
+    claims = _claims_or_dev()
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    user_id = claims['sub']
+    plans_ref = db.collection('users').document(user_id).collection('plans')
+
+    if request.method == 'GET':
+        # List plans (basic fields)
+        try:
+            # Firestore: require order by created_at if exists; DevDB returns unsorted
+            items = []
+            try:
+                # Try Firestore query first
+                q = plans_ref
+                # Firestore needs an index to order by created_at; fallback to manual
+                try:
+                    docs = q.stream()
+                except Exception:
+                    # DevDB path
+                    docs = []
+                for d in docs:
+                    try:
+                        data = d.to_dict() or {}
+                        item = {
+                            'id': getattr(d, 'id', None),
+                            'title': data.get('title'),
+                            'created_at': data.get('created_at'),
+                            'updated_at': data.get('updated_at'),
+                        }
+                        items.append(item)
+                    except Exception:
+                        continue
+            except Exception:
+                items = []
+            return jsonify({'items': items})
+        except Exception as e:
+            logger.exception("/api/plans GET error")
+            return jsonify({'items': []})
+
+    # POST: create a new plan
+    payload = request.get_json() or {}
+    title = _sanitize_title(payload.get('title') or '')
+    text = _sanitize_text(payload.get('text') or '')
+    # Normalize optional structures
+    places = _normalize_places_list(payload.get('places'))
+    route_info = _normalize_route_info(payload.get('route_info') or {})
+
+    if not title:
+        # Fallback sensible title
+        title = datetime.utcnow().strftime('旅行プラン %Y-%m-%d %H:%M')
+    if not text and not (places or route_info):
+        return jsonify({"error": "empty_plan"}), 400
+
+    doc = {
+        'title': title,
+        'text': text,
+        'places': places or [],
+        'route_info': route_info or None,
+        'created_at': firestore.SERVER_TIMESTAMP,
+        'updated_at': firestore.SERVER_TIMESTAMP,
+        'source': 'chat',
+    }
+    try:
+        doc_ref = plans_ref.document()
+        doc_ref.set(doc, timeout=5)
+        # Read back for created_at resolution in DevDB
+        try:
+            saved = doc_ref.get(timeout=5).to_dict() or {}
+        except Exception:
+            saved = doc
+        out = {
+            'id': getattr(doc_ref, 'id', None),
+            'title': saved.get('title'),
+            'text': saved.get('text'),
+            'places': saved.get('places') or [],
+            'route_info': saved.get('route_info'),
+            'created_at': saved.get('created_at'),
+            'updated_at': saved.get('updated_at'),
+        }
+        return jsonify(out), 201
+    except Exception as e:
+        logger.exception("/api/plans POST error")
+        return jsonify({"error": "database_unavailable"}), 503
+
+
+@app.route('/api/plans/<plan_id>', methods=['GET', 'DELETE'])
+def plans_item(plan_id: str):
+    claims = _claims_or_dev()
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    user_id = claims['sub']
+    if not plan_id or len(plan_id) > 200:
+        return jsonify({"error": "invalid_id"}), 400
+    plan_ref = db.collection('users').document(user_id).collection('plans').document(plan_id)
+    if request.method == 'GET':
+        try:
+            snap = plan_ref.get(timeout=5)
+            if not getattr(snap, 'exists', False):
+                return jsonify({}), 404
+            data = snap.to_dict() or {}
+            out = data.copy()
+            out['id'] = plan_id
+            return jsonify(out)
+        except Exception as e:
+            logger.exception("/api/plans/{id} GET error")
+            return jsonify({}), 404
+    # DELETE
+    try:
+        plan_ref.update({'deleted': True, 'updated_at': firestore.SERVER_TIMESTAMP}, timeout=5)
+    except Exception:
+        try:
+            plan_ref.set({'deleted': True, 'updated_at': firestore.SERVER_TIMESTAMP}, merge=True, timeout=5)
+        except Exception as e2:
+            logger.exception("/api/plans/{id} DELETE error")
+            return jsonify({"error": "database_unavailable"}), 503
+    return jsonify({"status": "deleted"})
+
+@app.post('/api/plans/by-token')
+def plans_by_token():
+    """Save a plan using a short-lived user token (confirmation token).
+    Expect JSON body: { token, title?, text?, places?, route_info? }
+    The token must be a valid JWT signed by this server (create_jwt/verify_jwt compatible).
+    """
+    try:
+        payload = request.get_json() or {}
+        token = (payload.get('token') or '').strip()
+        if not token:
+            return jsonify({"error": "missing_token"}), 400
+        claims = verify_jwt(token)
+        if not claims or not claims.get('sub'):
+            return jsonify({"error": "invalid_token"}), 401
+        user_id = claims['sub']
+
+        title = _sanitize_title(payload.get('title') or '')
+        text = _sanitize_text(payload.get('text') or '')
+        places = _normalize_places_list(payload.get('places'))
+        route_info = _normalize_route_info(payload.get('route_info') or {})
+        if not title:
+            title = datetime.utcnow().strftime('旅行プラン %Y-%m-%d %H:%M')
+        if not text and not (places or route_info):
+            return jsonify({"error": "empty_plan"}), 400
+
+        plans_ref = db.collection('users').document(user_id).collection('plans')
+        doc_ref = plans_ref.document()
+        doc = {
+            'title': title,
+            'text': text,
+            'places': places or [],
+            'route_info': route_info or None,
+            'created_at': firestore.SERVER_TIMESTAMP,
+            'updated_at': firestore.SERVER_TIMESTAMP,
+            'source': 'agent_tool',
+        }
+        doc_ref.set(doc, timeout=5)
+        try:
+            saved = doc_ref.get(timeout=5).to_dict() or {}
+        except Exception:
+            saved = doc
+        return jsonify({
+            'id': getattr(doc_ref, 'id', None),
+            'title': saved.get('title'),
+            'text': saved.get('text'),
+            'places': saved.get('places') or [],
+            'route_info': saved.get('route_info'),
+            'created_at': saved.get('created_at'),
+            'updated_at': saved.get('updated_at'),
+        }), 201
+    except Exception as e:
+        logger.exception('/api/plans/by-token error')
+        return jsonify({"error": "database_unavailable"}), 503
 
 # ---- SPA history fallback (serve index.html for non-API routes) ----
 # This allows reloading deep links like /planner or /result without 404.

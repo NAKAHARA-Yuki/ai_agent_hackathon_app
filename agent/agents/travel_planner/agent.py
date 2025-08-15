@@ -1,6 +1,8 @@
 import os
 import logging
 from google.adk.agents import LlmAgent
+from google.adk.tools import Tool
+import httpx
 from tools.maps_mcp import register_maps_mcp_tool
 from google.adk.tools import google_search
 
@@ -52,6 +54,10 @@ DEFAULT_INSTRUCTION = (
 	"- JSON外に本文やMarkdownを出していないか？\n"
 	"- text に本文全文が入っているか（表を含む）？\n"
 	"- places/route_info の型・値は仕様どおりか（mode 値許可内）？\n"
+	"\n[保存に関して]\n"
+	"- ユーザーが『保存して』等を明示し、かつ入力中に [SAVE_TOKEN] が付与されている場合のみ、tool `save_travel_plan` を一度だけ呼び出す。\n"
+	"- 引数は {token: SAVE_TOKEN, title: 適切な題名, text: JSON.text, places, route_info}。\n"
+	"- トークンが無い場合は保存を試みない。\n"
 )
 
 INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
@@ -59,6 +65,40 @@ INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
 tools = []
 tools += register_maps_mcp_tool()  # GoogleMapMCP
 tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
+SERVER_BASE = os.getenv('APP_SERVER_BASE')  # e.g., http://server:8080 or public URL
+
+class SavePlanTool(Tool):
+	name = "save_travel_plan"
+	description = "ユーザーの明示同意トークンと共に旅行プランをサーバーに保存する。tokenが無い場合は呼び出さないこと。"
+	parameters = {
+		"type": "object",
+		"properties": {
+			"token": {"type": "string", "description": "サーバーが発行した短期JWTトークン"},
+			"title": {"type": "string"},
+			"text": {"type": "string"},
+			"places": {"type": "array"},
+			"route_info": {"type": "object"}
+		},
+		"required": ["token", "text"]
+	}
+
+	async def run_async(self, *, token: str, title: str | None = None, text: str = "", places=None, route_info=None):
+		if not SERVER_BASE:
+			return {"status": "error", "message": "server_base_not_configured"}
+		try:
+			async with httpx.AsyncClient(timeout=15.0) as client:
+				resp = await client.post(
+					SERVER_BASE.rstrip('/') + '/api/plans/by-token',
+					json={"token": token, "title": title, "text": text, "places": places, "route_info": route_info},
+					headers={"Content-Type": "application/json"}
+				)
+			if resp.status_code >= 200 and resp.status_code < 300:
+				return {"status": "ok", **resp.json()}
+			return {"status": "error", "code": resp.status_code, "body": resp.text[:500]}
+		except Exception as e:
+			return {"status": "error", "message": str(e)}
+
+tools.append(SavePlanTool())
 log.info("Tools registered: maps_mcp, google_search")
 
 # Define the root agent under Agents tree
