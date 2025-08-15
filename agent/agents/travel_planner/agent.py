@@ -62,15 +62,17 @@ tools += register_maps_mcp_tool()  # GoogleMapMCP
 tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
 SERVER_BASE = os.getenv('APP_SERVER_BASE')  # e.g., http://server:8080 or public URL
 
-async def save_travel_plan(token: str, title: str | None = None, text: str = "", places: list | None = None, route_info: dict | None = None) -> dict:
+async def save_travel_plan(token: str, text: str, title: str = "", places: list = None, route_info: dict = None) -> dict:
 	"""ユーザーの明示同意トークンと共に旅行プランをサーバーに保存する。
 
 	必須:
 	- token: サーバーが発行した短期JWTトークン（[SAVE_TOKEN]）。
-	- text: 本文。
+	- text: 本文（JSON.text）。
 
 	任意:
-	- title, places, route_info
+	- title: 題名（未指定なら空文字）
+	- places: 場所配列
+	- route_info: ルート情報
 	"""
 	if not SERVER_BASE:
 		return {"status": "error", "message": "server_base_not_configured"}
