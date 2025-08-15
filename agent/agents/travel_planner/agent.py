@@ -4,6 +4,7 @@ from typing import Any
 from google.adk.agents import LlmAgent
 import httpx
 from tools.maps_mcp import register_maps_mcp_tool
+from tools.save_plan import register_save_plan_tool
 from google.adk.tools import google_search
 
 # Logging setup for agent container
@@ -61,45 +62,10 @@ INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
 tools = []
 tools += register_maps_mcp_tool()  # GoogleMapMCP
 tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
+tools += register_save_plan_tool()  # 保存ツール
 SERVER_BASE = os.getenv('APP_SERVER_BASE')  # e.g., http://server:8080 or public URL
 
-async def save_travel_plan(token: str, text: str, title: str = "", places: list[dict[str, Any]] = [], route_info: dict[str, Any] = {}) -> dict:
-	"""ユーザーの明示同意トークンと共に旅行プランをサーバーに保存する。
-
-	必須:
-	- token: サーバーが発行した短期JWTトークン（[SAVE_TOKEN]）。
-	- text: 本文（JSON.text）。
-
-	任意:
-	- title: 題名（未指定なら空文字）
-	- places: 場所配列（例: [{"name": "", "lat": 35.6, "lng": 139.7, "note": "", "address": "", "url": "", "imageUrl": ""}]）
-	- route_info: ルート情報（例: {"origin": "", "destination": "", "waypoints": [""], "mode": "driving|walking|bicycling|transit"}）
-	"""
-	if not SERVER_BASE:
-		return {"status": "error", "message": "server_base_not_configured"}
-	try:
-		async with httpx.AsyncClient(timeout=15.0) as client:
-			resp = await client.post(
-				SERVER_BASE.rstrip('/') + '/api/plans/by-token',
-				json={
-					"token": token,
-					"title": title,
-					"text": text,
-					"places": places,
-					"route_info": route_info
-				},
-				headers={"Content-Type": "application/json"}
-			)
-		if 200 <= resp.status_code < 300:
-			data = resp.json()
-			data.setdefault("status", "ok")
-			return data
-		return {"status": "error", "code": resp.status_code, "body": resp.text[:500]}
-	except Exception as e:
-		return {"status": "error", "message": str(e)}
-
-tools.append(save_travel_plan)
-log.info("Tools registered: maps_mcp, google_search")
+log.info("Tools registered: maps_mcp, google_search, save_travel_plan")
 
 # Define the root agent under Agents tree
 root_agent = LlmAgent(
