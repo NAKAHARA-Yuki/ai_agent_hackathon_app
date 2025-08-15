@@ -1215,7 +1215,17 @@ def agent_chat():
         if not message:
             return jsonify({"reply": "ご希望を教えてください。"})
 
-        effective_base = AGENT_BASE_URL or 'http://localhost:8080'
+        # Determine agent base for this request
+        effective_base = AGENT_BASE_URL
+        if not effective_base:
+            if (ENV.lower() == 'development'):
+                effective_base = 'http://localhost:8080'
+            else:
+                logger.error("agent_service_not_configured: AGENT_BASE_URL is missing in non-development env")
+                return jsonify({
+                    "reply": "内部設定エラーが発生しました。時間をおいて再試行してください。",
+                    "error": "agent_service_not_configured"
+                }), 503
         logger.info(f"/api/agent/chat delegating to ADK base={effective_base}")
 
         req_user_id = (data.get('user_id') or '').strip() or 'u_local'
@@ -1254,7 +1264,14 @@ def agent_chat():
             pass
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
-        events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=True)
+        try:
+            events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=True)
+        except Exception as e:
+            logger.exception("agent_backend_unreachable")
+            return jsonify({
+                "reply": "現在プラン作成サービスに接続できません。しばらくしてからお試しください。",
+                "error": "agent_backend_unreachable"
+            }), 502
         logger.info(f"Agent call returned {len(events) if events else 0} events.")
         logger.debug(f"Agent events raw: {_snip_json(events)}")
 
