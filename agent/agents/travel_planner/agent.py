@@ -1,7 +1,6 @@
 import os
 import logging
 from google.adk.agents import LlmAgent
-from google.adk.tools import Tool
 import httpx
 from tools.maps_mcp import register_maps_mcp_tool
 from google.adk.tools import google_search
@@ -63,38 +62,40 @@ tools += register_maps_mcp_tool()  # GoogleMapMCP
 tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
 SERVER_BASE = os.getenv('APP_SERVER_BASE')  # e.g., http://server:8080 or public URL
 
-class SavePlanTool(Tool):
-	name = "save_travel_plan"
-	description = "ユーザーの明示同意トークンと共に旅行プランをサーバーに保存する。tokenが無い場合は呼び出さないこと。"
-	parameters = {
-		"type": "object",
-		"properties": {
-			"token": {"type": "string", "description": "サーバーが発行した短期JWTトークン"},
-			"title": {"type": "string"},
-			"text": {"type": "string"},
-			"places": {"type": "array"},
-			"route_info": {"type": "object"}
-		},
-		"required": ["token", "text"]
-	}
+async def save_travel_plan(token: str, title: str | None = None, text: str = "", places: list | None = None, route_info: dict | None = None) -> dict:
+	"""ユーザーの明示同意トークンと共に旅行プランをサーバーに保存する。
 
-	async def run_async(self, *, token: str, title: str | None = None, text: str = "", places=None, route_info=None):
-		if not SERVER_BASE:
-			return {"status": "error", "message": "server_base_not_configured"}
-		try:
-			async with httpx.AsyncClient(timeout=15.0) as client:
-				resp = await client.post(
-					SERVER_BASE.rstrip('/') + '/api/plans/by-token',
-					json={"token": token, "title": title, "text": text, "places": places, "route_info": route_info},
-					headers={"Content-Type": "application/json"}
-				)
-			if resp.status_code >= 200 and resp.status_code < 300:
-				return {"status": "ok", **resp.json()}
-			return {"status": "error", "code": resp.status_code, "body": resp.text[:500]}
-		except Exception as e:
-			return {"status": "error", "message": str(e)}
+	必須:
+	- token: サーバーが発行した短期JWTトークン（[SAVE_TOKEN]）。
+	- text: 本文。
 
-tools.append(SavePlanTool())
+	任意:
+	- title, places, route_info
+	"""
+	if not SERVER_BASE:
+		return {"status": "error", "message": "server_base_not_configured"}
+	try:
+		async with httpx.AsyncClient(timeout=15.0) as client:
+			resp = await client.post(
+				SERVER_BASE.rstrip('/') + '/api/plans/by-token',
+				json={
+					"token": token,
+					"title": title,
+					"text": text,
+					"places": places,
+					"route_info": route_info
+				},
+				headers={"Content-Type": "application/json"}
+			)
+		if 200 <= resp.status_code < 300:
+			data = resp.json()
+			data.setdefault("status", "ok")
+			return data
+		return {"status": "error", "code": resp.status_code, "body": resp.text[:500]}
+	except Exception as e:
+		return {"status": "error", "message": str(e)}
+
+tools.append(save_travel_plan)
 log.info("Tools registered: maps_mcp, google_search")
 
 # Define the root agent under Agents tree
