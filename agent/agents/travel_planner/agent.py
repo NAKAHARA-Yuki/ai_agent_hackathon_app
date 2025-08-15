@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Any
 from google.adk.agents import LlmAgent
 import httpx
 from tools.maps_mcp import register_maps_mcp_tool
@@ -66,7 +67,7 @@ tools += register_maps_mcp_tool()  # GoogleMapMCP
 tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
 SERVER_BASE = os.getenv('APP_SERVER_BASE')  # e.g., http://server:8080 or public URL
 
-async def save_travel_plan(token: str, text: str, title: str = "", places: list = [], route_info: dict = {}) -> dict:
+async def save_travel_plan(token: str, text: str, title: str = "", places: list[dict[str, Any]] = [], route_info: dict[str, Any] = {}) -> dict:
 	"""ユーザーの明示同意トークンと共に旅行プランをサーバーに保存する。
 
 	必須:
@@ -75,8 +76,8 @@ async def save_travel_plan(token: str, text: str, title: str = "", places: list 
 
 	任意:
 	- title: 題名（未指定なら空文字）
-	- places: 場所配列
-	- route_info: ルート情報
+	- places: 場所配列（例: [{"name": "", "lat": 35.6, "lng": 139.7, "note": "", "address": "", "url": "", "imageUrl": ""}]）
+	- route_info: ルート情報（例: {"origin": "", "destination": "", "waypoints": [""], "mode": "driving|walking|bicycling|transit"}）
 	"""
 	if not SERVER_BASE:
 		return {"status": "error", "message": "server_base_not_configured"}
