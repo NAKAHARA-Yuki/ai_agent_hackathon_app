@@ -1254,14 +1254,7 @@ def agent_chat():
         if not is_session_initialized(req_user_id, req_session_id):
             context = {'user': user_info, 'persona': last_persona}
             message_to_send = "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) + "\n\n[ユーザーからの依頼]\n" + message
-        # If user asked to save, append a short-lived token for the agent tool
-        try:
-            if claims and isinstance(message, str):
-                if re.search(r"保存(して|する|お願い|ください)", message):
-                    token = create_jwt_with_ttl(claims['sub'], 15)
-                    message_to_send = (message_to_send or message) + "\n\n[SAVE_TOKEN]\n" + token
-        except Exception:
-            pass
+    # 保存はフロントエンドの明示ボタンでのみ実行（エージェント経由トークン付与は廃止）
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
         try:
@@ -1867,20 +1860,7 @@ def login():
     token = create_jwt(user_id)
     return jsonify({"token": token, "user": {"id": user_id, "name": user.get('name'), "diagnosis_completed": bool(user.get('diagnosis_completed'))}})
 
-# Issue a short-lived confirmation token for plan saving (for agent tool use)
-@app.post('/api/plans/issue-token')
-def issue_plan_token():
-    claims = _claims_or_dev()
-    if not claims:
-        return jsonify({"error": "unauthorized"}), 401
-    data = request.get_json() or {}
-    try:
-        ttl = int(data.get('ttl_min', 15))
-    except Exception:
-        ttl = 15
-    ttl = max(5, min(ttl, 120))
-    token = create_jwt_with_ttl(claims['sub'], ttl)
-    return jsonify({"token": token, "ttl_min": ttl})
+## /api/plans/issue-token 廃止（エージェント経由保存を停止）
 
 
 # ==== Persona generation and storage ====
@@ -2297,59 +2277,7 @@ def plans_item(plan_id: str):
             return jsonify({"error": "database_unavailable"}), 503
     return jsonify({"status": "deleted"})
 
-@app.post('/api/plans/by-token')
-def plans_by_token():
-    """Save a plan using a short-lived user token (confirmation token).
-    Expect JSON body: { token, title?, text?, places?, route_info? }
-    The token must be a valid JWT signed by this server (create_jwt/verify_jwt compatible).
-    """
-    try:
-        payload = request.get_json() or {}
-        token = (payload.get('token') or '').strip()
-        if not token:
-            return jsonify({"error": "missing_token"}), 400
-        claims = verify_jwt(token)
-        if not claims or not claims.get('sub'):
-            return jsonify({"error": "invalid_token"}), 401
-        user_id = claims['sub']
-
-        title = _sanitize_title(payload.get('title') or '')
-        text = _sanitize_text(payload.get('text') or '')
-        places = _normalize_places_list(payload.get('places'))
-        route_info = _normalize_route_info(payload.get('route_info') or {})
-        if not title:
-            title = datetime.utcnow().strftime('旅行プラン %Y-%m-%d %H:%M')
-        if not text and not (places or route_info):
-            return jsonify({"error": "empty_plan"}), 400
-
-        plans_ref = db.collection('users').document(user_id).collection('plans')
-        doc_ref = plans_ref.document()
-        doc = {
-            'title': title,
-            'text': text,
-            'places': places or [],
-            'route_info': route_info or None,
-            'created_at': firestore.SERVER_TIMESTAMP,
-            'updated_at': firestore.SERVER_TIMESTAMP,
-            'source': 'agent_tool',
-        }
-        doc_ref.set(doc, timeout=5)
-        try:
-            saved = doc_ref.get(timeout=5).to_dict() or {}
-        except Exception:
-            saved = doc
-        return jsonify({
-            'id': getattr(doc_ref, 'id', None),
-            'title': saved.get('title'),
-            'text': saved.get('text'),
-            'places': saved.get('places') or [],
-            'route_info': saved.get('route_info'),
-            'created_at': saved.get('created_at'),
-            'updated_at': saved.get('updated_at'),
-        }), 201
-    except Exception as e:
-        logger.exception('/api/plans/by-token error')
-        return jsonify({"error": "database_unavailable"}), 503
+## /api/plans/by-token 廃止（エージェント経由保存を停止）
 
 # ---- SPA history fallback (serve index.html for non-API routes) ----
 # This allows reloading deep links like /planner or /result without 404.

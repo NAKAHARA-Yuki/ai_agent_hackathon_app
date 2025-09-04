@@ -4,7 +4,6 @@ from typing import Any
 from google.adk.agents import LlmAgent
 import httpx
 from tools.maps_mcp import register_maps_mcp_tool
-from tools.save_plan import register_save_plan_tool
 from google.adk.tools import google_search
 
 # Logging setup for agent container
@@ -56,9 +55,7 @@ DEFAULT_INSTRUCTION = (
 	"- text に本文全文が入っているか（表を含む）？\n"
 	"- places/route_info の型・値は仕様どおりか（mode 値許可内）？\n"
 	"\n[保存に関して]\n"
-	"- ユーザーが『保存して』等を明示し、かつ入力中に [SAVE_TOKEN] が付与されている場合のみ、tool `save_travel_plan` を一度だけ呼び出す。\n"
-	"- 引数は {token: SAVE_TOKEN, title: 適切な題名, text: JSON.text, places, route_info}。\n"
-	"- トークンが無い場合は保存を試みない。\n"
+	"- このエージェントは保存操作を行いません。ユーザーにはアプリの保存ボタンを案内してください。\n"
 )
 
 INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
@@ -66,10 +63,9 @@ INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
 tools = []
 tools += register_maps_mcp_tool()  # GoogleMapMCP
 tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
-tools += register_save_plan_tool()  # 保存ツール
 SERVER_BASE = os.getenv('APP_SERVER_BASE')  # e.g., http://server:8080 or public URL
 
-log.info("Tools registered: maps_mcp, google_search, save_travel_plan")
+log.info("Tools registered: maps_mcp, google_search (保存ツール無効化)")
 
 # Define the root agent under Agents tree
 root_agent = LlmAgent(
