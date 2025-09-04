@@ -18,7 +18,7 @@ const auth = useAuthStore()
 // 保存UIは「本文がある場合のみ」表示（場所だけ/ルートだけでは非表示）
 const canSave = computed(() => {
   const hasText = !!(lastAssistantText.value && String(lastAssistantText.value).trim())
-  return hasText
+  return hasText && auth.isAuthenticated
 })
 
 // チャットの送信イベントでエージェント応答と場所候補を反映
@@ -75,6 +75,9 @@ async function onSavePlan() {
     })
     if (!resp.ok) {
       const j = await resp.json().catch(() => ({}))
+      if (resp.status === 401) {
+        throw new Error('未ログインまたはセッション期限切れです。再ログインしてください。')
+      }
       throw new Error(j.error || `HTTP ${resp.status}`)
     }
     const data = await resp.json()
