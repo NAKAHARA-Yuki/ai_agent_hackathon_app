@@ -300,7 +300,7 @@ p {
   opacity: 0;
 }
 .result-actions { display:flex; justify-content:center; margin-top: 12px; }
-button.primary { background:#2d7ef7; color:#fff; border:none; padding:10px 16px; border-radius:8px; }
+button.primary { background: var(--color-primary); color:#fff; border:none; padding:10px 16px; border-radius:8px; }
 
 /* モバイル向け微調整 */
 @media (max-width: 600px) {

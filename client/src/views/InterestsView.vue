@@ -72,7 +72,7 @@ h1 { margin: 0 0 8px; font-size: 1.6rem; color:#1f2937; }
 .grid { display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:14px; border-radius:14px; border:1px solid #e5e7eb; background:#f9fafb; cursor:pointer; transition: transform .06s ease, box-shadow .2s ease, background .2s ease; }
 .tile .emoji { font-size: 28px; }
-.tile .label { font-weight:600; color:#111827; font-size: 14px; text-align:center; }
+.tile .label { font-weight:600; color: var(--color-text); font-size: 14px; text-align:center; }
 .tile:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(45,126,247,0.18); }
 .tile.active { background:#e8f0ff; border-color:#cfe0ff; box-shadow: 0 6px 16px rgba(45,126,247,0.25); }
 .actions { display:flex; align-items:center; justify-content:space-between; margin-top: 14px; }

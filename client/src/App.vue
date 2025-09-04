@@ -126,7 +126,7 @@ onUnmounted(() => {
 .nav { display:flex; align-items:center; gap:10px; position: relative; flex: 0 0 auto; }
 .nav .link { background:transparent; border:none; color:#2563eb; cursor:pointer; font-size: 14px; }
 
-.user-name { color:#111827; font-weight: 600; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-name { color: var(--color-text); font-weight: 600; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .menu { position: relative; }
 .icon-btn { width: 36px; height: 36px; border:1px solid rgba(0,0,0,0.06); background:rgba(255,255,255,0.6); cursor:pointer; padding: 6px; border-radius: 10px; display:flex; flex-direction: column; justify-content: center; align-items:center; gap:4px; margin-left: 6px; }
@@ -135,13 +135,13 @@ onUnmounted(() => {
 
 .drawer {
   position: fixed; right: 0; top: 0; height: 100vh; width: min(88vw, 320px); background: #ffffff;
-  color: #111827; border-left: 1px solid rgba(0,0,0,0.08); box-shadow: -10px 0 30px rgba(0,0,0,0.12);
+  color: var(--color-text); border-left: 1px solid rgba(0,0,0,0.08); box-shadow: -10px 0 30px rgba(0,0,0,0.12);
   padding: 14px; padding-top: calc(14px + env(safe-area-inset-top)); padding-bottom: calc(14px + env(safe-area-inset-bottom));
   z-index: 110; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 .drawer-title { font-size: 13px; font-weight: 700; color:#374151; padding: 6px 6px; letter-spacing: 0.2px; }
 .drawer-title.subtle { color:#6b7280; font-weight: 600; }
-.menu-item { width:100%; text-align:left; background:transparent; color:#111827; border:none; padding:12px 10px; border-radius: 8px; cursor:pointer; font-size: 15px; }
+.menu-item { width:100%; text-align:left; background:transparent; color: var(--color-text); border:none; padding:12px 10px; border-radius: 8px; cursor:pointer; font-size: 15px; }
 .menu-item:hover { background: #eff6ff; }
 .menu-item.danger { color:#b91c1c; }
 .divider { border: none; border-top: 1px solid rgba(0,0,0,0.06); margin: 10px 0; }
@@ -149,7 +149,7 @@ onUnmounted(() => {
 .drawer-header { display:flex; align-items:center; gap:10px; padding: 6px 4px 10px; border-bottom: 1px solid #f3f4f6; margin-bottom: 8px; }
 .avatar { width: 36px; height: 36px; display:grid; place-items:center; border-radius: 50%; background:#eef2ff; font-size: 18px; }
 .header-text { display:flex; flex-direction:column; min-width: 0; }
-.header-text .name { font-weight: 700; color:#111827; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-text .name { font-weight: 700; color: var(--color-text); max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mypage-row { margin-top: 6px; display:flex; align-items:center; justify-content:space-between; width:100%; background:#f9fafb; border:1px solid #eef2ff; color:#1f2937; padding:8px 10px; border-radius:8px; cursor:pointer; font-size: 14px; }
 .mypage-row:hover { background:#eef2ff; }
 .mypage-row .row-left { display:flex; align-items:center; gap:6px; }
@@ -167,13 +167,9 @@ onUnmounted(() => {
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
 
-.content {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: stretch; /* 中身のレイアウトに任せる */
-  justify-content: flex-start;
-  padding: 16px; /* 余白はここで持つ */
-  overflow: auto; /* ページではなく、コンテンツ領域でスクロール */
-  min-height: 0; /* 内側スクロールを有効化 */
-}
+.content { flex:1 1 auto; display:flex; align-items:stretch; justify-content:flex-start; padding:16px; overflow:auto; min-height:0; }
+/* travel-wizard では全面表示のため padding を除去 */
+:deep(.route-travel-wizard) .content, :deep(.content:has(> .wizard-wrap)) { padding:0; }
+/* travel-wizard では外側スクロールも抑止 */
+:deep(.content:has(> .wizard-wrap)) { overflow:hidden; }
 </style>

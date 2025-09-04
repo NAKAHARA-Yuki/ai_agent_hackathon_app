@@ -9,14 +9,16 @@ import QuestionView from '../views/QuestionView.vue'
 import ResultView from '../views/ResultView.vue'
 import MyPageView from '../views/MyPageView.vue'
 import PlannerView from '../views/PlannerView.vue'
+import PlansListView from '../views/PlansListView.vue'
+import TravelPlanWizardView from '../views/TravelPlanWizardView.vue'
 import InterestsView from '../views/InterestsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-  { path: '/login', name: 'login', component: LoginView },
-  { path: '/signup', name: 'signup', component: SignupView },
-  { path: '/processing', name: 'processing', component: ProcessingView },
+    { path: '/login', name: 'login', component: LoginView },
+    { path: '/signup', name: 'signup', component: SignupView },
+    { path: '/processing', name: 'processing', component: ProcessingView },
     {
       path: '/',
       name: 'home',
@@ -51,7 +53,9 @@ const router = createRouter({
       path: '/planner',
       name: 'planner',
       component: PlannerView
-    }
+  },
+  { path: '/plans', name: 'plans', component: PlansListView }
+  ,{ path: '/travel-wizard', name: 'travel-wizard', component: TravelPlanWizardView }
   ]
 })
 

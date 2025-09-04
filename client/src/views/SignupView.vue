@@ -74,7 +74,7 @@ async function submit() {
 .field { display:grid; gap:6px; }
 .field input { padding:10px 12px; border-radius:8px; border:1px solid #dde1e7; }
 .error { color:#c0392b; }
-button.primary { background:#2d7ef7; color:white; border:none; padding:12px 16px; border-radius:10px; }
+button.primary { background: var(--color-primary); color:white; border:none; padding:12px 16px; border-radius:10px; }
 .hint { color:#6b7280; font-size:12px; }
 .muted { color:#6b7280; font-size:14px; margin: 8px 0 0; }
 </style>

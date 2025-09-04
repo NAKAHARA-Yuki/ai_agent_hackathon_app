@@ -117,7 +117,7 @@ onMounted(async () => {
 .actions { display:flex; justify-content:center; gap: 12px; }
 
 button.primary {
-  background: #2d7ef7;
+  background: var(--color-primary);
   color: #fff;
   border: none;
   padding: 12px 20px;

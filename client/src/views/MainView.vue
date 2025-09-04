@@ -67,5 +67,5 @@ function restart() {
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
 .actions { margin-top: 16px; display:flex; gap: 12px; }
-.primary { background:#2d7ef7; color:#fff; border:none; border-radius:10px; padding:10px 16px; }
+.primary { background: var(--color-primary); color:#fff; border:none; border-radius:10px; padding:10px 16px; }
 </style>
