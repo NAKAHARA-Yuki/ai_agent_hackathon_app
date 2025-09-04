@@ -1,6 +1,7 @@
 <script setup>
-import { RouterView, RouterLink, useRouter } from 'vue-router'
+import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import FooterNav from '@/components/FooterNav.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
 
@@ -8,6 +9,12 @@ const router = useRouter()
 const auth = useAuthStore()
 const quiz = useQuizStore()
 const isAuthed = computed(() => auth.isAuthenticated)
+const route = useRoute()
+const showFooter = computed(() => {
+  if(!isAuthed.value) return false
+  const p = route.path
+  return p === '/' || p.startsWith('/main') || p.startsWith('/travel-wizard') || p.startsWith('/tasks') || p.startsWith('/schedule')
+})
 const showMenu = ref(false)
 const menuRoot = ref(null)
 let removeAfterEach
@@ -106,18 +113,12 @@ onUnmounted(() => {
     <main class="content">
       <RouterView />
     </main>
+    <FooterNav v-if="showFooter" />
   </div>
 </template>
 
 <style scoped>
-#app-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh; /* ビューポートに固定 */
-  overflow: hidden; /* ページ全体のスクロール抑止 */
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
+#app-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 
 .site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:8px calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left)); background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; box-sizing: border-box; border-bottom: 1px solid rgba(0,0,0,0.04); }
 .brand { font-weight: 700; color:#1f2937; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

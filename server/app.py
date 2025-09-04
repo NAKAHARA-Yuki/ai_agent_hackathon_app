@@ -2183,11 +2183,15 @@ def plans_collection():
                 for d in docs:
                     try:
                         data = d.to_dict() or {}
+                        if data.get('deleted'):
+                            continue
                         item = {
                             'id': getattr(d, 'id', None),
                             'title': data.get('title'),
                             'created_at': data.get('created_at'),
                             'updated_at': data.get('updated_at'),
+                            'status': data.get('status') or ('confirmed' if data.get('source') == 'chat' else data.get('status')),  # fallback
+                            'source': data.get('source')
                         }
                         items.append(item)
                     except Exception:
@@ -2199,13 +2203,17 @@ def plans_collection():
             logger.exception("/api/plans GET error")
             return jsonify({'items': []})
 
-    # POST: create a new plan
+    # POST: create a new plan (wizard/chat 共通)
     payload = request.get_json() or {}
     title = _sanitize_title(payload.get('title') or '')
     text = _sanitize_text(payload.get('text') or '')
     # Normalize optional structures
     places = _normalize_places_list(payload.get('places'))
     route_info = _normalize_route_info(payload.get('route_info') or {})
+    status = payload.get('status') if isinstance(payload.get('status'), str) else 'confirmed'
+    status = status.lower()
+    if status not in ('confirmed','draft'):
+        status = 'confirmed'
 
     if not title:
         # Fallback sensible title
@@ -2221,6 +2229,7 @@ def plans_collection():
         'created_at': firestore.SERVER_TIMESTAMP,
         'updated_at': firestore.SERVER_TIMESTAMP,
         'source': 'chat',
+        'status': status,
     }
     try:
         doc_ref = plans_ref.document()
@@ -2238,6 +2247,8 @@ def plans_collection():
             'route_info': saved.get('route_info'),
             'created_at': saved.get('created_at'),
             'updated_at': saved.get('updated_at'),
+            'status': saved.get('status') or status,
+            'source': saved.get('source'),
         }
         return jsonify(out), 201
     except Exception as e:

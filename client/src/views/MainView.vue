@@ -40,8 +40,9 @@ function restart() {
 </script>
 
 <template>
-  <main class="main">
-    <section class="panel">
+  <div class="page-without-local-footer">
+    <main class="main">
+      <section class="panel">
   <h1>メインページ</h1>
       <p class="lead">あなたの診断に基づき、パーソナライズされた旅の提案を続けられます。</p>
 
@@ -54,15 +55,17 @@ function restart() {
         <div v-else class="muted">まだペルソナがありません。診断を実施してください。</div>
 
         <div class="actions">
-          <button class="primary" @click="router.push({ name: 'planner' })">旅行計画の作成</button>
+          <button class="primary" @click="router.push({ name: 'travel-wizard' })">旅行計画の作成</button>
         </div>
       </div>
-    </section>
-  </main>
+      </section>
+    </main>
+  </div>
 </template>
 
 <style scoped>
-.main { display:grid; place-items:center; padding:32px 16px; height:100%; width:100%; overflow:hidden; }
+.page-without-local-footer { display:flex; flex-direction:column; height:100%; width:100%; overflow:hidden; }
+.main { flex:1 1 auto; display:grid; place-items:center; padding:32px 16px 24px; width:100%; overflow:auto; }
 .panel { width:min(920px,100%); background:white; padding:24px 20px; border-radius:14px; box-shadow:0 10px 24px rgba(0,0,0,0.06); border:1px solid #eef2f7; }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }

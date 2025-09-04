@@ -4,6 +4,8 @@ import InputScreen from '@/components/InputScreen.vue'
 import LoadingScreen from '@/components/LoadingScreen.vue'
 import SuggestionScreen from '@/components/SuggestionScreen.vue'
 import DetailScreen from '@/components/DetailScreen.vue'
+import { useAuthStore } from '@/stores/authStore'
+import { createPlan } from '@/services/apiClient'
 
 const currentView = ref('input') // 'input' | 'loading' | 'suggestions' | 'detail'
 const travelPlans = ref([
@@ -12,6 +14,8 @@ const travelPlans = ref([
   { id: 3, title: 'アクティブアドベンチャー旅', tags: '#アクティビティ #自然 #挑戦' },
 ])
 const selectedPlan = ref(null)
+const saving = ref(false)
+const auth = useAuthStore()
 
 function handleCreatePlan() {
   currentView.value = 'loading'
@@ -19,6 +23,16 @@ function handleCreatePlan() {
 }
 function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'detail' }
 function handleGoBack() { currentView.value = 'suggestions' }
+async function handleConfirm(plan){
+  if(saving.value) return
+  try {
+    saving.value = true
+    const payload = { title: plan.title, text: plan.tags || '', places: [], route_info: null, status: 'confirmed' }
+    await createPlan(payload, auth.authHeader())
+    // 保存後ホーム（main）へ遷移 or 予定へ
+    window.location.assign('/schedule')
+  } catch(e){ console.error('wizard save failed', e) } finally { saving.value=false }
+}
 
 // --- visualViewport ベースの実高さ制御 ----------------------------------
 const viewportHeight = ref(typeof window !== 'undefined' ? (window.visualViewport ? window.visualViewport.height : window.innerHeight) : 0)
@@ -57,26 +71,34 @@ onBeforeUnmount(() => {
   if (rafId) cancelAnimationFrame(rafId)
 })
 
-const wrapStyle = computed(() => ({
-  '--vvh': viewportHeight.value ? viewportHeight.value + 'px' : undefined,
-  height: 'var(--vvh)',
-  maxHeight: 'var(--vvh)'
-}))
+// 高さは親(main.content) の flex 領域にフィットさせ、ビューポート変動時の再描画安定用に CSS 変数のみ付与
+const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(viewportHeight.value) + 'px' : undefined }))
 </script>
 
 <template>
-  <!-- フル幅フル高表示用のラッパ -->
-  <div ref="wrapEl" class="wizard-wrap bg-gradient-to-b from-white to-slate-50 text-slate-900" data-route="travel-wizard" :style="wrapStyle">
-    <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
-    <LoadingScreen v-else-if="currentView==='loading'" />
-    <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" />
-    <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" />
+  <div ref="wrapEl" class="wizard-wrap wizard-bg text-slate-900" data-route="travel-wizard" :style="wrapStyle">
+    <div class="wizard-inner">
+      <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
+      <LoadingScreen v-else-if="currentView==='loading'" />
+      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" />
+  <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" />
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* App.vue 側で .content の padding を外した状態で内部を全域化 */
-.wizard-wrap { height:var(--vvh,100dvh); max-height:var(--vvh,100dvh); min-height:100vh; width:100%; display:flex; flex-direction:column; overflow:hidden; }
+/* ルートラッパ: 親 flex 領域にフィット / 余白除去 */
+.wizard-wrap { flex:1 1 auto; width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; position:relative; margin:0; }
+/* 中央固定幅コンテナ (幅 >600px でセンター) */
+.wizard-inner { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; width:100%; margin:0 auto; }
+@media (min-width:600px){
+  .wizard-inner { max-width:560px; width:100%; }
+}
+/* 横向き (landscape) で高さが低い場合は中央揃え & 余白微調整 */
+@media (orientation:landscape){
+  .wizard-wrap { align-items:center; justify-content:center; }
+  .wizard-inner { flex:0 0 auto; max-height:100%; }
+}
 /* 各画面ルートに付与（縦中央 or フレックス伸長） */
 .wizard-screen { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
 /* スクロールが必要な領域にのみ付与 */

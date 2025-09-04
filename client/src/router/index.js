@@ -12,6 +12,8 @@ import PlannerView from '../views/PlannerView.vue'
 import PlansListView from '../views/PlansListView.vue'
 import TravelPlanWizardView from '../views/TravelPlanWizardView.vue'
 import InterestsView from '../views/InterestsView.vue'
+import TasksView from '../views/TasksView.vue'
+import ScheduleView from '../views/ScheduleView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -49,13 +51,12 @@ const router = createRouter({
       name: 'mypage',
       component: MyPageView
     },
-    {
-      path: '/planner',
-      name: 'planner',
-      component: PlannerView
-  },
+  // 旧プランナー: travel-wizard へリダイレクト
+  { path: '/planner', redirect: '/travel-wizard' },
   { path: '/plans', name: 'plans', component: PlansListView }
   ,{ path: '/travel-wizard', name: 'travel-wizard', component: TravelPlanWizardView }
+  ,{ path: '/tasks', name: 'tasks', component: TasksView }
+  ,{ path: '/schedule', name: 'schedule', component: ScheduleView }
   ]
 })
 

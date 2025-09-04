@@ -1,5 +1,5 @@
 <template>
-  <div class="input-screen wizard-screen bg-gradient-to-b from-white to-slate-50 text-slate-900">
+  <div class="input-screen wizard-screen text-slate-900">
     <header class="screen-header">
       <h1>旅行プランの作成</h1>
     </header>
@@ -23,7 +23,7 @@ function onClick(){ emit('create-plan', keyword.value) }
 
 <style scoped>
 /* 1画面固定 & 非スクロール化 */
-.input-screen { height:100%; width:100%; overflow:hidden; position:relative; padding:16px; box-sizing:border-box; display:flex; flex-direction:column; }
+.input-screen { height:100%; width:100%; overflow:hidden; position:relative; padding:16px; box-sizing:border-box; display:flex; flex-direction:column; background:transparent; }
 .screen-header { flex:0 0 auto; display:flex; justify-content:center; align-items:center; padding-top:12px; }
 .screen-header h1 { font-size:18px; font-weight:700; margin:0; letter-spacing:-.5px; }
 .screen-main { flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:24px; padding-bottom:calc(env(safe-area-inset-bottom)); box-sizing:border-box; }

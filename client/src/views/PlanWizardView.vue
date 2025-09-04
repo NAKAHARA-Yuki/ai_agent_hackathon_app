@@ -40,7 +40,7 @@ function backToSuggestions(){ phase.value='suggestion' }
 </script>
 
 <template>
-  <main class="min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-900">
+  <main class="min-h-screen text-slate-900" style="background:transparent;">
     <!-- 入力画面 -->
   <section v-if="phase==='input'" id="input-screen" class="relative flex min-h-screen flex-col justify-between p-4">
       <header class="flex items-center justify-center p-4">
@@ -59,7 +59,7 @@ function backToSuggestions(){ phase.value='suggestion' }
     </section>
 
     <!-- ローディング -->
-    <section v-else-if="phase==='loading'" id="loading-screen" class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-700 p-6">
+  <section v-else-if="phase==='loading'" id="loading-screen" class="flex flex-col items-center justify-center min-h-screen text-slate-700 p-6" style="background:transparent;">
       <div class="text-lg font-semibold mb-2 tracking-tight">AIが旅行プランを生成中...</div>
       <div class="text-xs text-slate-500 mb-10">最適なプランを考えています。少しお待ちください。</div>
       <div class="relative w-40 h-40 flex items-center justify-center">
@@ -69,7 +69,7 @@ function backToSuggestions(){ phase.value='suggestion' }
     </section>
 
     <!-- 提案一覧 -->
-    <section v-else-if="phase==='suggestion'" id="suggestion-screen" class="min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-900 p-4 pb-20">
+  <section v-else-if="phase==='suggestion'" id="suggestion-screen" class="min-h-screen text-slate-900 p-4 pb-20" style="background:transparent;">
       <h1 class="text-center text-xl font-bold my-2 tracking-tight">旅行プランのご提案</h1>
       <p class="text-center text-slate-500 text-sm mb-4">気になるプランを選択してください</p>
       <div class="space-y-3 max-w-xl mx-auto">
@@ -81,7 +81,7 @@ function backToSuggestions(){ phase.value='suggestion' }
     </section>
 
     <!-- 詳細 -->
-    <section v-else-if="phase==='detail'" id="detail-screen" class="min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-900 p-4 pb-24">
+  <section v-else-if="phase==='detail'" id="detail-screen" class="min-h-screen text-slate-900 p-4 pb-24" style="background:transparent;">
       <div class="max-w-xl mx-auto">
         <button @click="backToSuggestions" class="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-2 active:translate-x-[-2px] transition">← 戻る</button>
         <h1 class="text-xl font-bold tracking-tight leading-tight mb-1">{{ selected?.title }}</h1>
