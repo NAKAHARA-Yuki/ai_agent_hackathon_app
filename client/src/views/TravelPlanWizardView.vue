@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { agentChat } from '@/services/apiClient'
 import InputScreen from '@/components/InputScreen.vue'
 import LoadingScreen from '@/components/LoadingScreen.vue'
 import SuggestionScreen from '@/components/SuggestionScreen.vue'
@@ -8,18 +9,58 @@ import { useAuthStore } from '@/stores/authStore'
 import { createPlan } from '@/services/apiClient'
 
 const currentView = ref('input') // 'input' | 'loading' | 'suggestions' | 'detail'
-const travelPlans = ref([
-  { id: 1, title: 'のんびり温泉癒し旅', tags: '#温泉 #リラックス #自然' },
-  { id: 2, title: '歴史と文化を巡る旅', tags: '#歴史 #寺社仏閣 #文化体験' },
-  { id: 3, title: 'アクティブアドベンチャー旅', tags: '#アクティビティ #自然 #挑戦' },
-])
+const travelPlans = ref([])
 const selectedPlan = ref(null)
 const saving = ref(false)
 const auth = useAuthStore()
 
-function handleCreatePlan() {
+async function handleCreatePlan(keyword) {
+  if (!keyword || currentView.value !== 'input') return
   currentView.value = 'loading'
-  setTimeout(() => { currentView.value = 'suggestions' }, 3000)
+  try {
+    // 簡易セッション: wizard 用にランダム ID
+    const sessionId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const resp = await agentChat({ message: keyword, user_id: auth.user?.id || 'u_local', session_id: sessionId, authHeader: auth.authHeader() })
+    // suggestions -> travelPlans
+    let mapped = []
+    if (Array.isArray(resp.plans) && resp.plans.length) {
+      mapped = resp.plans.slice(0,3).map((p,i)=>({
+        id: i+1,
+        title: p.title || `プラン ${i+1}`,
+        tags: (p.tags||[]).map(t=>`#${t}`).join(' '),
+        brief: p.brief || '',
+        itinerary: p.itinerary || [],
+        places: p.places || [],
+        route_info: p.route_info || null,
+        text: p.text || '',
+        __raw: p,
+        __full: resp
+      }))
+    } else {
+      const sugg = Array.isArray(resp.suggestions) ? resp.suggestions : []
+      mapped = sugg.slice(0,3).map((s,i)=>({
+        id: i+1,
+        title: s.title || `プラン ${i+1}`,
+        tags: (s.tags||[]).map(t=>`#${t}`).join(' '),
+        brief: s.brief || '',
+        itinerary: (resp.itinerary||[]),
+        __raw: s,
+        __full: resp
+      }))
+      if (!mapped.length) {
+        mapped.push({ id:1, title: resp.summary || '旅行プラン', tags: '', brief: '', itinerary: resp.itinerary||[], __full: resp })
+      }
+    }
+    travelPlans.value = mapped
+    currentView.value = 'suggestions'
+  } catch(e){
+    console.error('wizard agent error', e)
+    // フォールバック静的案
+    travelPlans.value = [
+      { id:1, title:'サンプル温泉旅', tags:'#温泉 #リラックス', brief:'フォールバック案', itinerary:[] }
+    ]
+    currentView.value = 'suggestions'
+  }
 }
 function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'detail' }
 function handleGoBack() { currentView.value = 'suggestions' }
@@ -27,7 +68,17 @@ async function handleConfirm(plan){
   if(saving.value) return
   try {
     saving.value = true
-    const payload = { title: plan.title, text: plan.tags || '', places: [], route_info: null, status: 'confirmed' }
+    const full = plan.__full || {}
+    const payload = { 
+      title: plan.title, 
+      text: full.text || plan.tags || '', 
+      places: full.places || [], 
+      route_info: full.route_info || null, 
+      status: 'confirmed',
+      summary: full.summary || null,
+      suggestions: full.suggestions || [],
+      itinerary: full.itinerary || []
+    }
     await createPlan(payload, auth.authHeader())
     // 保存後ホーム（main）へ遷移 or 予定へ
     window.location.assign('/schedule')

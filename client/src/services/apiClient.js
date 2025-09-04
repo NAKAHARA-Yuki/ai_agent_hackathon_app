@@ -67,7 +67,7 @@ export async function createPlan(payload, authHeader){
   }
   const plans = lsGet('mockPlans', [])
   const now = new Date().toISOString()
-  const doc = { id: randomId(), title: payload.title || '旅行プラン', text: payload.text||'', places: payload.places||[], route_info: payload.route_info||null, created_at: now, updated_at: now, status: payload.status || 'confirmed' }
+  const doc = { id: randomId(), title: payload.title || '旅行プラン', text: payload.text||'', places: payload.places||[], route_info: payload.route_info||null, summary: payload.summary||null, suggestions: payload.suggestions||[], itinerary: payload.itinerary||[], created_at: now, updated_at: now, status: payload.status || 'confirmed' }
   plans.push(doc)
   lsSet('mockPlans', plans)
   return doc

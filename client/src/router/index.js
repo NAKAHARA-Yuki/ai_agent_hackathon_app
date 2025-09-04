@@ -14,6 +14,7 @@ import TravelPlanWizardView from '../views/TravelPlanWizardView.vue'
 import InterestsView from '../views/InterestsView.vue'
 import TasksView from '../views/TasksView.vue'
 import ScheduleView from '../views/ScheduleView.vue'
+import PlanDetailView from '../views/PlanDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -57,6 +58,7 @@ const router = createRouter({
   ,{ path: '/travel-wizard', name: 'travel-wizard', component: TravelPlanWizardView }
   ,{ path: '/tasks', name: 'tasks', component: TasksView }
   ,{ path: '/schedule', name: 'schedule', component: ScheduleView }
+  ,{ path: '/plans/:id', name: 'plan-detail', component: PlanDetailView }
   ]
 })
 
