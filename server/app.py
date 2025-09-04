@@ -226,6 +226,124 @@ def _extract_trailing_json(s: str):
     """
     try:
         import re as _re
+        # lazy import for optional attachment of extended structured fields
+        try:
+            from flask import g as _flask_g  # type: ignore
+        except Exception:  # pragma: no cover - flask context might not exist in some callers
+            _flask_g = None
+
+        def _attach_extended(obj: dict):
+            """Capture extended schema fields.
+            Supports legacy (summary,suggestions,itinerary) and new multi-plan format:
+            { summary, plans:[ { title,tags,brief,itinerary,places,route_info,text } ] }
+            Stores normalized structure on flask.g.agent_struct.
+            """
+            if not isinstance(obj, dict):
+                return
+
+            def _norm_suggestions(v):
+                out = []
+                if isinstance(v, list):
+                    for it in v[:12]:  # cap to avoid huge payloads
+                        if not isinstance(it, dict):
+                            continue
+                        title = it.get('title') or it.get('name')
+                        if not isinstance(title, str) or not title.strip():
+                            continue
+                        tags = it.get('tags') or []
+                        if isinstance(tags, list):
+                            tags = [str(t) for t in tags if isinstance(t, (str,int,float))][:8]
+                        else:
+                            tags = []
+                        brief = it.get('brief') or it.get('desc') or it.get('description')
+                        if not isinstance(brief, str):
+                            brief = None
+                        out.append({
+                            'title': title.strip(),
+                            'tags': tags,
+                            'brief': brief.strip() if isinstance(brief, str) else None
+                        })
+                return out
+
+            def _norm_itinerary(v):
+                out = []
+                if isinstance(v, list):
+                    for day_blk in v[:14]:  # max 2 weeks
+                        if not isinstance(day_blk, dict):
+                            continue
+                        day = day_blk.get('day') or day_blk.get('day_number') or day_blk.get('dayNumber')
+                        try:
+                            day = int(day)
+                        except Exception:
+                            day = None
+                        items_raw = day_blk.get('items') or day_blk.get('plans') or []
+                        norm_items = []
+                        if isinstance(items_raw, list):
+                            for it in items_raw[:24]:  # cap per day
+                                if not isinstance(it, dict):
+                                    continue
+                                title = it.get('title') or it.get('name')
+                                if not isinstance(title, str) or not title.strip():
+                                    continue
+                                time_s = it.get('time') or it.get('slot') or it.get('start')
+                                if isinstance(time_s, (int,float)):
+                                    # convert numeric hour like 9 or 930 to string
+                                    if 0 <= time_s < 24:
+                                        time_s = f"{int(time_s):02d}:00"
+                                    else:
+                                        time_s = str(time_s)
+                                if not isinstance(time_s, str):
+                                    time_s = None
+                                detail = it.get('detail') or it.get('desc') or it.get('description')
+                                if not isinstance(detail, str):
+                                    detail = None
+                                norm_items.append({
+                                    'time': time_s.strip() if isinstance(time_s, str) else None,
+                                    'title': title.strip(),
+                                    'detail': detail.strip() if isinstance(detail, str) else None
+                                })
+                        out.append({'day': day, 'items': norm_items})
+                return out
+
+            summary = obj.get('summary') if isinstance(obj.get('summary'), str) else None
+            plans_norm = []
+            raw_plans = obj.get('plans') if isinstance(obj.get('plans'), list) else None
+            if raw_plans:
+                for p in raw_plans[:6]:  # safety cap
+                    if not isinstance(p, dict):
+                        continue
+                    title = p.get('title') if isinstance(p.get('title'), str) else None
+                    if not title:
+                        continue
+                    tags = p.get('tags') if isinstance(p.get('tags'), list) else []
+                    tags = [str(t) for t in tags if isinstance(t, (str,int,float))][:8]
+                    brief = p.get('brief') if isinstance(p.get('brief'), str) else None
+                    itin = _norm_itinerary(p.get('itinerary'))
+                    pls = _normalize_places_list(p.get('places'))
+                    rinfo = _normalize_route_info(p.get('route_info') or p.get('route') or p.get('routeInfo'))
+                    text_body = p.get('text') if isinstance(p.get('text'), str) else None
+                    plans_norm.append({
+                        'title': title.strip(),
+                        'tags': tags,
+                        'brief': brief.strip() if brief else None,
+                        'itinerary': itin or [],
+                        'places': pls or [],
+                        'route_info': rinfo,
+                        'text': text_body
+                    })
+            # legacy single-set fields
+            suggestions = _norm_suggestions(obj.get('suggestions')) if not raw_plans else None
+            itinerary = _norm_itinerary(obj.get('itinerary')) if (not raw_plans and obj.get('itinerary')) else None
+            if _flask_g is not None and any([summary, plans_norm, suggestions, itinerary]):
+                try:
+                    _flask_g.agent_struct = {
+                        'summary': summary,
+                        'plans': plans_norm,
+                        'suggestions': suggestions or [],
+                        'itinerary': itinerary or []
+                    }
+                except Exception:
+                    pass
 
         def _strip_trailing_citation_brackets(txt: str) -> str:
             # remove trailing " [1, 2] [3]" like annotations
@@ -308,6 +426,8 @@ def _extract_trailing_json(s: str):
                 if route_info0 is None and isinstance(obj0, dict):
                     route_info0 = obj0.get('route') or obj0.get('routeInfo')
                 text_field0 = obj0.get('text') if isinstance(obj0, dict) else None
+                # attach extended schema fields if present
+                _attach_extended(obj0)
                 places0 = _normalize_places_list(places0)
                 route_info0 = _normalize_route_info(route_info0)
                 return "", places0, route_info0, (text_field0 if isinstance(text_field0, str) else None)
@@ -328,6 +448,7 @@ def _extract_trailing_json(s: str):
                 if route_info is None and isinstance(obj, dict):
                     route_info = obj.get('route') or obj.get('routeInfo')
                 text_field = obj.get('text') if isinstance(obj, dict) else None
+                _attach_extended(obj)
                 places = _normalize_places_list(places)
                 route_info = _normalize_route_info(route_info)
                 # remove the last fenced block
@@ -350,6 +471,7 @@ def _extract_trailing_json(s: str):
                 if route_info is None and isinstance(obj, dict):
                     route_info = obj.get('route') or obj.get('routeInfo')
                 text_field = obj.get('text') if isinstance(obj, dict) else None
+                _attach_extended(obj)
                 places = _normalize_places_list(places)
                 route_info = _normalize_route_info(route_info)
                 return s[:m.start(1)].rstrip(), places, route_info, (text_field if isinstance(text_field, str) else None)
@@ -1474,6 +1596,21 @@ def agent_chat():
 
         # ログで見切れないよう route_info を先に配置
         resp = { 'reply': reply_text or '提案を作成しました。', 'route_info': route_info, 'places': places, 'citations': citations, 'grounding_html': grounding_html }
+        # Attach structured agent output (new schema) if extraction stored it
+        try:
+            from flask import g as _g  # type: ignore
+            struct = getattr(_g, 'agent_struct', None)
+            if isinstance(struct, dict):
+                if struct.get('summary'):
+                    resp['summary'] = struct.get('summary')
+                if 'plans' in struct and struct.get('plans'):
+                    resp['plans'] = struct.get('plans')
+                if 'suggestions' in struct and struct.get('suggestions'):
+                    resp['suggestions'] = struct.get('suggestions')
+                if 'itinerary' in struct and struct.get('itinerary'):
+                    resp['itinerary'] = struct.get('itinerary')
+        except Exception:
+            pass
         if LOG_PAYLOADS:
             logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
         if tid:
@@ -2183,11 +2320,26 @@ def plans_collection():
                 for d in docs:
                     try:
                         data = d.to_dict() or {}
+                        if data.get('deleted'):
+                            continue
+                        first_brief = None
+                        try:
+                            sugg = data.get('suggestions')
+                            if isinstance(sugg, list) and sugg:
+                                fb = sugg[0].get('brief') if isinstance(sugg[0], dict) else None
+                                if isinstance(fb, str):
+                                    first_brief = fb
+                        except Exception:
+                            pass
                         item = {
                             'id': getattr(d, 'id', None),
                             'title': data.get('title'),
+                            'summary': data.get('summary'),
+                            'brief': first_brief,
                             'created_at': data.get('created_at'),
                             'updated_at': data.get('updated_at'),
+                            'status': data.get('status') or ('confirmed' if data.get('source') == 'chat' else data.get('status')),  # fallback
+                            'source': data.get('source')
                         }
                         items.append(item)
                     except Exception:
@@ -2199,13 +2351,20 @@ def plans_collection():
             logger.exception("/api/plans GET error")
             return jsonify({'items': []})
 
-    # POST: create a new plan
+    # POST: create a new plan (wizard/chat 共通)
     payload = request.get_json() or {}
     title = _sanitize_title(payload.get('title') or '')
     text = _sanitize_text(payload.get('text') or '')
     # Normalize optional structures
     places = _normalize_places_list(payload.get('places'))
     route_info = _normalize_route_info(payload.get('route_info') or {})
+    summary = _sanitize_text(payload.get('summary')) if isinstance(payload.get('summary'), str) else None
+    suggestions = payload.get('suggestions') if isinstance(payload.get('suggestions'), list) else None
+    itinerary = payload.get('itinerary') if isinstance(payload.get('itinerary'), list) else None
+    status = payload.get('status') if isinstance(payload.get('status'), str) else 'confirmed'
+    status = status.lower()
+    if status not in ('confirmed','draft'):
+        status = 'confirmed'
 
     if not title:
         # Fallback sensible title
@@ -2218,9 +2377,13 @@ def plans_collection():
         'text': text,
         'places': places or [],
         'route_info': route_info or None,
+    'summary': summary,
+    'suggestions': suggestions or [],
+    'itinerary': itinerary or [],
         'created_at': firestore.SERVER_TIMESTAMP,
         'updated_at': firestore.SERVER_TIMESTAMP,
         'source': 'chat',
+        'status': status,
     }
     try:
         doc_ref = plans_ref.document()
@@ -2236,8 +2399,13 @@ def plans_collection():
             'text': saved.get('text'),
             'places': saved.get('places') or [],
             'route_info': saved.get('route_info'),
+            'summary': saved.get('summary'),
+            'suggestions': saved.get('suggestions') or [],
+            'itinerary': saved.get('itinerary') or [],
             'created_at': saved.get('created_at'),
             'updated_at': saved.get('updated_at'),
+            'status': saved.get('status') or status,
+            'source': saved.get('source'),
         }
         return jsonify(out), 201
     except Exception as e:

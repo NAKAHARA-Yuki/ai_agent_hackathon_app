@@ -9,14 +9,19 @@ import QuestionView from '../views/QuestionView.vue'
 import ResultView from '../views/ResultView.vue'
 import MyPageView from '../views/MyPageView.vue'
 import PlannerView from '../views/PlannerView.vue'
+import PlansListView from '../views/PlansListView.vue'
+import TravelPlanWizardView from '../views/TravelPlanWizardView.vue'
 import InterestsView from '../views/InterestsView.vue'
+import TasksView from '../views/TasksView.vue'
+import ScheduleView from '../views/ScheduleView.vue'
+import PlanDetailView from '../views/PlanDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-  { path: '/login', name: 'login', component: LoginView },
-  { path: '/signup', name: 'signup', component: SignupView },
-  { path: '/processing', name: 'processing', component: ProcessingView },
+    { path: '/login', name: 'login', component: LoginView },
+    { path: '/signup', name: 'signup', component: SignupView },
+    { path: '/processing', name: 'processing', component: ProcessingView },
     {
       path: '/',
       name: 'home',
@@ -47,11 +52,13 @@ const router = createRouter({
       name: 'mypage',
       component: MyPageView
     },
-    {
-      path: '/planner',
-      name: 'planner',
-      component: PlannerView
-    }
+  // 旧プランナー: travel-wizard へリダイレクト
+  { path: '/planner', redirect: '/travel-wizard' },
+  { path: '/plans', name: 'plans', component: PlansListView }
+  ,{ path: '/travel-wizard', name: 'travel-wizard', component: TravelPlanWizardView }
+  ,{ path: '/tasks', name: 'tasks', component: TasksView }
+  ,{ path: '/schedule', name: 'schedule', component: ScheduleView }
+  ,{ path: '/plans/:id', name: 'plan-detail', component: PlanDetailView }
   ]
 })
 

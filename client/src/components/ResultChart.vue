@@ -155,7 +155,7 @@ const chartOptions = computed(() => ({
       suggestedMin: 1,
       suggestedMax: 4,
       pointLabels: {
-        color: '#111827',
+  color: 'var(--color-text)',
         font: { size: 14 }
       },
       ticks: {

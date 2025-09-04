@@ -157,7 +157,7 @@ function infoHtml(p, idx) {
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
       <div style="width:22px;height:22px;border-radius:50%;background:${colorForIndex(idx)};color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;">${label}</div>
       <div style="font-weight:600; font-size:14px; line-height:1.2;">
-        ${link ? `<a href="${link}" target="_blank" rel="noopener" style="color:#111827;text-decoration:none;">${name}</a>` : name}
+  ${link ? `<a href="${link}" target="_blank" rel="noopener" style="color:var(--color-text);text-decoration:none;">${name}</a>` : name}
       </div>
     </div>
     ${subtitle ? `<div style="color:#6B7280;font-size:12px;">${subtitle}</div>` : ''}
@@ -355,9 +355,10 @@ watch(() => [props.routeInfo, props.places, mapsApiKey.value], () => { updateMap
 
 <template>
   <div class="wrap">
-  <iframe v-if="!useJsMap && iframeSrc" class="map-iframe" :src="iframeSrc" style="border:0;" allowfullscreen="false" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-  <img v-else-if="!useJsMap && staticImgSrc" class="map-img" :src="staticImgSrc" alt="静的マップ" loading="lazy" />
-  <div v-else ref="rootEl" class="map-div" aria-label="Google マップ"></div>
+    <iframe v-if="!useJsMap && iframeSrc" class="map-iframe" :src="iframeSrc" style="border:0;" allowfullscreen="false" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <img v-else-if="!useJsMap && staticImgSrc" class="map-img" :src="staticImgSrc" alt="静的マップ" loading="lazy" />
+    <div v-else ref="rootEl" class="map-div" aria-label="Google マップ"></div>
+    <slot name="overlay"></slot>
   </div>
 </template>
 
@@ -366,4 +367,7 @@ watch(() => [props.routeInfo, props.places, mapsApiKey.value], () => { updateMap
 .map-iframe, .map-div, .map-img { width: 100%; height: 100%; }
 .map-img { object-fit: cover; }
 .attrib { position: absolute; right: 8px; bottom: 6px; background: rgba(255,255,255,0.8); border-radius: 4px; padding: 2px 6px; font-size: 11px; color: #374151; }
+/* タップ領域拡大用ユーティリティ（利用側で slot に配置） */
+.map-touch-btn { min-width:48px; min-height:48px; display:inline-flex; align-items:center; justify-content:center; padding:10px 14px; font-size:14px; font-weight:600; border-radius:14px; background: var(--color-text); color:#fff; border:none; box-shadow:0 4px 14px rgba(0,0,0,0.25); }
+.map-touch-btn:active { transform: translateY(1px); }
 </style>

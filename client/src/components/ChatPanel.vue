@@ -1,8 +1,9 @@
 <script setup>
-import { ref, nextTick, computed, onMounted, watch } from 'vue'
+import { ref, nextTick, computed, onMounted, onUnmounted, watch } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAuthStore } from '@/stores/authStore'
+import { agentChat } from '@/services/apiClient'
 
 function normalizeName(s) {
   try {
@@ -49,8 +50,28 @@ function ensureSessionId(reset = false) {
   }
 }
 
+// ビューポート変化でログ領域のスクロール余白を調整（iOSキーボード対応）
+function adjustForViewport() {
+  try {
+    const vv = window.visualViewport
+    const bottomInset = vv ? (vv.height < window.innerHeight ? (window.innerHeight - vv.height - vv.offsetTop) : 0) : 0
+    const el = logEl.value
+    if (el) {
+      el.style.paddingBottom = `calc(120px + ${bottomInset}px)`
+    }
+  } catch {}
+}
+
 onMounted(() => {
   ensureSessionId(true)
+  adjustForViewport()
+  try { window.visualViewport?.addEventListener('resize', adjustForViewport) } catch {}
+  window.addEventListener('orientationchange', adjustForViewport)
+})
+
+onUnmounted(() => {
+  try { window.visualViewport?.removeEventListener('resize', adjustForViewport) } catch {}
+  window.removeEventListener('orientationchange', adjustForViewport)
 })
 
 watch(userId, () => {
@@ -84,13 +105,7 @@ async function sendMessage() {
 
   // サーバーのエージェントに問い合わせ
   try {
-    const resp = await fetch('/api/agent/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
-      body: JSON.stringify({ message: text, user_id: userId.value, session_id: sessionId.value })
-    })
-    if (!resp.ok) throw new Error('failed')
-    const data = await resp.json()
+    const data = await agentChat({ message: text, user_id: userId.value, session_id: sessionId.value, authHeader: auth.authHeader() })
     
   let reply = data.reply || ''
   const citations = data.citations || []
@@ -447,7 +462,7 @@ function switchScheduleView(idx, mode) {
 .bubble :where(p){ margin: 0.3em 0; }
 .bubble :where(ul,ol){ padding-left: 1.2em; margin: 0.3em 0; }
 .bubble :where(code){ background: rgba(0,0,0,0.06); padding: 0.1em 0.3em; border-radius: 4px; }
-.bubble :where(pre){ background: #0f172a; color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
+.bubble :where(pre){ background: var(--color-code-bg); color:#e2e8f0; padding: 8px; border-radius: 6px; overflow:auto; }
 /* Markdown tables */
 .bubble :where(table){
   border-collapse: collapse;
@@ -467,7 +482,7 @@ function switchScheduleView(idx, mode) {
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-.bubble :where(th){ font-weight: 700; color: #111827; }
+.bubble :where(th){ font-weight: 700; color: var(--color-text); }
 .bubble :where(tbody tr:nth-child(odd)){ background: #fafafa; }
 .bubble :where(caption){ caption-side: bottom; color:#6b7280; font-size: 0.9em; padding-top: 6px; }
 .msg.assistant .bubble{ max-width: 100%; } /* 表などを詰め込みすぎないように拡張 */
@@ -478,12 +493,12 @@ function switchScheduleView(idx, mode) {
 .accordion-block summary{ cursor: pointer; list-style: none; display:flex; align-items:center; gap:10px; }
 .accordion-block summary::-webkit-details-marker{ display:none; }
 .accordion-block .it-icon{ width: 24px; text-align: center; }
-.accordion-block .it-time{ font-weight: 700; color:#111827; min-width:76px; }
-.accordion-block .it-title{ font-weight: 600; color:#111827; }
+.accordion-block .it-time{ font-weight: 700; color: var(--color-text); min-width:76px; }
+.accordion-block .it-title{ font-weight: 600; color: var(--color-text); }
 .accordion-block .it-body{ color:#374151; padding: 6px 2px 2px; }
 .table-actions{ display:flex; align-items:center; gap:8px; margin-top: 6px; }
 .table-actions .spacer{ flex: 1 1 auto; }
-.btn.small{ background:#111827; color:#fff; border:none; border-radius:8px; padding:6px 10px; font-size: 12px; }
+.btn.small{ background: var(--color-text); color:#fff; border:none; border-radius:8px; padding:6px 10px; font-size: 12px; }
 
 /* 大きな表の折り畳み */
 .text.table-collapsed :where(table){ max-height: 240px; overflow: hidden; position: relative; }
@@ -511,7 +526,7 @@ function switchScheduleView(idx, mode) {
 /* 入力欄と送信ボタンの高さを統一 */
 .composer textarea { flex: 1 1 0%; min-width: 0; padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; font-size:15px; line-height:1.4; resize: none; height: auto; min-height: var(--composer-h); max-height: 160px; box-sizing: border-box; }
 .composer textarea:disabled { background: #f9fafb; cursor: not-allowed; }
-.composer button { flex: 0 0 auto; width: var(--composer-h); height: auto; min-height: var(--composer-h); align-self: stretch; display:grid; place-items:center; background:#111827; color:#fff; border:none; border-radius:12px; font-weight:600; padding: 0; }
+.composer button { flex: 0 0 auto; width: var(--composer-h); height: auto; min-height: var(--composer-h); align-self: stretch; display:grid; place-items:center; background: var(--color-text); color:#fff; border:none; border-radius:12px; font-weight:600; padding: 0; }
 .composer button[disabled] { opacity: 0.7; cursor: not-allowed; }
 .composer button .spinner { animation: rot 1s linear infinite; }
 .composer button .spinner .path { stroke: #fff; stroke-dasharray: 90, 150; stroke-dashoffset: 0; animation: dash 1.2s ease-in-out infinite; }
@@ -519,7 +534,7 @@ function switchScheduleView(idx, mode) {
 @keyframes dash { 0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; } 50% { stroke-dasharray: 90, 150; stroke-dashoffset: -40px; } 100% { stroke-dasharray: 90, 150; stroke-dashoffset: -120px; } }
 
 .composer-actions { margin-top: 6px; display: none; padding: 0 12px; box-sizing: border-box; }
-.map-open-btn { width: 100%; background:#111827; color:#fff; border:none; border-radius:10px; padding:10px; font-weight:700; }
+.map-open-btn { width: 100%; background: var(--color-text); color:#fff; border:none; border-radius:10px; padding:10px; font-weight:700; }
 
 @media (max-width: 600px) {
   /* モバイルではコンポーザー一式を下部にピン留め */
@@ -539,7 +554,7 @@ function switchScheduleView(idx, mode) {
 
 /* ダークテーマ（自動） */
 @media (prefers-color-scheme: dark) {
-  .bubble { background:#111827; color:#e5e7eb; }
+  .bubble { background: var(--color-text); color:#e5e7eb; }
   .msg.user .bubble { background:#2563eb; color:#fff; }
   .bubble :where(pre){ background: #0b1220; color:#e5e7eb; }
   .bubble :where(table){ background: #0b1220; }

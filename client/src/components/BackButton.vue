@@ -53,7 +53,7 @@ function goBack() {
   appearance: none;
   background: transparent;
   border: 1px solid #e5e7eb;
-  color: #111827;
+  color: var(--color-text);
   border-radius: 10px;
   padding: 6px 10px;
   font-weight: 600;
