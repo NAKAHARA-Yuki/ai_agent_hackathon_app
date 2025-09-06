@@ -26,10 +26,44 @@ export const useAuthStore = defineStore('auth', () => {
 
   const user = computed(() => state.value?.user || null)
   const token = computed(() => state.value?.token || null)
-  const isAuthenticated = computed(() => !!token.value)
+  const isAuthenticated = computed(() => !!token.value && !isTokenExpired())
+
+  // 共通: JWTペイロードをパース
+  function parseJwtPayload(tokenStr) {
+    if (!tokenStr) return null
+    try {
+      const parts = tokenStr.split('.')
+      if (parts.length !== 3) return null
+      return JSON.parse(atob(parts[1]))
+    } catch (error) {
+      console.warn('Token parsing failed:', error)
+      return null
+    }
+  }
+
+  // JWT トークンの有効期限をチェック
+  function isTokenExpired() {
+    const payload = parseJwtPayload(token.value)
+    if (!payload || typeof payload.exp !== 'number') return true
+    const now = Math.floor(Date.now() / 1000)
+    return now >= payload.exp
+  }
+
+  // トークンの残り時間（秒）を取得
+  function getTokenTimeRemaining() {
+    const payload = parseJwtPayload(token.value)
+    if (!payload || typeof payload.exp !== 'number') return 0
+    const now = Math.floor(Date.now() / 1000)
+    return Math.max(0, payload.exp - now)
+  }
 
   // 内部: タイムアウト付きのJSONリクエスト。非JSONレスポンス(HTMLなど)も分かりやすく扱う
   async function requestJSON(url, options = {}, { timeoutMs = 15000 } = {}) {
+    // 事前にトークンの有効性をチェック
+    if (checkAndCleanExpiredToken()) {
+      throw new Error('セッションの有効期限が切れています。再度ログインしてください。')
+    }
+
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
@@ -38,6 +72,12 @@ export const useAuthStore = defineStore('auth', () => {
       const isJSON = ct.includes('application/json')
 
       if (!resp.ok) {
+        // 401 Unauthorized の場合は認証エラーとして処理
+        if (resp.status === 401) {
+          logout('expired')
+          throw new Error('認証の有効期限が切れました。再度ログインしてください。')
+        }
+
         // エラー応答: JSONならerrorメッセージ、非JSONならテキストから要約
         let message = resp.statusText || 'リクエストに失敗しました'
         try {
@@ -127,10 +167,47 @@ export const useAuthStore = defineStore('auth', () => {
     return null
   }
 
-  function logout() {
+  function logout(reason = null) {
     clearAuth()
     state.value = null
+    
+    // セッション切れの場合はメッセージを表示
+    if (reason === 'expired') {
+      // Vue Router の外部からナビゲーションする場合に備えて、次のティックで実行
+      setTimeout(() => {
+        // トースト通知などがあれば表示、なければconsoleに記録
+        console.info('セッションの有効期限が切れました。再度ログインしてください。')
+        
+        // ログインページに遷移（現在のページを remember）
+        const currentPath = window.location.pathname
+        if (currentPath !== '/login' && currentPath !== '/signup') {
+          // SPAルーターへはカスタムイベント経由で通知（直接routerをimportし循環依存を避ける）
+          window.dispatchEvent(new CustomEvent('auth:expired', { detail: { redirect: currentPath } }))
+        }
+      }, 100)
+    }
   }
 
-  return { user, token, isAuthenticated, signup, login, logout, authHeader, refreshMe }
+  // 期限切れトークンの自動クリーンアップ
+  function checkAndCleanExpiredToken() {
+    if (token.value && isTokenExpired()) {
+      logout('expired')
+      return true
+    }
+    return false
+  }
+
+  return { 
+    user, 
+    token, 
+    isAuthenticated, 
+    signup, 
+    login, 
+    logout, 
+    authHeader, 
+    refreshMe,
+    isTokenExpired,
+    getTokenTimeRemaining,
+    checkAndCleanExpiredToken
+  }
 })

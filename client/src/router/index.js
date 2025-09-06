@@ -62,10 +62,19 @@ const router = createRouter({
   ]
 })
 
-// 認証ガード: 未認証なら /auth へ
+// 認証ガード: 未認証なら /login へ、期限切れトークンも処理
 router.beforeEach((to) => {
   const auth = useAuthStore()
   const publicPaths = new Set(['/login', '/signup', '/processing'])
+  
+  // トークンの期限をチェック（期限切れなら自動ログアウト）
+  if (auth.checkAndCleanExpiredToken()) {
+    // 期限切れでログアウトした場合、パブリックパス以外ならリダイレクト
+    if (!publicPaths.has(to.path)) {
+      return { name: 'login', query: { redirect: to.fullPath, reason: 'expired' } }
+    }
+  }
+  
   if (!auth.isAuthenticated && !publicPaths.has(to.path)) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }

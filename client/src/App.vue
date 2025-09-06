@@ -2,6 +2,7 @@
 import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import FooterNav from '@/components/FooterNav.vue'
+import SessionTimeoutWarning from '@/components/SessionTimeoutWarning.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
 
@@ -19,6 +20,8 @@ const showMenu = ref(false)
 const menuRoot = ref(null)
 let removeAfterEach
 const displayName = computed(() => auth.user?.name || auth.user?.user_id || '')
+// セッション期限切れイベントハンドラ (remove用に参照保持)
+let onAuthExpired = null
 
 function logout() {
   auth.logout()
@@ -59,15 +62,19 @@ function handleDocumentClick(e) {
 }
 
 onMounted(() => {
-  // ルート遷移時は常にメニューを閉じる
   removeAfterEach = router.afterEach(() => { showMenu.value = false })
-  // 外側クリックでメニューを閉じる
   document.addEventListener('click', handleDocumentClick)
+  onAuthExpired = (e) => {
+    const redirect = e?.detail?.redirect || '/'
+    router.replace({ name: 'login', query: { redirect, reason: 'expired' } })
+  }
+  window.addEventListener('auth:expired', onAuthExpired)
 })
 
 onUnmounted(() => {
   if (removeAfterEach) try { removeAfterEach() } catch {}
   document.removeEventListener('click', handleDocumentClick)
+  if (onAuthExpired) window.removeEventListener('auth:expired', onAuthExpired)
 })
 </script>
 
@@ -114,6 +121,7 @@ onUnmounted(() => {
       <RouterView />
     </main>
     <FooterNav v-if="showFooter" />
+    <SessionTimeoutWarning v-if="isAuthed" />
   </div>
 </template>
 
