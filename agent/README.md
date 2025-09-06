@@ -5,7 +5,7 @@
 - Framework: ADK Web/API
 - 主要環境変数:
   - GEMINI_API_KEY（自動的に GOOGLE_API_KEY にブリッジ）
-  - GEMINI_MODEL（既定: gemini-2.5-flash）
+  - GEMINI_MODEL（既定: gemini-2.5-pro）
   - MAPS_MCP_ENDPOINT_URL（任意）: Google Maps Platform Code Assist MCP HTTP サーバーのツールエンドポイントURL
 
 ## ローカル実行（コンテナ）
@@ -14,7 +14,7 @@
 docker build -t agent-service:local agent
 docker run --rm -p 8082:8080 \
   -e GEMINI_API_KEY=*** \
-  -e GEMINI_MODEL=gemini-2.5-flash \
+  -e GEMINI_MODEL=gemini-2.5-pro \
   agent-service:local
 ```
 
