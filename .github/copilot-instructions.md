@@ -61,7 +61,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me python3 app.py
 cd client
 npm run dev  # Starts on http://localhost:5173/
 ```
-- Proxies API calls to localhost:8081 (configured in vite.config.js)
+- Proxies API calls to localhost:8080 (configured in vite.config.js)
 - Starts immediately (~300ms)
 
 **Health Check Validation:**
