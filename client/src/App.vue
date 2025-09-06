@@ -20,6 +20,8 @@ const showMenu = ref(false)
 const menuRoot = ref(null)
 let removeAfterEach
 const displayName = computed(() => auth.user?.name || auth.user?.user_id || '')
+// セッション期限切れイベントハンドラ (remove用に参照保持)
+let onAuthExpired = null
 
 function logout() {
   auth.logout()
@@ -60,20 +62,19 @@ function handleDocumentClick(e) {
 }
 
 onMounted(() => {
-  // ルート遷移時は常にメニューを閉じる
   removeAfterEach = router.afterEach(() => { showMenu.value = false })
-  // 外側クリックでメニューを閉じる
   document.addEventListener('click', handleDocumentClick)
-  // セッション期限切れイベントでルーター遷移
-  window.addEventListener('auth:expired', (e) => {
+  onAuthExpired = (e) => {
     const redirect = e?.detail?.redirect || '/'
     router.replace({ name: 'login', query: { redirect, reason: 'expired' } })
-  })
+  }
+  window.addEventListener('auth:expired', onAuthExpired)
 })
 
 onUnmounted(() => {
   if (removeAfterEach) try { removeAfterEach() } catch {}
   document.removeEventListener('click', handleDocumentClick)
+  if (onAuthExpired) window.removeEventListener('auth:expired', onAuthExpired)
 })
 </script>
 
