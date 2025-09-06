@@ -28,7 +28,7 @@ jobs:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.CLOUD_RUN_REGION }}
   REPO_AGENT: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
-      APP_ENV: development
+  APP_ENV: development
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -148,10 +148,10 @@ jobs:
     env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.CLOUD_RUN_REGION }}
-      SERVICE: travel-quiz-app-dev
+  SERVICE: travel-quiz-app-dev
   REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
   IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app-dev:${{ github.sha }}
-      APP_ENV: development
+  APP_ENV: development
     steps:
       - name: Checkout
         uses: actions/checkout@v4
