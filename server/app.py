@@ -85,6 +85,42 @@ SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apik
 AGENT_JSON_OK = 0
 AGENT_JSON_FAIL = 0
 
+def _balanced_first_object(seg: str):
+    """Return the first complete top-level JSON object substring found in seg using
+    balancing of braces (supports nested objects and strings with escapes). If none
+    found, return None. Does not attempt to validate trailing extraneous content.
+    """
+    try:
+        start = seg.find('{')
+        if start == -1:
+            return None
+        i = start
+        depth = 0
+        in_str = False
+        esc = False
+        while i < len(seg):
+            ch = seg[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == '\\':
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return seg[start:i+1]
+            i += 1
+    except Exception:
+        return None
+    return None
+
 def _snip_text(s: str, limit: int = 2000) -> str:
     try:
         if s is None:
@@ -441,43 +477,9 @@ def _extract_trailing_json(s: str):
         except Exception:
             pass
 
-        # 1) fenced code block ```json ... ``` (prefer the last one)
-        #  以前の実装は正規表現 {.*?} の最短一致で巨大なネストJSON途中で途切れて失敗していた。
-        #  ここではフェンス全体を取得し、バランス括弧で最初の完全な JSON オブジェクトを抽出する。
-        def _balanced_first_object(seg: str):
-            try:
-                start = seg.find('{')
-                if start == -1:
-                    return None
-                i = start
-                depth = 0
-                in_str = False
-                esc = False
-                while i < len(seg):
-                    ch = seg[i]
-                    if in_str:
-                        if esc:
-                            esc = False
-                        elif ch == '\\':
-                            esc = True
-                        elif ch == '"':
-                            in_str = False
-                    else:
-                        if ch == '"':
-                            in_str = True
-                        elif ch == '{':
-                            depth += 1
-                        elif ch == '}':
-                            depth -= 1
-                            if depth == 0:
-                                candidate = seg[start:i+1]
-                                # 末尾に余計な文字が無い単一JSONを返す
-                                return candidate
-                    i += 1
-            except Exception:
-                return None
-            return None
-
+    # 1) fenced code block ```json ... ``` (prefer the last one)
+    #  以前の実装は正規表現 {.*?} の最短一致で巨大なネストJSON途中で途切れて失敗していた。
+    #  ここではフェンス全体を取得し、バランス括弧で最初の完全な JSON オブジェクトを抽出する。
         fenced_blocks = _re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", s)
         if fenced_blocks:
             raw_block = fenced_blocks[-1]
