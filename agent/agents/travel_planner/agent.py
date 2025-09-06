@@ -8,7 +8,7 @@ from tools.maps_mcp import register_maps_mcp_tool
 from google.adk.tools import google_search
 
 # Add shared module to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
 from logging_config import configure_basic_cloud_logging
 
 # Cloud-friendly logging setup for agent container
