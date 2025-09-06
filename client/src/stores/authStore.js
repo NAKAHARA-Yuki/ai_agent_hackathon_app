@@ -31,15 +31,12 @@ export const useAuthStore = defineStore('auth', () => {
   // JWT トークンの有効期限をチェック
   function isTokenExpired() {
     if (!token.value) return true
-    
     try {
-      // JWT のペイロード部分をデコード（base64）
-      const payload = JSON.parse(atob(token.value.split('.')[1]))
+      const parts = token.value.split('.')
+      if (parts.length !== 3) return true
+      const payload = JSON.parse(atob(parts[1]))
       const exp = payload.exp
-      
-      if (!exp) return true
-      
-      // 現在時刻と比較（expは秒単位、Date.now()はミリ秒単位）
+      if (!exp || typeof exp !== 'number') return true
       const now = Math.floor(Date.now() / 1000)
       return now >= exp
     } catch (error) {
@@ -51,16 +48,15 @@ export const useAuthStore = defineStore('auth', () => {
   // トークンの残り時間（秒）を取得
   function getTokenTimeRemaining() {
     if (!token.value) return 0
-    
     try {
-      const payload = JSON.parse(atob(token.value.split('.')[1]))
+      const parts = token.value.split('.')
+      if (parts.length !== 3) return 0
+      const payload = JSON.parse(atob(parts[1]))
       const exp = payload.exp
-      
-      if (!exp) return 0
-      
+      if (!exp || typeof exp !== 'number') return 0
       const now = Math.floor(Date.now() / 1000)
       return Math.max(0, exp - now)
-    } catch (error) {
+    } catch {
       return 0
     }
   }
@@ -189,7 +185,8 @@ export const useAuthStore = defineStore('auth', () => {
         // ログインページに遷移（現在のページを remember）
         const currentPath = window.location.pathname
         if (currentPath !== '/login' && currentPath !== '/signup') {
-          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`
+          // SPAルーターへはカスタムイベント経由で通知（直接routerをimportし循環依存を避ける）
+          window.dispatchEvent(new CustomEvent('auth:expired', { detail: { redirect: currentPath } }))
         }
       }, 100)
     }

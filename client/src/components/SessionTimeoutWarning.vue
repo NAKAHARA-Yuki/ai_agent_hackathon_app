@@ -24,6 +24,8 @@ let updateTimer = null
 
 // セッション期限切れ警告を表示するタイミング（秒）
 const WARNING_THRESHOLD = 5 * 60 // 5分前
+const DISMISS_COOLDOWN_MS = 60 * 1000 // 再表示までのクールダウン 1分
+const POLL_INTERVAL_MS = 30 * 1000 // 残り時間チェック間隔 30秒
 
 const shouldShowWarning = computed(() => {
   return auth.isAuthenticated && timeRemaining.value > 0 && timeRemaining.value <= WARNING_THRESHOLD
@@ -58,15 +60,15 @@ function extendSession() {
 
 function dismissWarning() {
   showWarning.value = false
-  // 1分後に再度チェック
+  // クールダウン後に再チェック
   setTimeout(() => {
     updateTimeRemaining()
-  }, 60000)
+  }, DISMISS_COOLDOWN_MS)
 }
 
 function startMonitoring() {
-  // 30秒ごとに残り時間をチェック
-  updateTimer = setInterval(updateTimeRemaining, 30000)
+  // 指定間隔ごとに残り時間をチェック
+  updateTimer = setInterval(updateTimeRemaining, POLL_INTERVAL_MS)
   // 初回チェック
   updateTimeRemaining()
 }

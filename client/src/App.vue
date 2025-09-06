@@ -64,6 +64,11 @@ onMounted(() => {
   removeAfterEach = router.afterEach(() => { showMenu.value = false })
   // 外側クリックでメニューを閉じる
   document.addEventListener('click', handleDocumentClick)
+  // セッション期限切れイベントでルーター遷移
+  window.addEventListener('auth:expired', (e) => {
+    const redirect = e?.detail?.redirect || '/'
+    router.replace({ name: 'login', query: { redirect, reason: 'expired' } })
+  })
 })
 
 onUnmounted(() => {
