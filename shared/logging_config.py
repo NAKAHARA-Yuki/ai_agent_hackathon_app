@@ -31,7 +31,7 @@ class SingleLineFormatter(logging.Formatter):
         msg = msg.replace('\t', '\\t')
         
         # Collapse multiple consecutive spaces to single space for cleaner output
-        msg = re.sub(r'\s+', ' ', msg)
+        msg = re.sub(r' +', ' ', msg)
         
         return msg
 
