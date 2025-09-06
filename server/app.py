@@ -306,298 +306,189 @@ def _normalize_route_info(obj):
     return out
 
 def _extract_trailing_json(s: str):
-    """Extract a trailing JSON object from text, supporting fenced code blocks and partial scans.
-    Returns (text_without_json, places, route_info, text_field).
-    text_field is the optional string found at JSON["text"].
-    """
+    """Extract trailing JSON object if present; returns (prefix_text, places, route_info, text_field).
+    簡素化版: シリアルに候補抽出を試行し最初の成功で終了。"""
+    import re as _re
+
+    # --- Helpers ---
     try:
-        import re as _re
-        # --- Recovery: handle unterminated ```json fence (LLM sometimes omits closing ```) ---
-        try:
-            if s and '```' in s:
-                # Count opening json/code fences and closing fences
-                openings = list(_re.finditer(r"```(?:json)?", s))
-                closings = list(_re.finditer(r"```", s))
-                if openings:
-                    # If last fence is an opening json and after it no matching closing fence, attempt recovery
-                    last_open = openings[-1]
-                    tail = s[last_open.end():]
-                    if '```' not in tail:  # likely unterminated
-                        # Heuristic: trim trailing citation brackets then try to balance braces within tail
-                        brace_start = tail.find('{')
-                        if brace_start != -1:
-                            cand = _balanced_first_object(tail[brace_start:])
-                            if cand:
-                                # Reconstruct as if fenced block ended cleanly
-                                recovered_json = cand
-                                prefix = s[:last_open.start()]  # drop the opening fence too
-                                # Try parse quickly to confirm
-                                try:
-                                    obj_probe = json.loads(recovered_json)
-                                    # success -> replace s with prefix + recovered_json (no fences)
-                                    s = prefix + recovered_json
-                                except Exception:
-                                    pass
-        except Exception:
-            pass
-        # lazy import for optional attachment of extended structured fields
-        try:
-            from flask import g as _flask_g  # type: ignore
-        except Exception:  # pragma: no cover - flask context might not exist in some callers
-            _flask_g = None
+        from flask import g as _flask_g  # type: ignore
+    except Exception:
+        _flask_g = None
 
-        def _attach_extended(obj: dict):
-            """Capture extended schema fields.
-            Supports legacy (summary,suggestions,itinerary) and new multi-plan format:
-            { summary, plans:[ { title,tags,brief,itinerary,places,route_info,text } ] }
-            Stores normalized structure on flask.g.agent_struct.
-            """
-            if not isinstance(obj, dict):
-                return
+    def _strip_citations(txt: str) -> str:
+        return _re.sub(r"(?:\s*\[[0-9,\s]+\])+\s*$", "", txt or "")
 
-            def _norm_suggestions(v):
-                out = []
-                if isinstance(v, list):
-                    for it in v[:12]:  # cap to avoid huge payloads
-                        if not isinstance(it, dict):
-                            continue
-                        title = it.get('title') or it.get('name')
-                        if not isinstance(title, str) or not title.strip():
-                            continue
-                        tags = it.get('tags') or []
-                        if isinstance(tags, list):
-                            tags = [str(t) for t in tags if isinstance(t, (str,int,float))][:8]
-                        else:
-                            tags = []
-                        brief = it.get('brief') or it.get('desc') or it.get('description')
-                        if not isinstance(brief, str):
-                            brief = None
-                        out.append({
-                            'title': title.strip(),
-                            'tags': tags,
-                            'brief': brief.strip() if isinstance(brief, str) else None
-                        })
-                return out
-
-            def _norm_itinerary(v):
-                out = []
-                if isinstance(v, list):
-                    for day_blk in v[:14]:  # max 2 weeks
-                        if not isinstance(day_blk, dict):
-                            continue
-                        day = day_blk.get('day') or day_blk.get('day_number') or day_blk.get('dayNumber')
-                        try:
-                            day = int(day)
-                        except Exception:
-                            day = None
-                        items_raw = day_blk.get('items') or day_blk.get('plans') or []
-                        norm_items = []
-                        if isinstance(items_raw, list):
-                            for it in items_raw[:24]:  # cap per day
-                                if not isinstance(it, dict):
-                                    continue
-                                title = it.get('title') or it.get('name')
-                                if not isinstance(title, str) or not title.strip():
-                                    continue
-                                time_s = it.get('time') or it.get('slot') or it.get('start')
-                                if isinstance(time_s, (int,float)):
-                                    # convert numeric hour like 9 or 930 to string
-                                    if 0 <= time_s < 24:
-                                        time_s = f"{int(time_s):02d}:00"
-                                    else:
-                                        time_s = str(time_s)
-                                if not isinstance(time_s, str):
-                                    time_s = None
-                                detail = it.get('detail') or it.get('desc') or it.get('description')
-                                if not isinstance(detail, str):
-                                    detail = None
-                                norm_items.append({
-                                    'time': time_s.strip() if isinstance(time_s, str) else None,
-                                    'title': title.strip(),
-                                    'detail': detail.strip() if isinstance(detail, str) else None
-                                })
-                        out.append({'day': day, 'items': norm_items})
-                return out
-
-            summary = obj.get('summary') if isinstance(obj.get('summary'), str) else None
-            plans_norm = []
-            raw_plans = obj.get('plans') if isinstance(obj.get('plans'), list) else None
-            if raw_plans:
-                for p in raw_plans[:6]:  # safety cap
-                    if not isinstance(p, dict):
+    def _attach(obj: dict):
+        if not isinstance(obj, dict):
+            return
+        summary = obj.get('summary') if isinstance(obj.get('summary'), str) else None
+        plans = obj.get('plans') if isinstance(obj.get('plans'), list) else None
+        plans_norm = []
+        def _norm_itinerary(v):
+            out = []
+            if isinstance(v, list):
+                for day_blk in v[:14]:
+                    if not isinstance(day_blk, dict):
                         continue
-                    title = p.get('title') if isinstance(p.get('title'), str) else None
-                    if not title:
-                        continue
-                    tags = p.get('tags') if isinstance(p.get('tags'), list) else []
-                    tags = [str(t) for t in tags if isinstance(t, (str,int,float))][:8]
-                    brief = p.get('brief') if isinstance(p.get('brief'), str) else None
-                    itin = _norm_itinerary(p.get('itinerary'))
-                    pls = _normalize_places_list(p.get('places'))
-                    rinfo = _normalize_route_info(p.get('route_info') or p.get('route') or p.get('routeInfo'))
-                    text_body = p.get('text') if isinstance(p.get('text'), str) else None
-                    plans_norm.append({
-                        'title': title.strip(),
-                        'tags': tags,
-                        'brief': brief.strip() if brief else None,
-                        'itinerary': itin or [],
-                        'places': pls or [],
-                        'route_info': rinfo,
-                        'text': text_body
-                    })
-            # legacy single-set fields
-            suggestions = _norm_suggestions(obj.get('suggestions')) if not raw_plans else None
-            itinerary = _norm_itinerary(obj.get('itinerary')) if (not raw_plans and obj.get('itinerary')) else None
-            if _flask_g is not None and any([summary, plans_norm, suggestions, itinerary]):
-                try:
-                    _flask_g.agent_struct = {
-                        'summary': summary,
-                        'plans': plans_norm,
-                        'suggestions': suggestions or [],
-                        'itinerary': itinerary or []
-                    }
-                except Exception:
-                    pass
-
-        def _strip_trailing_citation_brackets(txt: str) -> str:
-            # remove trailing " [1, 2] [3]" like annotations
-            return _re.sub(r"(?:\s*\[[0-9,\s]+\])+\s*$", "", txt or "")
-
-        def _recover_places_fragment(txt: str):
-            """Heuristic recovery for broken {"places":[{...}, {...}, ... [1,2]} missing closing ]}.
-            Returns (text_without_fragment, places_list) or (None, None) if not found.
-            """
-            try:
-                m = _re.search(r"\{\s*\"(places|place)\"\s*:\s*\[", txt)
-                if not m:
-                    return None, None
-                start = m.start()
-                rest = txt[m.end():]
-                rest = _strip_trailing_citation_brackets(rest)
-                # scan rest to collect top-level JSON objects within the array
-                objs = []
-                i = 0
-                n = len(rest)
-                while i < n:
-                    if rest[i] == '{':
-                        depth = 1
-                        j = i + 1
-                        while j < n and depth > 0:
-                            ch = rest[j]
-                            if ch == '"':
-                                # skip string
-                                j += 1
-                                while j < n:
-                                    if rest[j] == '\\':
-                                        j += 2
-                                        continue
-                                    if rest[j] == '"':
-                                        j += 1
-                                        break
-                                    j += 1
+                    day = day_blk.get('day') or day_blk.get('day_number') or day_blk.get('dayNumber')
+                    try: day = int(day)
+                    except Exception: day = None
+                    items_raw = day_blk.get('items') or day_blk.get('plans') or []
+                    its = []
+                    if isinstance(items_raw, list):
+                        for it in items_raw[:24]:
+                            if not isinstance(it, dict):
                                 continue
-                            elif ch == '{':
-                                depth += 1
-                            elif ch == '}':
-                                depth -= 1
-                            j += 1
-                        if depth == 0:
-                            objs.append(rest[i:j])
-                            i = j
-                            # skip comma and spaces
-                            while i < n and rest[i] in ' \t\r\n,':
-                                i += 1
-                            continue
-                        else:
-                            break
-                    else:
-                        i += 1
-                if not objs:
-                    return None, None
-                places = []
-                for o in objs:
-                    try:
-                        places.append(json.loads(o))
-                    except Exception:
-                        continue
-                places = _normalize_places_list(places)
-                if places:
-                    return txt[:start].rstrip(), places
-                return None, None
-            except Exception:
-                return None, None
-        # Trim trailing citation brackets once at the start
-        s = _strip_trailing_citation_brackets(s)
-
-        # 0) pure JSON content: try parsing the entire string as a JSON object
-        try:
-            obj0 = json.loads(s.strip())
-            if isinstance(obj0, dict):
-                places0 = obj0.get('places') if isinstance(obj0, dict) else None
-                if places0 is None:
-                    places0 = obj0.get('place') if isinstance(obj0, dict) else None
-                route_info0 = obj0.get('route_info') if isinstance(obj0, dict) else None
-                if route_info0 is None and isinstance(obj0, dict):
-                    route_info0 = obj0.get('route') or obj0.get('routeInfo')
-                text_field0 = obj0.get('text') if isinstance(obj0, dict) else None
-                # attach extended schema fields if present
-                _attach_extended(obj0)
-                places0 = _normalize_places_list(places0)
-                route_info0 = _normalize_route_info(route_info0)
-                return "", places0, route_info0, (text_field0 if isinstance(text_field0, str) else None)
-        except Exception:
-            pass
-
-    # 1) fenced code block ```json ... ``` (prefer the last one)
-    #  以前の実装は正規表現 {.*?} の最短一致で巨大なネストJSON途中で途切れて失敗していた。
-    #  ここではフェンス全体を取得し、バランス括弧で最初の完全な JSON オブジェクトを抽出する。
-        fenced_blocks = _re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", s)
-        if fenced_blocks:
-            raw_block = fenced_blocks[-1]
-            cand = _balanced_first_object(raw_block)
-            if cand:
-                try:
-                    obj = json.loads(cand)
-                    places = obj.get('places') if isinstance(obj, dict) else None
-                    if places is None:
-                        places = obj.get('place') if isinstance(obj, dict) else None
-                    route_info = obj.get('route_info') if isinstance(obj, dict) else None
-                    if route_info is None and isinstance(obj, dict):
-                        route_info = obj.get('route') or obj.get('routeInfo')
-                    text_field = obj.get('text') if isinstance(obj, dict) else None
-                    _attach_extended(obj)
-                    places = _normalize_places_list(places)
-                    route_info = _normalize_route_info(route_info)
-                    # フェンス全体を除去
-                    last_idx = s.rfind('```')
-                    s2 = s[:last_idx].rstrip() if last_idx != -1 else s
-                    return s2, places, route_info, (text_field if isinstance(text_field, str) else None)
-                except Exception:
-                    pass
-        # 2) regex fallback: object containing keys of interest (allow trailing citation brackets)
-        m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
-        if m:
+                            title = it.get('title') or it.get('name')
+                            if not isinstance(title, str) or not title.strip():
+                                continue
+                            time_s = it.get('time') or it.get('slot') or it.get('start')
+                            if isinstance(time_s, (int,float)):
+                                if 0 <= time_s < 24: time_s = f"{int(time_s):02d}:00"
+                                else: time_s = str(time_s)
+                            if not isinstance(time_s, str): time_s = None
+                            detail = it.get('detail') or it.get('desc') or it.get('description')
+                            if not isinstance(detail, str): detail = None
+                            its.append({'time': time_s, 'title': title.strip(), 'detail': detail.strip() if detail else None})
+                    out.append({'day': day, 'items': its})
+            return out
+        if plans:
+            for p in plans[:6]:
+                if not isinstance(p, dict):
+                    continue
+                title = p.get('title') if isinstance(p.get('title'), str) else None
+                if not title: continue
+                tags = p.get('tags') if isinstance(p.get('tags'), list) else []
+                tags = [str(t) for t in tags if isinstance(t,(str,int,float))][:8]
+                brief = p.get('brief') if isinstance(p.get('brief'), str) else None
+                itin = _norm_itinerary(p.get('itinerary'))
+                pls = _normalize_places_list(p.get('places'))
+                rinfo = _normalize_route_info(p.get('route_info') or p.get('route') or p.get('routeInfo'))
+                text_body = p.get('text') if isinstance(p.get('text'), str) else None
+                plans_norm.append({'title': title.strip(),'tags': tags,'brief': brief.strip() if brief else None,'itinerary': itin or [],'places': pls or [],'route_info': rinfo,'text': text_body})
+        if _flask_g is not None and (summary or plans_norm):
             try:
-                obj = json.loads(m.group(1))
-                places = obj.get('places') if isinstance(obj, dict) else None
-                if places is None:
-                    places = obj.get('place') if isinstance(obj, dict) else None
-                route_info = obj.get('route_info') if isinstance(obj, dict) else None
-                if route_info is None and isinstance(obj, dict):
-                    route_info = obj.get('route') or obj.get('routeInfo')
-                text_field = obj.get('text') if isinstance(obj, dict) else None
-                _attach_extended(obj)
-                places = _normalize_places_list(places)
-                route_info = _normalize_route_info(route_info)
-                return s[:m.start(1)].rstrip(), places, route_info, (text_field if isinstance(text_field, str) else None)
+                _flask_g.agent_struct = {'summary': summary,'plans': plans_norm,'suggestions': [],'itinerary': []}
             except Exception:
                 pass
-        # 3) heuristic recovery for broken places arrays
-        base_text, recovered = _recover_places_fragment(s)
-        if recovered:
-            return base_text, recovered, None, None
+
+    def _extract_from_obj(obj: dict):
+        places = obj.get('places') if isinstance(obj, dict) else None
+        if places is None and isinstance(obj, dict):
+            places = obj.get('place')
+        route_info = obj.get('route_info') if isinstance(obj, dict) else None
+        if route_info is None and isinstance(obj, dict):
+            route_info = obj.get('route') or obj.get('routeInfo')
+        text_field = obj.get('text') if isinstance(obj, dict) else None
+        _attach(obj)
+        places = _normalize_places_list(places)
+        route_info = _normalize_route_info(route_info)
+        return places, route_info, (text_field if isinstance(text_field, str) else None)
+
+    s = _strip_citations(s)
+    stripped = s.strip()
+
+    # 1. direct parse
+    try:
+        obj = json.loads(stripped)
+        if isinstance(obj, dict):
+            places, rinfo, text_field = _extract_from_obj(obj)
+            return "", places, rinfo, text_field
     except Exception:
         pass
+
+    # 2. single extra '}' recovery
+    if stripped.endswith('}}') and stripped.startswith('{'):
+        try:
+            obj = json.loads(stripped[:-1])
+            if isinstance(obj, dict):
+                places, rinfo, text_field = _extract_from_obj(obj)
+                return "", places, rinfo, text_field
+        except Exception:
+            pass
+
+    # 3. balanced object with trailing lone '}'
+    if stripped.endswith('}'):
+        cand = _balanced_first_object(stripped)
+        if cand and len(cand) < len(stripped):
+            remainder = stripped[len(cand):].strip()
+            if remainder in ('','}'):
+                try:
+                    obj = json.loads(cand)
+                    if isinstance(obj, dict):
+                        places, rinfo, text_field = _extract_from_obj(obj)
+                        return "", places, rinfo, text_field
+                except Exception:
+                    pass
+
+    # 4. fenced code block (last)
+    fenced_blocks = _re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", s)
+    if fenced_blocks:
+        raw_block = fenced_blocks[-1]
+        cand = _balanced_first_object(raw_block)
+        if cand:
+            try:
+                obj = json.loads(cand)
+                if isinstance(obj, dict):
+                    places, rinfo, text_field = _extract_from_obj(obj)
+                    last_idx = s.rfind('```')
+                    prefix = s[:last_idx].rstrip() if last_idx != -1 else s
+                    return prefix, places, rinfo, text_field
+            except Exception:
+                pass
+
+    # 5. regex object containing key of interest
+    m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
+    if m:
+        try:
+            obj = json.loads(m.group(1))
+            if isinstance(obj, dict):
+                places, rinfo, text_field = _extract_from_obj(obj)
+                return s[:m.start(1)].rstrip(), places, rinfo, text_field
+        except Exception:
+            pass
+
+    # 6. heuristic broken places array recovery (simplified)
+    mp = _re.search(r"(\{\s*\"(places|place)\"\s*:\s*\[)", s)
+    if mp:
+        head = s[:mp.start()]
+        arr_tail = s[mp.end():]
+        # collect object snippets
+        objs=[]; i=0
+        while i < len(arr_tail):
+            if arr_tail[i] == '{':
+                depth=1; j=i+1
+                while j < len(arr_tail) and depth>0:
+                    ch = arr_tail[j]
+                    if ch=='"':
+                        j+=1
+                        while j < len(arr_tail):
+                            if arr_tail[j]=='\\': j+=2; continue
+                            if arr_tail[j]=='"': j+=1; break
+                            j+=1
+                        continue
+                    elif ch=='{': depth+=1
+                    elif ch=='}': depth-=1
+                    j+=1
+                if depth==0:
+                    objs.append(arr_tail[i:j])
+                    i=j
+                    while i < len(arr_tail) and arr_tail[i] in ' \t\r\n,': i+=1
+                    continue
+                else:
+                    break
+            else:
+                i+=1
+        if objs:
+            places=[]
+            for o in objs:
+                try: places.append(json.loads(o))
+                except Exception: continue
+            places=_normalize_places_list(places)
+            if places:
+                return head.rstrip(), places, None, None
+
     return s, None, None, None
 
 def _normalize_grounding_meta(event: dict) -> dict:
