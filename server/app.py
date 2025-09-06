@@ -16,8 +16,49 @@ import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Add shared module to path  
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
-from logging_config import configure_basic_cloud_logging, enforce_single_line_all
+_this_dir = os.path.dirname(__file__)
+_candidate_shared = [
+    os.path.join(_this_dir, '..', 'shared'),      # repo layout
+    os.path.join(_this_dir, 'shared'),            # copied inside server dir
+    '/app/shared',                                # container absolute
+    '/shared'                                     # alternative mount
+]
+for _p in _candidate_shared:
+    if _p not in sys.path and os.path.isdir(_p):
+        sys.path.append(_p)
+try:  # prefer real shared module
+    from logging_config import configure_basic_cloud_logging, enforce_single_line_all  # type: ignore
+except Exception:  # fallback if not present (logging_config missing)
+    # shared/logging_config.py がコンテナに存在しない場合のフォールバック
+    import logging as _logging
+
+    class _SingleLineFormatter(_logging.Formatter):
+        def format(self, record: _logging.LogRecord) -> str:  # noqa: D401
+            msg = super().format(record)
+            return ' '.join(msg.replace('\n', ' ').replace('\r', ' ').split())
+
+    def configure_basic_cloud_logging(level_name: str = 'INFO', force: bool = False):  # minimal 互換
+        lvl = getattr(_logging, (level_name or 'INFO').upper(), _logging.INFO)
+        root = _logging.getLogger()
+        if force:
+            for h in list(root.handlers):
+                root.removeHandler(h)
+        if not root.handlers:
+            h = _logging.StreamHandler()
+            h.setFormatter(_SingleLineFormatter('[%(asctime)s] %(levelname)s %(name)s: %(message)s'))
+            h.setLevel(lvl)
+            root.addHandler(h)
+        root.setLevel(lvl)
+        return root
+
+    def enforce_single_line_all(level: str = 'INFO'):
+        lvl = getattr(_logging, (level or 'INFO').upper(), _logging.INFO)
+        root = _logging.getLogger()
+        for h in root.handlers:
+            h.setFormatter(_SingleLineFormatter('[%(asctime)s] %(levelname)s %(name)s: %(message)s'))
+            h.setLevel(lvl)
+        root.setLevel(lvl)
+    _logging.getLogger(__name__).warning("logging_config module not found; using fallback single-line logger")
 
 # Ensure we load env from this directory (server/.env) even if CWD is repo root
 _env_path = Path(__file__).resolve().parent / '.env'
