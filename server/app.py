@@ -310,6 +310,34 @@ def _extract_trailing_json(s: str):
     """
     try:
         import re as _re
+        # --- Recovery: handle unterminated ```json fence (LLM sometimes omits closing ```) ---
+        try:
+            if s and '```' in s:
+                # Count opening json/code fences and closing fences
+                openings = list(_re.finditer(r"```(?:json)?", s))
+                closings = list(_re.finditer(r"```", s))
+                if openings:
+                    # If last fence is an opening json and after it no matching closing fence, attempt recovery
+                    last_open = openings[-1]
+                    tail = s[last_open.end():]
+                    if '```' not in tail:  # likely unterminated
+                        # Heuristic: trim trailing citation brackets then try to balance braces within tail
+                        brace_start = tail.find('{')
+                        if brace_start != -1:
+                            cand = _balanced_first_object(tail[brace_start:])
+                            if cand:
+                                # Reconstruct as if fenced block ended cleanly
+                                recovered_json = cand
+                                prefix = s[:last_open.start()]  # drop the opening fence too
+                                # Try parse quickly to confirm
+                                try:
+                                    obj_probe = json.loads(recovered_json)
+                                    # success -> replace s with prefix + recovered_json (no fences)
+                                    s = prefix + recovered_json
+                                except Exception:
+                                    pass
+        except Exception:
+            pass
         # lazy import for optional attachment of extended structured fields
         try:
             from flask import g as _flask_g  # type: ignore
@@ -675,6 +703,9 @@ JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "2880"))  # 48h
 # After ENV is known, apply dev fallback and compute configured flag
 if not AGENT_BASE_URL and ENV.lower() == "development":
     AGENT_BASE_URL = "http://localhost:8080"
+# dev 環境ではデフォルトで raw agent reply をフルログ（明示指定があればそれを優先）
+if ENV.lower() == "development" and not os.getenv('AGENT_LOG_RAW'):
+    os.environ['AGENT_LOG_RAW'] = 'full'
 agent_configured = bool(AGENT_BASE_URL)
 if agent_configured:
     logger.info(f"Agent base URL configured: {AGENT_BASE_URL}")
@@ -1484,6 +1515,18 @@ def agent_chat():
                 # 第1段: 自然文のみ（JSONを含めない）
                 reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
                 raw_reply_text = reply_text  # JSON抽出前の生文字列を保持
+                # Debug: raw agent reply logging (controlled by env AGENT_LOG_RAW)
+                if os.getenv('AGENT_LOG_RAW') == '1':
+                    try:
+                        _snippet = (raw_reply_text or '').replace('\n', ' ')[:400]
+                        logger.info(f"agent_raw_reply_snippet len={len(raw_reply_text or '')} snippet='{_snippet}'")
+                    except Exception:
+                        pass
+                elif os.getenv('AGENT_LOG_RAW') == 'full':
+                    try:
+                        logger.info(f"agent_raw_reply_full len={len(raw_reply_text or '')} body={_snip_text(raw_reply_text, 4000)}")
+                    except Exception:
+                        pass
                 # もし誤ってJSONが混じっても本文として扱い、抽出は第2段で別途行う
 
             meta_norm = _normalize_grounding_meta(final_event)
