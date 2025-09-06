@@ -1,0 +1,93 @@
+name: Debug Workload Identity Federation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - copilot/fix-89
+
+concurrency:
+  group: debug-wif-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug-wif:
+    name: Show OIDC claims & Attempt Auth
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print basic context
+        run: |
+          echo "repo=${GITHUB_REPOSITORY}";
+          echo "ref=${GITHUB_REF}";
+          echo "event=${GITHUB_EVENT_NAME}";
+          echo "sha=${GITHUB_SHA}";
+
+      - name: Attempt Auth (continue on error so we can inspect)
+        id: auth
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Show auth step outcome
+        run: |
+          echo "auth_outcome=${{ steps.auth.outcome }}";
+          if [ "${{ steps.auth.outcome }}" != "success" ]; then
+            echo "Auth failed (likely attributeCondition mismatch).";
+            echo "Check: Workload Identity Provider attributeCondition includes this ref: ${GITHUB_REF}";
+            echo "Suggested temporary condition:";
+            echo 'attribute.repository=="'${GITHUB_REPOSITORY}'" && attribute.ref.startsWith("refs/heads/")';
+          fi
+
+      - name: Setup gcloud (only if auth succeeded)
+        if: steps.auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          export_default_credentials: true
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Verify gcloud identity (only if auth succeeded)
+        if: steps.auth.outcome == 'success'
+        run: gcloud auth list --filter=status:ACTIVE
+
+      - name: Dump OIDC token claims (diagnostic)
+        if: steps.auth.outcome == 'success'
+        env:
+          REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+          REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+        run: |
+          set -e
+          if [ -z "$REQUEST_URL" ]; then
+            echo "ACTIONS_ID_TOKEN_REQUEST_URL not present (requires id-token: write)" >&2
+            exit 0
+          fi
+          RAW=$(curl -s -H "Authorization: bearer $REQUEST_TOKEN" "$REQUEST_URL&audience=sts.googleapis.com")
+          TOKEN=$(echo "$RAW" | jq -r '.value')
+            if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
+              echo "Could not obtain OIDC token JSON: $RAW" >&2
+              exit 0
+            fi
+          echo "OIDC header:"; echo "$TOKEN" | awk -F. '{print $1}' | base64 -d 2>/dev/null || true
+          echo "OIDC claims:"; echo "$TOKEN" | awk -F. '{print $2}' | base64 -d 2>/dev/null | jq || true
+          echo "(Signature omitted)"
+
+      - name: Guidance if failed
+        if: steps.auth.outcome != 'success'
+        run: |
+          echo "=== NEXT STEPS ===";
+          echo "1. gcloud describe provider and relax attributeCondition temporarily:";
+          echo "   gcloud iam workload-identity-pools providers describe <PROVIDER_ID> --project=<PROJECT_ID> --location=global --workload-identity-pool=<POOL_ID> --format='yaml(attributeCondition,attributeMapping)'";
+          echo "2. Update (example):";
+          echo "   gcloud iam workload-identity-pools providers update-oidc <PROVIDER_ID> \\\"";
+          echo "      --project=<PROJECT_ID> --location=global --workload-identity-pool=<POOL_ID> \\\"";
+          echo "      --attribute-condition='attribute.repository==\"${GITHUB_REPOSITORY}\" && attribute.ref.startsWith(\"refs/heads/\")' \\\"";
+          echo "      --attribute-mapping='google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref,attribute.ref_type=assertion.ref_type,attribute.actor=assertion.actor,attribute.workflow=assertion.workflow,attribute.sha=assertion.sha,attribute.event_name=assertion.event_name'";
+          echo "3. Re-run this workflow.";
+          echo "==================";
