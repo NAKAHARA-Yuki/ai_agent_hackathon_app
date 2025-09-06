@@ -2,7 +2,7 @@ name: Deploy to Cloud Run
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, dev]
   workflow_dispatch:
 
 concurrency:
@@ -12,7 +12,7 @@ concurrency:
 jobs:
   agent-and-mcp:
     # Build & deploy Agent + MCP first so we can pass the URL to the app
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy Agent + MCP
     runs-on: ubuntu-latest
     permissions:
@@ -20,6 +20,7 @@ jobs:
       id-token: write
     outputs:
       agent_url: ${{ steps.resolve_agent_url.outputs.agent_url }}
+      environment: ${{ steps.set_environment.outputs.environment }}
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: ${{ secrets.CLOUD_RUN_REGION }}
@@ -27,6 +28,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set Environment
+        id: set_environment
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "env_suffix=" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "env_suffix=-dev" >> $GITHUB_OUTPUT
+          else
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "env_suffix=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Auth with Workload Identity Federation
         uses: google-github-actions/auth@v2
@@ -84,9 +99,10 @@ jobs:
       - name: Deploy MCP to Cloud Run (auth required)
         env:
           REGION: ${{ env.REGION }}
+          ENV_SUFFIX: ${{ steps.set_environment.outputs.env_suffix }}
         run: |
           MCP_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/maps-mcp-service:${GITHUB_SHA}
-          gcloud run deploy maps-mcp-service \
+          gcloud run deploy maps-mcp-service${ENV_SUFFIX} \
             --image ${MCP_IMAGE} \
             --region ${REGION} \
             --platform managed \
@@ -95,30 +111,44 @@ jobs:
       - name: Deploy Agent to Cloud Run (with MCP URL)
         env:
           REGION: ${{ env.REGION }}
+          ENV_SUFFIX: ${{ steps.set_environment.outputs.env_suffix }}
+          ENVIRONMENT: ${{ steps.set_environment.outputs.environment }}
         run: |
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service:${GITHUB_SHA}
-          MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
+          MCP_URL=$(gcloud run services describe maps-mcp-service${ENV_SUFFIX} --region ${REGION} --format 'value(status.url)')
           MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
-          gcloud run deploy travel-agent-service \
+          # Set environment-specific database configuration
+          if [[ "${ENVIRONMENT}" == "dev" ]]; then
+            DB_ENV_VARS="FIRESTORE_DATABASE=izatabi-dev"
+          else
+            DB_ENV_VARS="FIRESTORE_DATABASE=(default)"
+          fi
+
+          gcloud run deploy travel-agent-service${ENV_SUFFIX} \
             --image ${AGENT_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
+            --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}",\
+              "GEMINI_MODEL=gemini-2.5-flash",\
+              "MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT}",\
+              "MAPS_MCP_AUDIENCE=${MCP_URL}",\
+              ${DB_ENV_VARS}
 
       - name: Grant Agent SA invoker on MCP service
         env:
           REGION: ${{ env.REGION }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
+          ENV_SUFFIX: ${{ steps.set_environment.outputs.env_suffix }}
         run: |
-          AGENT_SA=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
+          AGENT_SA=$(gcloud run services describe travel-agent-service${ENV_SUFFIX} --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
           if [ -z "$AGENT_SA" ]; then
             PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
             AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
           fi
-          echo "Granting roles/run.invoker to ${AGENT_SA} on maps-mcp-service"
-          gcloud run services add-iam-policy-binding maps-mcp-service \
+          echo "Granting roles/run.invoker to ${AGENT_SA} on maps-mcp-service${ENV_SUFFIX}"
+          gcloud run services add-iam-policy-binding maps-mcp-service${ENV_SUFFIX} \
             --region ${REGION} \
             --member serviceAccount:${AGENT_SA} \
             --role roles/run.invoker
@@ -127,15 +157,16 @@ jobs:
         id: resolve_agent_url
         env:
           REGION: ${{ env.REGION }}
+          ENV_SUFFIX: ${{ steps.set_environment.outputs.env_suffix }}
         run: |
           set -e
-          URL=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(status.url)')
+          URL=$(gcloud run services describe travel-agent-service${ENV_SUFFIX} --region ${REGION} --format 'value(status.url)')
           echo "agent_url=${URL}" >> $GITHUB_OUTPUT
 
   build-and-deploy:
     needs: agent-and-mcp
-    # Extra guard: run only on main branch or manual dispatch
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    # Extra guard: run only on main/dev branch or manual dispatch
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy to Cloud Run
     runs-on: ubuntu-latest
     permissions:
@@ -152,6 +183,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set Environment
+        id: set_environment
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "env_suffix=" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "env_suffix=-dev" >> $GITHUB_OUTPUT
+          else
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "env_suffix=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Auth with Workload Identity Federation
         uses: google-github-actions/auth@v2
@@ -202,24 +247,38 @@ jobs:
           docker push ${REGION}-docker.pkg.dev/${IMAGE}
 
       - name: Deploy to Cloud Run
+        env:
+          ENV_SUFFIX: ${{ steps.set_environment.outputs.env_suffix }}
+          ENVIRONMENT: ${{ steps.set_environment.outputs.environment }}
         run: |
-          gcloud run deploy ${SERVICE} \
+          # Set environment-specific database configuration
+          if [[ "${ENVIRONMENT}" == "dev" ]]; then
+            DB_ENV_VARS="FIRESTORE_DATABASE=izatabi-dev"
+          else
+            DB_ENV_VARS="FIRESTORE_DATABASE=(default)"
+          fi
+
+          gcloud run deploy ${SERVICE}${ENV_SUFFIX} \
             --image=${REGION}-docker.pkg.dev/${IMAGE} \
             --region=${REGION} \
             --platform=managed \
             --allow-unauthenticated \
             --port=8080 \
             --max-instances=3 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp.outputs.agent_url }}
-
+            --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}",\
+            "JWT_SECRET=${{ secrets.JWT_SECRET }}",\
+            "GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}",\
+            "AGENT_BASE_URL=${{ needs.agent-and-mcp.outputs.agent_url }}",\
+            ${DB_ENV_VARS}
       - name: Resolve App URL
         id: resolve_app_url
         env:
           REGION: ${{ env.REGION }}
           SERVICE: ${{ env.SERVICE }}
+          ENV_SUFFIX: ${{ steps.set_environment.outputs.env_suffix }}
         run: |
           set -e
-          APP_URL=$(gcloud run services describe ${SERVICE} --region ${REGION} --format 'value(status.url)')
+          APP_URL=$(gcloud run services describe ${SERVICE}${ENV_SUFFIX} --region ${REGION} --format 'value(status.url)')
           if [ -z "${APP_URL}" ]; then
             echo "Failed to resolve app service URL" >&2
             exit 1
@@ -230,6 +289,7 @@ jobs:
         env:
           REGION: ${{ env.REGION }}
           APP_URL: ${{ steps.resolve_app_url.outputs.app_url }}
+          ENV_SUFFIX: ${{ steps.set_environment.outputs.env_suffix }}
         run: |
           set -e
           if [ -z "${APP_URL}" ]; then
@@ -237,6 +297,6 @@ jobs:
             exit 1
           fi
           # Update Agent service to include APP_SERVER_BASE without overwriting other env vars
-          gcloud run services update travel-agent-service \
+          gcloud run services update travel-agent-service${ENV_SUFFIX} \
             --region ${REGION} \
             --update-env-vars=APP_SERVER_BASE=${APP_URL}
