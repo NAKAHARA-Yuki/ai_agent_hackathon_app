@@ -50,7 +50,11 @@ async function realFetch(url, options){
 // ---- Public API ----
 export async function agentChat({ message, user_id, session_id, authHeader }){
   if (!useMock) {
-    return realFetch('/api/agent/chat', { method:'POST', headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, body: JSON.stringify({ message, user_id, session_id }) })
+    const data = await realFetch('/api/agent/chat', { method:'POST', headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, body: JSON.stringify({ message, user_id, session_id }) })
+    if (import.meta.env.DEV) {
+      try { console.log('[agentChat response]', data) } catch {}
+    }
+    return data
   }
   // artificial latency
   await new Promise(r=>setTimeout(r, 500))
