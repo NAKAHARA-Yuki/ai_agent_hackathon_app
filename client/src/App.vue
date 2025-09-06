@@ -2,6 +2,7 @@
 import { RouterView, RouterLink, useRouter, useRoute } from 'vue-router'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import FooterNav from '@/components/FooterNav.vue'
+import SessionTimeoutWarning from '@/components/SessionTimeoutWarning.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
 
@@ -114,6 +115,7 @@ onUnmounted(() => {
       <RouterView />
     </main>
     <FooterNav v-if="showFooter" />
+    <SessionTimeoutWarning v-if="isAuthed" />
   </div>
 </template>
 
