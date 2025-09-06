@@ -1,5 +1,6 @@
 # いざ旅 (Izatabi) - AI Travel Planning App
 
+
 AIを活用した旅行診断・プランニングアプリケーションです。ユーザーの嗜好や旅行スタイルを診断し、パーソナライズされた国内旅行プランを提案します。
 
 ## 🌟 主な機能
@@ -136,6 +137,7 @@ npm run dev  # http://localhost:5173
 cd server
 pip install -r requirements.txt
 python app.py  # http://localhost:8080
+
 
 # 3. AIエージェント
 cd agent
