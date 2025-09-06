@@ -1,240 +1,240 @@
-# AI Agent Hackathon Travel App
+# AI エージェント ハッカソン 旅行アプリ
 
-AI-powered travel planning application with Vue.js frontend, Flask backend, Google ADK agent service, and Maps Code Assist MCP server. Deployed via Docker + Cloud Run with Google Maps and Gemini AI integration.
+Vue.js フロントエンド、Flask バックエンド、Google ADK エージェントサービス、Maps Code Assist MCP サーバーを使用した AI 搭載旅行計画アプリケーション。Google Maps と Gemini AI 統合で Docker + Cloud Run 経由でデプロイされます。
 
-**Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
+**ここにない情報に遭遇した場合のみ、常にこれらの手順を最初に参照し、検索やbashコマンドにフォールバックしてください。**
 
-## Working Effectively
+## 効果的な作業方法
 
-**CRITICAL - NEVER CANCEL builds or long-running commands. Always use appropriate timeouts.**
+**重要 - ビルドや長時間実行コマンドを決してキャンセルしないでください。適切なタイムアウトを常に使用してください。**
 
-### Bootstrap, Build, and Test the Repository
+### リポジトリのブートストラップ、ビルド、テスト
 
-**Client (Vue.js + Vite):**
+**クライアント (Vue.js + Vite):**
 ```bash
 cd client
-npm install                    # Takes ~8 seconds
-npm run build                  # Takes ~3 seconds  
-npm run dev                    # Starts dev server in ~300ms
+npm install                    # 約8秒かかります
+npm run build                  # 約3秒かかります  
+npm run dev                    # 約300msでデベロッパーサーバーが開始します
 ```
-- TIMEOUT: Use 60+ seconds for npm install, 30+ seconds for build
-- NEVER CANCEL: All npm operations complete within reasonable time
+- タイムアウト: npm install は60秒以上、ビルドは30秒以上を使用
+- キャンセル禁止: すべてのnpm操作は適切な時間内に完了します
 
-**Server (Flask + Python):**
+**サーバー (Flask + Python):**
 ```bash
 cd server
-pip install -r requirements.txt  # Takes ~25 seconds, expect SSL warnings
+pip install -r requirements.txt  # 約25秒かかります、SSL警告が予想されます
 ```
-- TIMEOUT: Use 120+ seconds for pip install due to large dependency tree
-- NEVER CANCEL: Dependencies include Google Cloud libraries which are large
-- **Expected warnings**: SSL cert warnings and deprecation notices are normal
+- タイムアウト: 大きな依存関係ツリーのため、pip installは120秒以上を使用
+- キャンセル禁止: 依存関係にはGoogle Cloudライブラリが含まれており大きいです
+- **予想される警告**: SSL証明書警告と非推奨通知は正常です
 
-**Agent (Google ADK):**
+**エージェント (Google ADK):**
 ```bash
 cd agent  
-pip install -r requirements.txt  # May fail due to firewall/network limitations
+pip install -r requirements.txt  # ファイアウォール/ネットワーク制限により失敗する可能性があります
 ```
-- **Known Issue**: Agent dependencies often fail to install due to network restrictions
-- Document failures as expected in sandboxed environments
-- Works in real Google Cloud environments with proper networking
+- **既知の問題**: ネットワーク制限によりエージェント依存関係のインストールがよく失敗します
+- サンドボックス環境では予想される失敗として文書化
+- 適切なネットワーキングを持つ実際のGoogle Cloud環境では動作します
 
 **MCP (Maps Code Assist):**
 ```bash
-npx -y @googlemaps/code-assist-mcp --port 3000  # Installs and runs MCP server
+npx -y @googlemaps/code-assist-mcp --port 3000  # MCPサーバーをインストールして実行
 ```
-- TIMEOUT: Use 60+ seconds for first run (downloads packages)
+- タイムアウト: 初回実行時（パッケージダウンロード）は60秒以上を使用
 
-### Development Mode Validation
+### 開発モード検証
 
-**Start Backend Server:**
+**バックエンドサーバーの開始:**
 ```bash
 cd server
 FLASK_ENV=development JWT_SECRET=dev-secret-change-me python3 app.py
 ```
-- Server starts on http://localhost:8080
-- Creates dummy user 'devuser' with password 'password'  
-- Uses DevDB (in-memory) when Firestore is unavailable
-- Takes ~15 seconds to initialize with DB setup
+- サーバーは http://localhost:8080 で開始します
+- パスワード 'password' のダミーユーザー 'devuser' を作成します  
+- Firestoreが利用できない場合はDevDB（インメモリ）を使用します
+- DBセットアップで初期化に約15秒かかります
 
-**Start Frontend:**
+**フロントエンドの開始:**
 ```bash
 cd client
-npm run dev  # Starts on http://localhost:5173/
+npm run dev  # http://localhost:5173/ で開始します
 ```
-- Proxies API calls to localhost:8080 (configured in vite.config.js)
-- Starts immediately (~300ms)
+- localhost:8080へのAPI呼び出しをプロキシします（vite.config.jsで設定）
+- 即座に開始します（約300ms）
 
-**Health Check Validation:**
+**ヘルスチェック検証:**
 ```bash
 curl http://localhost:8080/api/health
 ```
-Expected response: `{"status": "ok", "env": "development", "db": "devdb", ...}`
+期待される応答: `{"status": "ok", "env": "development", "db": "devdb", ...}`
 
-### Docker Build (Production)
+### Docker ビルド (本番環境)
 
-**Main Application:**
+**メインアプリケーション:**
 ```bash
-docker build -t travel-app .  # Takes 5-15 minutes. NEVER CANCEL.
+docker build -t travel-app .  # 5-15分かかります。決してキャンセルしないでください。
 ```
-- TIMEOUT: Use 900+ seconds (15+ minutes) for complete build
-- **Known Issues**: May fail in sandboxed environments due to SSL certificate restrictions
-- Works in production environments with proper Docker registry access
+- タイムアウト: 完全なビルドには900秒以上（15分以上）を使用
+- **既知の問題**: SSL証明書制限によりサンドボックス環境では失敗する可能性があります
+- 適切なDockerレジストリアクセスを持つ本番環境では動作します
 
-**Individual Component Builds:**
+**個別コンポーネントビルド:**
 ```bash
-cd agent && docker build -t agent-service .     # For ADK agent
-cd mcp && docker build -t mcp-service .         # For MCP server  
+cd agent && docker build -t agent-service .     # ADKエージェント用
+cd mcp && docker build -t mcp-service .         # MCPサーバー用  
 ```
 
-**Docker Compose (Development):**
+**Docker Compose (開発環境):**
 ```bash
-# Requires server/.env file with proper API keys
+# server/.envファイルに適切なAPIキーが必要です
 docker compose -f docker-compose.dev.yml up
 ```
-- **Prerequisite**: Create `server/.env` with required environment variables
-- **Known Issue**: Fails without proper .env configuration
+- **前提条件**: 必要な環境変数を含む `server/.env` を作成
+- **既知の問題**: 適切な.env設定なしでは失敗します
 
-## Validation Scenarios
+## 検証シナリオ
 
-**ALWAYS manually validate changes via these complete end-to-end scenarios:**
+**これらの完全なエンドツーエンドシナリオを通じて常に手動で変更を検証してください:**
 
-### Development Workflow Validation
-1. **Build Validation**: Run client build and verify `dist/` folder is created
-2. **Server Health**: Start server and verify `/api/health` returns 200 OK
-3. **Frontend Connection**: Start both client dev server and backend, verify proxy works
-4. **API Endpoints**: Test key endpoints like `/api/questions`, `/api/hobbies`
+### 開発ワークフロー検証
+1. **ビルド検証**: クライアントビルドを実行し、`dist/`フォルダーが作成されることを確認
+2. **サーバーヘルス**: サーバーを開始し、`/api/health`が200 OKを返すことを確認
+3. **フロントエンド接続**: クライアントデベロッパーサーバーとバックエンドの両方を開始し、プロキシが動作することを確認
+4. **APIエンドポイント**: `/api/questions`、`/api/hobbies`などの主要エンドポイントをテスト
 
-### Production Deployment Validation  
-1. **Docker Build**: Complete multi-stage build succeeds
-2. **Container Start**: Built image starts without errors
-3. **Health Endpoint**: Container responds to health checks
-4. **Static Assets**: SPA fallback serves frontend correctly
+### 本番デプロイメント検証  
+1. **Dockerビルド**: マルチステージビルドが成功することを確認
+2. **コンテナ開始**: ビルドされたイメージがエラーなく開始することを確認
+3. **ヘルスエンドポイント**: コンテナがヘルスチェックに応答することを確認
+4. **静的アセット**: SPAフォールバックがフロントエンドを正しく提供することを確認
 
-### User Journey Validation
-1. **Registration/Login**: Create account, verify JWT token generation
-2. **Travel Quiz**: Complete personality assessment  
-3. **AI Planning**: Generate travel plans (requires API keys)
-4. **Map Integration**: Verify Google Maps functionality (requires Maps API key)
+### ユーザージャーニー検証
+1. **登録/ログイン**: アカウント作成、JWTトークン生成を確認
+2. **旅行クイズ**: 性格評価を完了  
+3. **AI計画**: 旅行プランを生成（APIキーが必要）
+4. **マップ統合**: Google Maps機能を確認（Maps APIキーが必要）
 
-## Environment Requirements
+## 環境要件
 
-### Required Environment Variables (Production)
+### 必要な環境変数（本番環境）
 ```bash
-# Core API Keys
-GEMINI_API_KEY=your_gemini_api_key           # Required for AI features
-GOOGLE_MAPS_API_KEY=your_maps_api_key        # Required for Maps integration
-JWT_SECRET=your_jwt_secret                   # Required for authentication
+# コアAPIキー
+GEMINI_API_KEY=your_gemini_api_key           # AI機能に必要
+GOOGLE_MAPS_API_KEY=your_maps_api_key        # Maps統合に必要
+JWT_SECRET=your_jwt_secret                   # 認証に必要
 
-# Google Cloud (Production)
-GCP_PROJECT_ID=your_project_id               # For Firestore
-GOOGLE_CLOUD_PROJECT=your_project_id         # Alternative name
+# Google Cloud（本番環境）
+GCP_PROJECT_ID=your_project_id               # Firestore用
+GOOGLE_CLOUD_PROJECT=your_project_id         # 代替名
 
-# Client Environment (Vite)
-VITE_GOOGLE_MAPS_API_KEY=your_public_api_key # Public Maps API key
-VITE_GOOGLE_MAPS_MAP_ID=your_map_id          # Optional for Advanced Markers
-VITE_ENABLE_ADVANCED_MARKER=true             # Optional advanced features
+# クライアント環境（Vite）
+VITE_GOOGLE_MAPS_API_KEY=your_public_api_key # パブリックMaps APIキー
+VITE_GOOGLE_MAPS_MAP_ID=your_map_id          # Advanced Markers用（オプション）
+VITE_ENABLE_ADVANCED_MARKER=true             # 高度な機能（オプション）
 
-# Agent Service
-AGENT_BASE_URL=http://localhost:8080         # ADK agent endpoint
+# エージェントサービス
+AGENT_BASE_URL=http://localhost:8080         # ADKエージェントエンドポイント
 MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
 ```
 
-### Development Fallbacks
-- **No API Keys**: Server uses dummy data, warns in logs
-- **No Firestore**: DevDB (in-memory) is used automatically  
-- **No Agent**: Falls back to direct Gemini API calls
-- **Development Mode**: Bypasses auth requirements for faster iteration
+### 開発フォールバック
+- **APIキーなし**: サーバーはダミーデータを使用し、ログに警告を表示
+- **Firestoreなし**: DevDB（インメモリ）が自動的に使用されます  
+- **エージェントなし**: 直接Gemini API呼び出しにフォールバック
+- **開発モード**: より高速な反復のために認証要件をバイパス
 
-## Key Components and Structure
+## 主要コンポーネントと構造
 
-### Frontend (`client/`)
-- **Framework**: Vue.js 3.4.21 + Vite 5.2.8
-- **Key Dependencies**: chart.js, vue-router, pinia
-- **Build Output**: `dist/` (served by Flask in production)
-- **Dev Server**: http://localhost:5173 with API proxy
+### フロントエンド (`client/`)
+- **フレームワーク**: Vue.js 3.4.21 + Vite 5.2.8
+- **主要依存関係**: chart.js、vue-router、pinia
+- **ビルド出力**: `dist/`（本番環境でFlaskが提供）
+- **デベロッパーサーバー**: APIプロキシ付きhttp://localhost:5173
 
-### Backend (`server/`)  
-- **Framework**: Flask 3.0.3 + Gunicorn
-- **Database**: Google Cloud Firestore (prod) / DevDB (dev)
-- **APIs**: Travel planning, user auth, Google Maps integration
-- **Key Features**: JWT auth, AI analysis, travel plan generation
+### バックエンド (`server/`)  
+- **フレームワーク**: Flask 3.0.3 + Gunicorn
+- **データベース**: Google Cloud Firestore（本番） / DevDB（開発）
+- **API**: 旅行計画、ユーザー認証、Google Maps統合
+- **主要機能**: JWT認証、AI分析、旅行プラン生成
 
-### Agent Service (`agent/`)
-- **Framework**: Google ADK (Agent Development Kit)
-- **Purpose**: Intelligent travel planning with Gemini AI
-- **Dependencies**: httpx, google-adk (may fail in restricted environments)
-- **Endpoint**: `/v1/plan` for travel plan generation
+### エージェントサービス (`agent/`)
+- **フレームワーク**: Google ADK（Agent Development Kit）
+- **目的**: Gemini AIを使用したインテリジェント旅行計画
+- **依存関係**: httpx、google-adk（制限された環境では失敗する可能性）
+- **エンドポイント**: 旅行プラン生成用`/v1/plan`
 
-### MCP Server (`mcp/`)
-- **Purpose**: Google Maps Platform Code Assist server
-- **Runtime**: Node.js with @googlemaps/code-assist-mcp
-- **Endpoint**: `/tools/retrieve-google-maps-platform-docs`
+### MCPサーバー (`mcp/`)
+- **目的**: Google Maps Platform Code Assistサーバー
+- **ランタイム**: @googlemaps/code-assist-mcpを使用したNode.js
+- **エンドポイント**: `/tools/retrieve-google-maps-platform-docs`
 
-### Deployment (`Dockerfile` + Cloud Run)
-- **Multi-stage**: Node.js build → Python runtime
-- **Process**: Frontend build → Copy to Flask static → Run gunicorn
-- **Ports**: 8080 (configurable via PORT env var)
+### デプロイメント (`Dockerfile` + Cloud Run)
+- **マルチステージ**: Node.jsビルド → Pythonランタイム
+- **プロセス**: フロントエンドビルド → Flaskスタティックにコピー → gunicorn実行
+- **ポート**: 8080（PORT環境変数で設定可能）
 
-## Common Tasks and Troubleshooting
+## 一般的なタスクとトラブルシューティング
 
-### Build Issues
-- **npm install warnings**: Normal, proceed if no errors
-- **pip SSL warnings**: Expected in sandboxed environments  
-- **Agent install fails**: Document as network limitation, works in cloud
-- **Docker build fails**: SSL certificate issues in sandbox, works in production
+### ビルドの問題
+- **npm installの警告**: 正常です。エラーがなければ続行してください
+- **pip SSL警告**: サンドボックス環境では予想されます  
+- **エージェントインストール失敗**: ネットワーク制限として文書化、クラウドでは動作します
+- **Dockerビルド失敗**: サンドボックスでSSL証明書の問題、本番環境では動作します
 
-### Runtime Issues
-- **Server won't start**: Check JWT_SECRET in production mode
-- **No AI responses**: Verify GEMINI_API_KEY is set
-- **Maps not loading**: Check VITE_GOOGLE_MAPS_API_KEY
-- **Auth failures**: Verify JWT_SECRET and user creation
+### ランタイムの問題
+- **サーバーが開始しない**: 本番モードでJWT_SECRETを確認
+- **AI応答なし**: GEMINI_API_KEYが設定されていることを確認
+- **マップが読み込まれない**: VITE_GOOGLE_MAPS_API_KEYを確認
+- **認証失敗**: JWT_SECRETとユーザー作成を確認
 
-### Testing Commands
+### テストコマンド
 ```bash
-# Quick validation of core functionality
+# コア機能の迅速な検証
 cd server && python3 -c "
 import app
 with app.app.test_client() as client:
     print('Health:', client.get('/api/health').get_json())"
 
-# Check client build artifacts
+# クライアントビルドアーティファクトを確認
 cd client && npm run build && ls -la dist/
 
-# Verify server endpoints respond
+# サーバーエンドポイントの応答を確認
 curl -f http://localhost:8080/api/questions || echo "Server not running"
 ```
 
-### Performance Notes
-- **Client build**: ~10 seconds total (install + build)
-- **Server startup**: ~15 seconds with database initialization  
-- **Docker build**: 5-15 minutes depending on network and cache
-- **MCP first run**: ~60 seconds for package download
+### パフォーマンスノート
+- **クライアントビルド**: 合計約10秒（インストール + ビルド）
+- **サーバー起動**: データベース初期化で約15秒  
+- **Dockerビルド**: ネットワークとキャッシュに応じて5-15分
+- **MCP初回実行**: パッケージダウンロードで約60秒
 
-## Additional Context
+## 追加コンテキスト
 
-### Repository Structure
+### リポジトリ構造
 ```
 .
-├── client/          # Vue.js frontend
-├── server/          # Flask backend  
-├── agent/           # Google ADK agent service
-├── mcp/             # Maps Code Assist server
-├── shared/          # Shared contracts/types
-├── Dockerfile       # Multi-stage production build
-└── docker-compose.dev.yml  # Development orchestration
+├── client/          # Vue.jsフロントエンド
+├── server/          # Flaskバックエンド  
+├── agent/           # Google ADKエージェントサービス
+├── mcp/             # Maps Code Assistサーバー
+├── shared/          # 共有コントラクト/タイプ
+├── Dockerfile       # マルチステージ本番ビルド
+└── docker-compose.dev.yml  # 開発オーケストレーション
 ```
 
-### CI/CD Pipeline (`.github/workflows/deploy-cloud-run.yml`)
-- **Triggers**: Push to main branch
-- **Process**: Build agent+MCP → Deploy to Cloud Run → Build+deploy main app
-- **Dependencies**: Google Cloud credentials, Artifact Registry
+### CI/CDパイプライン (`.github/workflows/deploy-cloud-run.yml`)
+- **トリガー**: mainブランチへのプッシュ
+- **プロセス**: エージェント+MCPビルド → Cloud Runにデプロイ → メインアプリビルド+デプロイ
+- **依存関係**: Google Cloud認証情報、Artifact Registry
 
-### Key URLs and Endpoints
-- **Development Frontend**: http://localhost:5173  
-- **Development Backend**: http://localhost:8080
-- **Health Check**: `/api/health`
-- **Authentication**: `/api/auth/login`, `/api/auth/signup`
-- **Travel Planning**: `/api/agent/chat`, `/api/generate_plan`
-- **Maps Integration**: `/api/maps-key`, `/api/geocode`
+### 主要URLとエンドポイント
+- **開発フロントエンド**: http://localhost:5173  
+- **開発バックエンド**: http://localhost:8080
+- **ヘルスチェック**: `/api/health`
+- **認証**: `/api/auth/login`、`/api/auth/signup`
+- **旅行計画**: `/api/agent/chat`、`/api/generate_plan`
+- **マップ統合**: `/api/maps-key`、`/api/geocode`
 
-**Remember**: Always run builds to completion, use proper timeouts, and validate functionality through complete user scenarios. The application is designed to gracefully degrade when external services are unavailable.
+**注意**: 常にビルドを完了まで実行し、適切なタイムアウトを使用し、完全なユーザーシナリオを通じて機能を検証してください。アプリケーションは外部サービスが利用できない場合に適切に劣化するように設計されています。
