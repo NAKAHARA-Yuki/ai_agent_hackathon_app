@@ -25,10 +25,10 @@ jobs:
     outputs:
       agent_url: ${{ steps.resolve_agent_url.outputs.agent_url }}
     env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: ${{ secrets.CLOUD_RUN_REGION }}
-  REPO_AGENT: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
-  APP_ENV: development
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION: ${{ secrets.CLOUD_RUN_REGION }}
+      REPO_AGENT: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
+      APP_ENV: development
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -146,12 +146,12 @@ jobs:
       contents: read
       id-token: write
     env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: ${{ secrets.CLOUD_RUN_REGION }}
-  SERVICE: travel-quiz-app-dev
-  REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
-  IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app-dev:${{ github.sha }}
-  APP_ENV: development
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION: ${{ secrets.CLOUD_RUN_REGION }}
+      SERVICE: travel-quiz-app-dev
+      REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
+      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app-dev:${{ github.sha }}
+      APP_ENV: development
     steps:
       - name: Checkout
         uses: actions/checkout@v4
