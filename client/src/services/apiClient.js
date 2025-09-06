@@ -37,6 +37,12 @@ function mockAgentReply(message){
 // ---- Real Fetch Helper ----
 async function realFetch(url, options){
   const resp = await fetch(url, options)
+  
+  // 401 レスポンスの場合は認証エラーを投げる
+  if (resp.status === 401) {
+    throw new Error('認証の有効期限が切れました。再度ログインしてください。')
+  }
+  
   if(!resp.ok) throw new Error(`HTTP ${resp.status}`)
   return resp.json()
 }

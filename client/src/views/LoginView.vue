@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import BackButton from '@/components/BackButton.vue'
@@ -12,6 +12,22 @@ const user_id = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+
+// セッション切れによるリダイレクトかどうかを判定
+const isSessionExpired = computed(() => route.query.reason === 'expired')
+const sessionMessage = computed(() => {
+  if (isSessionExpired.value) {
+    return 'セッションの有効期限が切れました。再度ログインしてください。'
+  }
+  return ''
+})
+
+onMounted(() => {
+  // セッション期限切れメッセージを表示
+  if (sessionMessage.value) {
+    error.value = sessionMessage.value
+  }
+})
 
 async function submit() {
   try {
