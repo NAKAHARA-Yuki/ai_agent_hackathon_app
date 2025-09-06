@@ -1722,13 +1722,25 @@ def agent_chat():
                     except Exception:
                         logger.warning("agent_output_not_json: no JSON detected in agent reply")
                     msg = "内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。"
+                    # 解析失敗時: フロント診断用に raw_reply と JSON候補スニペットを返却
+                    attempted = None
+                    try:
+                        # 最後の '{' 以降 800文字までを候補として返す
+                        if isinstance(raw_reply_text, str):
+                            lb = raw_reply_text.rfind('{')
+                            if lb != -1:
+                                attempted = raw_reply_text[lb:lb+800]
+                    except Exception:
+                        attempted = None
                     return jsonify({
                         'reply': msg,
                         'places': None,
                         'citations': [],
                         'grounding_html': None,
                         'route_info': None,
-                        'error': 'agent_output_not_json'
+                        'error': 'agent_output_not_json',
+                        'raw_reply': raw_reply_text,
+                        'attempted_json_snippet': attempted
                     }), 502
             except Exception:
                 pass
