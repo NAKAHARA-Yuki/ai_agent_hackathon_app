@@ -1,5 +1,27 @@
 # ai_agent_hackathon_app
 
+## 環境構成
+
+本アプリケーションは以下の環境構成をサポートしています：
+
+### 本番環境 (Production)
+- **ブランチ**: `main`
+- **サービス名**: 
+  - `travel-quiz-app`
+  - `travel-agent-service`
+  - `maps-mcp-service`
+- **データベース**: Firestore デフォルトデータベース `(default)`
+
+### 開発環境 (Development) 
+- **ブランチ**: `dev`
+- **サービス名**:
+  - `travel-quiz-app-dev`
+  - `travel-agent-service-dev`
+  - `maps-mcp-service-dev`
+- **データベース**: Firestore データベース `izatabi-dev`
+
+各環境は独立したGoogle Cloud Runサービスとデータベースを使用し、完全に分離されています。
+
 ## Google Maps の有効化（JS マップ／Advanced Marker）
 
 - Maps JavaScript API を有効化し、HTTP リファラ制限を設定した API キーを用意してください。

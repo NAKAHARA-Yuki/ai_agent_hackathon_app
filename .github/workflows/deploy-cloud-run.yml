@@ -2,7 +2,7 @@ name: Deploy to Cloud Run
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [main, dev]
   workflow_dispatch:
 
 concurrency:
@@ -117,14 +117,13 @@ jobs:
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service:${GITHUB_SHA}
           MCP_URL=$(gcloud run services describe maps-mcp-service${ENV_SUFFIX} --region ${REGION} --format 'value(status.url)')
           MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
-          
           # Set environment-specific database configuration
           if [[ "${ENVIRONMENT}" == "dev" ]]; then
             DB_ENV_VARS="FIRESTORE_DATABASE=izatabi-dev"
           else
             DB_ENV_VARS="FIRESTORE_DATABASE=(default)"
           fi
-          
+
           gcloud run deploy travel-agent-service${ENV_SUFFIX} \
             --image ${AGENT_IMAGE} \
             --region ${REGION} \
@@ -254,7 +253,7 @@ jobs:
           else
             DB_ENV_VARS="FIRESTORE_DATABASE=(default)"
           fi
-          
+
           gcloud run deploy ${SERVICE}${ENV_SUFFIX} \
             --image=${REGION}-docker.pkg.dev/${IMAGE} \
             --region=${REGION} \
