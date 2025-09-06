@@ -572,7 +572,7 @@ AGENT_API_KEY = os.getenv("AGENT_API_KEY")  # optional simple auth header if you
 
 # Auth / DB config
 FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
-FIRESTORE_DATABASE = os.getenv("FIRESTORE_DATABASE", "(default)")  # Default to main database, use "izatabi-dev" for dev
+FIRESTORE_DATABASE = os.getenv("FIRESTORE_DATABASE", "(default)")  # Default to main database for production, use "izatabi-dev" for development environment
 
 # JWT Secret 強化: 本番では未設定を許可しない
 ENV = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
