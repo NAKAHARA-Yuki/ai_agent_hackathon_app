@@ -72,10 +72,10 @@ DEFAULT_INSTRUCTION = (
 	"最低限スキーマ（単一JSON）:\n{\n  \"summary\": string,\n  \"plans\": [\n    { \"title\": string, \"tags\": [string], \"brief\": string, \"itinerary\": [ { \"day\": int, \"items\": [ { \"time\": \"HH:MM\", \"title\": string, \"detail\": string|null } ] } ], \"places\": [ { \"name\": string, \"lat\": number|null, \"lng\": number|null, \"note\": string|null } ], \"route_info\": { \"origin\": string, \"destination\": string, \"waypoints\": [string], \"mode\": \"driving|walking|bicycling|transit\" }|null, \"text\": string } , ... (合計3件)\n  ]\n}\n\n"
 	"OK例 (単純化): {\"summary\":\"...\",\"plans\":[{\"title\":\"A\",\"tags\":[\"温泉\"],\"brief\":\"説明\",\"itinerary\":[{\"day\":1,\"items\":[{\"time\":\"09:00\",\"title\":\"スポット\"}]}],\"places\":[{\"name\":\"場所1\",\"lat\":35.0,\"lng\":139.0,\"note\":null}],\"route_info\":null,\"text\":\"...\"}, {...},{...}]}\n"
 	"NG例: '以下にプランを示します:' など JSON 以外の前置き / ```json フェンス / 単数 plan / 途中で説明文を JSON の外に記述 / シングルクォート利用。\n\n"
-	"制約：\n- plans は必ず 3 件。title 25文字以内。tags 各 1-6 語。brief 40字以内。\n- itinerary: day 昇順 / time=HH:MM / 1日 2-8 items。\n- 各 plan の places 最大10 (重複名除外)。lat/lng 数値 or null。\n- route_info 任意。\n- text は該当プラン説明 + 簡潔日別表 (Markdown) を含め JSON 外へ書かない。\n- 余計なキー/末尾カンマ/シングルクォート禁止。\n\n"
-	"自己検証チェックリスト：\n1) 出力全体が '{' で始まり '}' で終わるか (前後空白以外なし)\n2) plans が配列で長さ=3 か\n3) 各 plan に title,tags,brief,itinerary,places,text が存在し型正しいか\n4) itinerary の time が HH:MM 形式か / day 昇順か / items 数 2-8 か\n5) places の name 重複なし & 最大10 件か\n6) コードフェンス/説明文/余計な文字列が JSON 外に出ていないか\n7) 先頭や末尾に改行以外の文字が無いか\n\n"
+	"制約：\n- plans は必ず 3 件。title 25文字以内。tags 各 1-6 語。brief 40字以内。\n- itinerary: day 昇順 / time=HH:MM / 1日 2-8 items。\n- 各 plan の places 最大10 (重複名除外)。lat/lng 数値 or null。\n- route_info 任意。\n- text はプレーンな説明文章のみ (Markdown記法・表・見出し禁止)。\n- 余計なキー/末尾カンマ/シングルクォート禁止。\n\n"
+	"自己検証チェックリスト：\n1) 出力全体が '{' で始まり '}' で終わるか (前後空白以外なし)\n2) plans が配列で長さ=3 か\n3) 各 plan に title,tags,brief,itinerary,places,text が存在し型正しいか\n4) itinerary の time が HH:MM 形式か / day 昇順か / items 数 2-8 か\n5) places の name 重複なし & 最大10 件か\n6) コードフェンス/説明文/余計な文字列が JSON 外に出ていないか\n7) text に Markdown (# * | ``` 等) が含まれていないか\n\n"
 	"出力は開始文字 '{' から終了 '}' までの 1 個の JSON オブジェクトのみ。``` や説明文, マークダウン, 前後のテキストは禁止。\n"
-	"(EN Warning) Output exactly ONE raw JSON object only. DO NOT wrap in code fences. Any extra text or fences may cause the response to be rejected."
+	"(EN Warning) Output exactly ONE raw JSON object only. No markdown headings/tables/fences. Any extra text may cause rejection."
 )
 
 INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION

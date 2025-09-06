@@ -116,6 +116,15 @@ except Exception:
 logger = logging.getLogger("server")
 app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
+# Agent呼び出しHTTPタイムアウト（秒）環境変数で調整可能。デフォルト90。
+try:
+    AGENT_HTTP_TIMEOUT = int(os.getenv('AGENT_HTTP_TIMEOUT') or '90')
+    if AGENT_HTTP_TIMEOUT <= 0:
+        AGENT_HTTP_TIMEOUT = 90
+except Exception:
+    AGENT_HTTP_TIMEOUT = 90
+logger.info(f"Agent HTTP timeout configured: {AGENT_HTTP_TIMEOUT}s")
+
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 # Forced to True as requested
 LOG_PAYLOADS = True
@@ -1365,7 +1374,7 @@ def agent_chat():
         req_session_id = (data.get('session_id') or '').strip()
         if not req_session_id:
             return jsonify({"error": "session_id is required"}), 400
-        logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
+        logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} timeout={AGENT_HTTP_TIMEOUT}s trace={tid}")
 
         claims = require_auth(request)
         user_info, last_persona = None, None
@@ -1391,7 +1400,7 @@ def agent_chat():
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
         try:
-            events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=True)
+            events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=AGENT_HTTP_TIMEOUT, base_url=effective_base, ensure_session=True)
         except Exception as e:
             logger.exception("agent_backend_unreachable")
             return jsonify({
