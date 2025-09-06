@@ -1,17 +1,22 @@
 import os
 import logging
+import sys
 from typing import Any
 from google.adk.agents import LlmAgent
 import httpx
 from tools.maps_mcp import register_maps_mcp_tool
 from google.adk.tools import google_search
 
-# Logging setup for agent container
+# Add shared module to path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
+from logging_config import configure_basic_cloud_logging
+
+# Cloud-friendly logging setup for agent container
 _LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
 try:
-	logging.basicConfig(level=getattr(logging, _LEVEL, logging.INFO), format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+	configure_basic_cloud_logging(level_name=_LEVEL, force=True)
 except Exception:
-	logging.basicConfig(level=logging.INFO)
+	configure_basic_cloud_logging(level_name="INFO", force=True)
 log = logging.getLogger("agent.startup")
 
 # Bridge GEMINI_API_KEY -> GOOGLE_API_KEY for google-genai used by ADK
