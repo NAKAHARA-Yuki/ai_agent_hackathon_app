@@ -51,7 +51,7 @@ npx -y @googlemaps/code-assist-mcp --port 3000  # Installs and runs MCP server
 cd server
 FLASK_ENV=development JWT_SECRET=dev-secret-change-me python3 app.py
 ```
-- Server starts on http://127.0.0.1:8080
+- Server starts on http://localhost:8080
 - Creates dummy user 'devuser' with password 'password'  
 - Uses DevDB (in-memory) when Firestore is unavailable
 - Takes ~15 seconds to initialize with DB setup
