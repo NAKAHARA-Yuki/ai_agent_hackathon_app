@@ -1601,7 +1601,23 @@ def agent_chat():
                     except Exception:
                         pass
 
-                # それでもJSONが無い場合は、ユーザーに再要求（JSON-onlyの遵守を促す）
+                # それでもJSONが無い場合: raw_reply 全体が実は完全な JSON か最終確認 (セーフガード)
+                if not json_found and isinstance(raw_reply_text, str):
+                    try:
+                        obj_guard = json.loads(raw_reply_text.strip())
+                        if isinstance(obj_guard, dict):
+                            # 直接抽出 (places/route_info/text)
+                            places_g = obj_guard.get('places') or obj_guard.get('place')
+                            route_g = obj_guard.get('route_info') or obj_guard.get('route') or obj_guard.get('routeInfo')
+                            text_g = obj_guard.get('text') if isinstance(obj_guard.get('text'), str) else None
+                            places = _normalize_places_list(places_g)
+                            route_info = _normalize_route_info(route_g)
+                            reply_text = text_g or ''
+                            json_found = True
+                    except Exception:
+                        pass
+
+                # 依然 JSON 不在ならユーザー再要求（attempted_json_snippet は廃止）
                 if not json_found:
                     global AGENT_JSON_FAIL
                     AGENT_JSON_FAIL += 1
@@ -1613,16 +1629,6 @@ def agent_chat():
                     except Exception:
                         logger.warning("agent_output_not_json: no JSON detected in agent reply")
                     msg = "内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。"
-                    # 解析失敗時: フロント診断用に raw_reply と JSON候補スニペットを返却
-                    attempted = None
-                    try:
-                        # 最後の '{' 以降 800文字までを候補として返す
-                        if isinstance(raw_reply_text, str):
-                            lb = raw_reply_text.rfind('{')
-                            if lb != -1:
-                                attempted = raw_reply_text[lb:lb+800]
-                    except Exception:
-                        attempted = None
                     return jsonify({
                         'reply': msg,
                         'places': None,
@@ -1630,8 +1636,7 @@ def agent_chat():
                         'grounding_html': None,
                         'route_info': None,
                         'error': 'agent_output_not_json',
-                        'raw_reply': raw_reply_text,
-                        'attempted_json_snippet': attempted
+                        'raw_reply': raw_reply_text
                     }), 502
             except Exception:
                 pass
