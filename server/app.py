@@ -572,6 +572,7 @@ AGENT_API_KEY = os.getenv("AGENT_API_KEY")  # optional simple auth header if you
 
 # Auth / DB config
 FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+FIRESTORE_DATABASE = os.getenv("FIRESTORE_DATABASE", "(default)")  # Default to main database, use "izatabi-dev" for dev
 
 # JWT Secret 強化: 本番では未設定を許可しない
 ENV = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
@@ -597,8 +598,12 @@ if agent_configured:
 
 db = None
 try:
-    db = firestore.Client(project=FIRESTORE_PROJECT) if FIRESTORE_PROJECT else firestore.Client()
-    logger.info("Firestore client initialized.")
+    if FIRESTORE_PROJECT:
+        db = firestore.Client(project=FIRESTORE_PROJECT, database=FIRESTORE_DATABASE)
+        logger.info(f"Firestore client initialized for project '{FIRESTORE_PROJECT}', database '{FIRESTORE_DATABASE}'.")
+    else:
+        db = firestore.Client(database=FIRESTORE_DATABASE)
+        logger.info(f"Firestore client initialized with default project, database '{FIRESTORE_DATABASE}'.")
 except Exception as e:
     logger.warning(f"Firestore client init failed: {e}")
     db = None
