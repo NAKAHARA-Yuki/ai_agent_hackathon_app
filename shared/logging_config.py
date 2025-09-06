@@ -7,6 +7,7 @@ environments where multi-line logs can be split into separate entries.
 """
 import logging
 import re
+from typing import Iterable
 
 
 class SingleLineFormatter(logging.Formatter):
@@ -20,19 +21,12 @@ class SingleLineFormatter(logging.Formatter):
     """
     
     def format(self, record):
-        # Get the original formatted message
+        # 既存formatでexc_info等を文字列化
         msg = super().format(record)
-        
-        # Replace newlines and carriage returns with escaped versions
-        # This preserves the content while making it single-line
-        msg = msg.replace('\n', '\\n').replace('\r', '\\r')
-        
-        # Also replace tab characters for consistency
-        msg = msg.replace('\t', '\\t')
-        
-        # Collapse multiple consecutive spaces to single space for cleaner output
-        msg = re.sub(r' +', ' ', msg)
-        
+        # 改行/復帰/タブを可視化
+        msg = msg.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+        # 連続空白圧縮 (意図的なインデントが Cloud Logging で崩れるのを許容)
+        msg = re.sub(r' {2,}', ' ', msg)
         return msg
 
 
@@ -113,7 +107,7 @@ def configure_basic_cloud_logging(level_name="INFO", force=True):
             fmt="%(asctime)s %(levelname)s %(name)s - %(message)s"
         )
         
-        # Create and configure handler
+    # Create and configure handler
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
         handler.setLevel(level)
@@ -123,3 +117,40 @@ def configure_basic_cloud_logging(level_name="INFO", force=True):
     
     # Set level
     root_logger.setLevel(level)
+    return root_logger
+
+
+def _replace_handlers(loggers: Iterable[logging.Logger], formatter: logging.Formatter, level: int):
+    for lg in loggers:
+        try:
+            for h in lg.handlers[:]:
+                lg.removeHandler(h)
+            h = logging.StreamHandler()
+            h.setFormatter(formatter)
+            h.setLevel(level)
+            lg.addHandler(h)
+            lg.setLevel(level)
+            lg.propagate = False
+        except Exception:
+            continue
+
+
+def enforce_single_line_all(level_name="INFO"):
+    """既存の主要ロガー(gunicorn/access/flask/werkzeug等)を含め全て1行化フォーマットに統一。
+    アプリ起動直後に呼び出す。"""
+    try:
+        level = getattr(logging, level_name.upper(), logging.INFO)
+    except Exception:
+        level = logging.INFO
+    fmt = SingleLineFormatter(fmt="%(asctime)s %(levelname)s %(name)s - %(message)s")
+    # ルート適用
+    root = logging.getLogger()
+    _replace_handlers([root], fmt, level)
+    # 代表的サブロガー
+    targets = []
+    for name in [
+        'gunicorn.error', 'gunicorn.access', 'werkzeug', 'server', 'agent', 'uvicorn', 'uvicorn.error', 'uvicorn.access'
+    ]:
+        targets.append(logging.getLogger(name))
+    _replace_handlers(targets, fmt, level)
+    return root

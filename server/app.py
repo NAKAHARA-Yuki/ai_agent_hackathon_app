@@ -8,16 +8,16 @@ import json
 import requests
 import logging
 from time import monotonic
+from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, send_from_directory, request, Response
 from dotenv import load_dotenv
 from google.cloud import firestore
 import jwt
-from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Add shared module to path  
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
-from logging_config import configure_basic_cloud_logging
+from logging_config import configure_basic_cloud_logging, enforce_single_line_all
 
 # Ensure we load env from this directory (server/.env) even if CWD is repo root
 _env_path = Path(__file__).resolve().parent / '.env'
@@ -58,15 +58,19 @@ if _client_dist is None:
 else:
     logging.info(f"Static assets directory: {_client_dist}")
 
-# Use a non-root static_url_path to avoid conflicts with SPA fallback
 app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/static')
 
 # Cloud-friendly logging setup 
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
 try:
     configure_basic_cloud_logging(level_name=LOG_LEVEL, force=True)
+    enforce_single_line_all(LOG_LEVEL)
 except Exception:
     configure_basic_cloud_logging(level_name="INFO", force=True)
+    try:
+        enforce_single_line_all(LOG_LEVEL)
+    except Exception:
+        pass
 
 logger = logging.getLogger("server")
 app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
@@ -80,6 +84,42 @@ SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apik
 # Agent JSON-only compliance counters (in-memory)
 AGENT_JSON_OK = 0
 AGENT_JSON_FAIL = 0
+
+def _balanced_first_object(seg: str):
+    """Return the first complete top-level JSON object substring found in seg using
+    balancing of braces (supports nested objects and strings with escapes). If none
+    found, return None. Does not attempt to validate trailing extraneous content.
+    """
+    try:
+        start = seg.find('{')
+        if start == -1:
+            return None
+        i = start
+        depth = 0
+        in_str = False
+        esc = False
+        while i < len(seg):
+            ch = seg[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == '\\':
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return seg[start:i+1]
+            i += 1
+    except Exception:
+        return None
+    return None
 
 def _snip_text(s: str, limit: int = 2000) -> str:
     try:
@@ -437,31 +477,32 @@ def _extract_trailing_json(s: str):
         except Exception:
             pass
 
-        # 1) fenced code block ```json {..} ``` (prefer the last one)
-        blocks = _re.findall(r"```(?:json)?\s*({[\s\S]*?})\s*```", s)
-        candidate = None
-        if blocks:
-            candidate = blocks[-1]
-            try:
-                obj = json.loads(candidate)
-                places = obj.get('places') if isinstance(obj, dict) else None
-                if places is None:
-                    places = obj.get('place') if isinstance(obj, dict) else None
-                route_info = obj.get('route_info') if isinstance(obj, dict) else None
-                if route_info is None and isinstance(obj, dict):
-                    route_info = obj.get('route') or obj.get('routeInfo')
-                text_field = obj.get('text') if isinstance(obj, dict) else None
-                _attach_extended(obj)
-                places = _normalize_places_list(places)
-                route_info = _normalize_route_info(route_info)
-                # remove the last fenced block
-                s2 = s
-                last_idx = s2.rfind('```')
-                if last_idx != -1:
-                    s2 = s2[:last_idx].rstrip()
-                return s2, places, route_info, (text_field if isinstance(text_field, str) else None)
-            except Exception:
-                candidate = None
+    # 1) fenced code block ```json ... ``` (prefer the last one)
+    #  以前の実装は正規表現 {.*?} の最短一致で巨大なネストJSON途中で途切れて失敗していた。
+    #  ここではフェンス全体を取得し、バランス括弧で最初の完全な JSON オブジェクトを抽出する。
+        fenced_blocks = _re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", s)
+        if fenced_blocks:
+            raw_block = fenced_blocks[-1]
+            cand = _balanced_first_object(raw_block)
+            if cand:
+                try:
+                    obj = json.loads(cand)
+                    places = obj.get('places') if isinstance(obj, dict) else None
+                    if places is None:
+                        places = obj.get('place') if isinstance(obj, dict) else None
+                    route_info = obj.get('route_info') if isinstance(obj, dict) else None
+                    if route_info is None and isinstance(obj, dict):
+                        route_info = obj.get('route') or obj.get('routeInfo')
+                    text_field = obj.get('text') if isinstance(obj, dict) else None
+                    _attach_extended(obj)
+                    places = _normalize_places_list(places)
+                    route_info = _normalize_route_info(route_info)
+                    # フェンス全体を除去
+                    last_idx = s.rfind('```')
+                    s2 = s[:last_idx].rstrip() if last_idx != -1 else s
+                    return s2, places, route_info, (text_field if isinstance(text_field, str) else None)
+                except Exception:
+                    pass
         # 2) regex fallback: object containing keys of interest (allow trailing citation brackets)
         m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
         if m:
@@ -536,14 +577,13 @@ def _start_timer():
         request._start_time = monotonic()
     except Exception:
         request._start_time = None
-    # attach a lightweight correlation id for tracing
     try:
         request._trace_id = f"{random.getrandbits(64):016x}"
     except Exception:
         request._trace_id = None
 
 @app.after_request
-def _log_request(resp: Response):
+def _log_request(resp):  # type: ignore
     try:
         dur_ms = None
         if getattr(request, "_start_time", None) is not None:
@@ -1566,7 +1606,13 @@ def agent_chat():
                 if not json_found:
                     global AGENT_JSON_FAIL
                     AGENT_JSON_FAIL += 1
-                    logger.warning("agent_output_not_json: no JSON detected in agent reply")
+                    try:
+                        snippet = (raw_reply_text or '')
+                        if isinstance(snippet, str):
+                            snippet = snippet.strip().replace('\n', ' ')[:200]
+                        logger.warning(f"agent_output_not_json: no JSON detected in agent reply snippet='{snippet}'")
+                    except Exception:
+                        logger.warning("agent_output_not_json: no JSON detected in agent reply")
                     msg = "内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。"
                     return jsonify({
                         'reply': msg,
