@@ -119,6 +119,7 @@ app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 # Forced to True as requested
 LOG_PAYLOADS = True
+FULL_PAYLOAD = (os.getenv('CLOUD_LOG_FULL_PAYLOAD') == '1')
 
 SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apikey", "secret", "jwt"}
 
@@ -1324,7 +1325,10 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     bridge_logger.debug(f"Raw agent response: {_snip_json(j)}")
     if LOG_PAYLOADS:
         try:
-            bridge_logger.info(f"Run response: {_snip_text(_snip_json(j), 1200)}")
+            if FULL_PAYLOAD:
+                bridge_logger.info(f"Run response(full): {_snip_json(j)}")
+            else:
+                bridge_logger.info(f"Run response: {_snip_text(_snip_json(j), 1200)}")
         except Exception:
             pass
     return j
@@ -1541,7 +1545,10 @@ def agent_chat():
                         pass
                 elif os.getenv('AGENT_LOG_RAW') == 'full':
                     try:
-                        logger.info(f"agent_raw_reply_full len={len(raw_reply_text or '')} body={_snip_text(raw_reply_text, 4000)}")
+                        if FULL_PAYLOAD:
+                            logger.info(f"agent_raw_reply_full len={len(raw_reply_text or '')} body={raw_reply_text}")
+                        else:
+                            logger.info(f"agent_raw_reply_full len={len(raw_reply_text or '')} body={_snip_text(raw_reply_text, 4000)}")
                     except Exception:
                         pass
                 # もし誤ってJSONが混じっても本文として扱い、抽出は第2段で別途行う
