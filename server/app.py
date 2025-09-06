@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Add shared module to path  
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
 from logging_config import configure_basic_cloud_logging
 
 # Ensure we load env from this directory (server/.env) even if CWD is repo root
