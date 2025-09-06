@@ -130,7 +130,11 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL},${DB_ENV_VARS}
+            --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}",\
+              "GEMINI_MODEL=gemini-2.5-flash",\
+              "MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT}",\
+              "MAPS_MCP_AUDIENCE=${MCP_URL}",\
+              ${DB_ENV_VARS}
 
       - name: Grant Agent SA invoker on MCP service
         env:
