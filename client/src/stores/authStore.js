@@ -28,37 +28,33 @@ export const useAuthStore = defineStore('auth', () => {
   const token = computed(() => state.value?.token || null)
   const isAuthenticated = computed(() => !!token.value && !isTokenExpired())
 
-  // JWT トークンの有効期限をチェック
-  function isTokenExpired() {
-    if (!token.value) return true
+  // 共通: JWTペイロードをパース
+  function parseJwtPayload(tokenStr) {
+    if (!tokenStr) return null
     try {
-      const parts = token.value.split('.')
-      if (parts.length !== 3) return true
-      const payload = JSON.parse(atob(parts[1]))
-      const exp = payload.exp
-      if (!exp || typeof exp !== 'number') return true
-      const now = Math.floor(Date.now() / 1000)
-      return now >= exp
+      const parts = tokenStr.split('.')
+      if (parts.length !== 3) return null
+      return JSON.parse(atob(parts[1]))
     } catch (error) {
       console.warn('Token parsing failed:', error)
-      return true
+      return null
     }
+  }
+
+  // JWT トークンの有効期限をチェック
+  function isTokenExpired() {
+    const payload = parseJwtPayload(token.value)
+    if (!payload || typeof payload.exp !== 'number') return true
+    const now = Math.floor(Date.now() / 1000)
+    return now >= payload.exp
   }
 
   // トークンの残り時間（秒）を取得
   function getTokenTimeRemaining() {
-    if (!token.value) return 0
-    try {
-      const parts = token.value.split('.')
-      if (parts.length !== 3) return 0
-      const payload = JSON.parse(atob(parts[1]))
-      const exp = payload.exp
-      if (!exp || typeof exp !== 'number') return 0
-      const now = Math.floor(Date.now() / 1000)
-      return Math.max(0, exp - now)
-    } catch {
-      return 0
-    }
+    const payload = parseJwtPayload(token.value)
+    if (!payload || typeof payload.exp !== 'number') return 0
+    const now = Math.floor(Date.now() / 1000)
+    return Math.max(0, payload.exp - now)
   }
 
   // 内部: タイムアウト付きのJSONリクエスト。非JSONレスポンス(HTMLなど)も分かりやすく扱う
