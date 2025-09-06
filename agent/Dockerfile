@@ -18,6 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ADK api_server will load agents from ./agents
 COPY agents ./agents
 COPY tools ./tools
+COPY ../shared ./shared
+ENV PYTHONPATH=/app:/app/shared
 
 EXPOSE 8080
 ENTRYPOINT ["tini", "--"]
