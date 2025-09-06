@@ -125,6 +125,7 @@ SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apik
 # Agent JSON-only compliance counters (in-memory)
 AGENT_JSON_OK = 0
 AGENT_JSON_FAIL = 0
+AGENT_JSON_FENCE_STRIPPED = 0
 
 def _balanced_first_object(seg: str):
     """Return the first complete top-level JSON object substring found in seg using
@@ -1323,7 +1324,7 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     bridge_logger.debug(f"Raw agent response: {_snip_json(j)}")
     if LOG_PAYLOADS:
         try:
-            bridge_logger.info(f"Run response: {_snip_json(j)}")
+            bridge_logger.info(f"Run response: {_snip_text(_snip_json(j), 1200)}")
         except Exception:
             pass
     return j
@@ -1515,6 +1516,22 @@ def agent_chat():
                 # 第1段: 自然文のみ（JSONを含めない）
                 reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
                 raw_reply_text = reply_text  # JSON抽出前の生文字列を保持
+                # 先頭フェンス即時除去（後段抽出の成功率向上）
+                try:
+                    import re as _re2
+                    rt_strip = reply_text.lstrip()
+                    if rt_strip.startswith('```'):
+                        m_fence = _re2.match(r'^```(?:json)?\s*([\s\S]*?)\s*```', rt_strip)
+                        if m_fence:
+                            inner = m_fence.group(1)
+                            global AGENT_JSON_FENCE_STRIPPED
+                            AGENT_JSON_FENCE_STRIPPED += 1
+                            reply_text = inner
+                            raw_reply_text = inner
+                            if LOG_PAYLOADS:
+                                logger.info("agent_reply_fence_stripped: initial fenced block removed")
+                except Exception:
+                    pass
                 # Debug: raw agent reply logging (controlled by env AGENT_LOG_RAW)
                 if os.getenv('AGENT_LOG_RAW') == '1':
                     try:
