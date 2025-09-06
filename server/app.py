@@ -8,16 +8,57 @@ import json
 import requests
 import logging
 from time import monotonic
+from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, send_from_directory, request, Response
 from dotenv import load_dotenv
 from google.cloud import firestore
 import jwt
-from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Add shared module to path  
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
-from logging_config import configure_basic_cloud_logging
+_this_dir = os.path.dirname(__file__)
+_candidate_shared = [
+    os.path.join(_this_dir, '..', 'shared'),      # repo layout
+    os.path.join(_this_dir, 'shared'),            # copied inside server dir
+    '/app/shared',                                # container absolute
+    '/shared'                                     # alternative mount
+]
+for _p in _candidate_shared:
+    if _p not in sys.path and os.path.isdir(_p):
+        sys.path.append(_p)
+try:  # prefer real shared module
+    from logging_config import configure_basic_cloud_logging, enforce_single_line_all  # type: ignore
+except Exception:  # fallback if not present (logging_config missing)
+    # shared/logging_config.py がコンテナに存在しない場合のフォールバック
+    import logging as _logging
+
+    class _SingleLineFormatter(_logging.Formatter):
+        def format(self, record: _logging.LogRecord) -> str:  # noqa: D401
+            msg = super().format(record)
+            return ' '.join(msg.replace('\n', ' ').replace('\r', ' ').split())
+
+    def configure_basic_cloud_logging(level_name: str = 'INFO', force: bool = False):  # minimal 互換
+        lvl = getattr(_logging, (level_name or 'INFO').upper(), _logging.INFO)
+        root = _logging.getLogger()
+        if force:
+            for h in list(root.handlers):
+                root.removeHandler(h)
+        if not root.handlers:
+            h = _logging.StreamHandler()
+            h.setFormatter(_SingleLineFormatter('[%(asctime)s] %(levelname)s %(name)s: %(message)s'))
+            h.setLevel(lvl)
+            root.addHandler(h)
+        root.setLevel(lvl)
+        return root
+
+    def enforce_single_line_all(level: str = 'INFO'):
+        lvl = getattr(_logging, (level or 'INFO').upper(), _logging.INFO)
+        root = _logging.getLogger()
+        for h in root.handlers:
+            h.setFormatter(_SingleLineFormatter('[%(asctime)s] %(levelname)s %(name)s: %(message)s'))
+            h.setLevel(lvl)
+        root.setLevel(lvl)
+    _logging.getLogger(__name__).warning("logging_config module not found; using fallback single-line logger")
 
 # Ensure we load env from this directory (server/.env) even if CWD is repo root
 _env_path = Path(__file__).resolve().parent / '.env'
@@ -58,28 +99,79 @@ if _client_dist is None:
 else:
     logging.info(f"Static assets directory: {_client_dist}")
 
-# Use a non-root static_url_path to avoid conflicts with SPA fallback
 app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/static')
 
 # Cloud-friendly logging setup 
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
 try:
     configure_basic_cloud_logging(level_name=LOG_LEVEL, force=True)
+    enforce_single_line_all(LOG_LEVEL)
 except Exception:
     configure_basic_cloud_logging(level_name="INFO", force=True)
+    try:
+        enforce_single_line_all(LOG_LEVEL)
+    except Exception:
+        pass
 
 logger = logging.getLogger("server")
 app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
+# Agent呼び出しHTTPタイムアウト（秒）環境変数で調整可能。デフォルト90。
+try:
+    AGENT_HTTP_TIMEOUT = int(os.getenv('AGENT_HTTP_TIMEOUT') or '90')
+    if AGENT_HTTP_TIMEOUT <= 0:
+        AGENT_HTTP_TIMEOUT = 90
+except Exception:
+    AGENT_HTTP_TIMEOUT = 90
+logger.info(f"Agent HTTP timeout configured: {AGENT_HTTP_TIMEOUT}s")
+
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 # Forced to True as requested
 LOG_PAYLOADS = True
+FULL_PAYLOAD = (os.getenv('CLOUD_LOG_FULL_PAYLOAD') == '1')
 
 SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apikey", "secret", "jwt"}
 
 # Agent JSON-only compliance counters (in-memory)
 AGENT_JSON_OK = 0
 AGENT_JSON_FAIL = 0
+AGENT_JSON_FENCE_STRIPPED = 0
+
+def _balanced_first_object(seg: str):
+    """Return the first complete top-level JSON object substring found in seg using
+    balancing of braces (supports nested objects and strings with escapes). If none
+    found, return None. Does not attempt to validate trailing extraneous content.
+    """
+    try:
+        start = seg.find('{')
+        if start == -1:
+            return None
+        i = start
+        depth = 0
+        in_str = False
+        esc = False
+        while i < len(seg):
+            ch = seg[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == '\\':
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return seg[start:i+1]
+            i += 1
+    except Exception:
+        return None
+    return None
 
 def _snip_text(s: str, limit: int = 2000) -> str:
     try:
@@ -223,269 +315,189 @@ def _normalize_route_info(obj):
     return out
 
 def _extract_trailing_json(s: str):
-    """Extract a trailing JSON object from text, supporting fenced code blocks and partial scans.
-    Returns (text_without_json, places, route_info, text_field).
-    text_field is the optional string found at JSON["text"].
-    """
+    """Extract trailing JSON object if present; returns (prefix_text, places, route_info, text_field).
+    簡素化版: シリアルに候補抽出を試行し最初の成功で終了。"""
+    import re as _re
+
+    # --- Helpers ---
     try:
-        import re as _re
-        # lazy import for optional attachment of extended structured fields
-        try:
-            from flask import g as _flask_g  # type: ignore
-        except Exception:  # pragma: no cover - flask context might not exist in some callers
-            _flask_g = None
+        from flask import g as _flask_g  # type: ignore
+    except Exception:
+        _flask_g = None
 
-        def _attach_extended(obj: dict):
-            """Capture extended schema fields.
-            Supports legacy (summary,suggestions,itinerary) and new multi-plan format:
-            { summary, plans:[ { title,tags,brief,itinerary,places,route_info,text } ] }
-            Stores normalized structure on flask.g.agent_struct.
-            """
-            if not isinstance(obj, dict):
-                return
+    def _strip_citations(txt: str) -> str:
+        return _re.sub(r"(?:\s*\[[0-9,\s]+\])+\s*$", "", txt or "")
 
-            def _norm_suggestions(v):
-                out = []
-                if isinstance(v, list):
-                    for it in v[:12]:  # cap to avoid huge payloads
-                        if not isinstance(it, dict):
-                            continue
-                        title = it.get('title') or it.get('name')
-                        if not isinstance(title, str) or not title.strip():
-                            continue
-                        tags = it.get('tags') or []
-                        if isinstance(tags, list):
-                            tags = [str(t) for t in tags if isinstance(t, (str,int,float))][:8]
-                        else:
-                            tags = []
-                        brief = it.get('brief') or it.get('desc') or it.get('description')
-                        if not isinstance(brief, str):
-                            brief = None
-                        out.append({
-                            'title': title.strip(),
-                            'tags': tags,
-                            'brief': brief.strip() if isinstance(brief, str) else None
-                        })
-                return out
-
-            def _norm_itinerary(v):
-                out = []
-                if isinstance(v, list):
-                    for day_blk in v[:14]:  # max 2 weeks
-                        if not isinstance(day_blk, dict):
-                            continue
-                        day = day_blk.get('day') or day_blk.get('day_number') or day_blk.get('dayNumber')
-                        try:
-                            day = int(day)
-                        except Exception:
-                            day = None
-                        items_raw = day_blk.get('items') or day_blk.get('plans') or []
-                        norm_items = []
-                        if isinstance(items_raw, list):
-                            for it in items_raw[:24]:  # cap per day
-                                if not isinstance(it, dict):
-                                    continue
-                                title = it.get('title') or it.get('name')
-                                if not isinstance(title, str) or not title.strip():
-                                    continue
-                                time_s = it.get('time') or it.get('slot') or it.get('start')
-                                if isinstance(time_s, (int,float)):
-                                    # convert numeric hour like 9 or 930 to string
-                                    if 0 <= time_s < 24:
-                                        time_s = f"{int(time_s):02d}:00"
-                                    else:
-                                        time_s = str(time_s)
-                                if not isinstance(time_s, str):
-                                    time_s = None
-                                detail = it.get('detail') or it.get('desc') or it.get('description')
-                                if not isinstance(detail, str):
-                                    detail = None
-                                norm_items.append({
-                                    'time': time_s.strip() if isinstance(time_s, str) else None,
-                                    'title': title.strip(),
-                                    'detail': detail.strip() if isinstance(detail, str) else None
-                                })
-                        out.append({'day': day, 'items': norm_items})
-                return out
-
-            summary = obj.get('summary') if isinstance(obj.get('summary'), str) else None
-            plans_norm = []
-            raw_plans = obj.get('plans') if isinstance(obj.get('plans'), list) else None
-            if raw_plans:
-                for p in raw_plans[:6]:  # safety cap
-                    if not isinstance(p, dict):
+    def _attach(obj: dict):
+        if not isinstance(obj, dict):
+            return
+        summary = obj.get('summary') if isinstance(obj.get('summary'), str) else None
+        plans = obj.get('plans') if isinstance(obj.get('plans'), list) else None
+        plans_norm = []
+        def _norm_itinerary(v):
+            out = []
+            if isinstance(v, list):
+                for day_blk in v[:14]:
+                    if not isinstance(day_blk, dict):
                         continue
-                    title = p.get('title') if isinstance(p.get('title'), str) else None
-                    if not title:
-                        continue
-                    tags = p.get('tags') if isinstance(p.get('tags'), list) else []
-                    tags = [str(t) for t in tags if isinstance(t, (str,int,float))][:8]
-                    brief = p.get('brief') if isinstance(p.get('brief'), str) else None
-                    itin = _norm_itinerary(p.get('itinerary'))
-                    pls = _normalize_places_list(p.get('places'))
-                    rinfo = _normalize_route_info(p.get('route_info') or p.get('route') or p.get('routeInfo'))
-                    text_body = p.get('text') if isinstance(p.get('text'), str) else None
-                    plans_norm.append({
-                        'title': title.strip(),
-                        'tags': tags,
-                        'brief': brief.strip() if brief else None,
-                        'itinerary': itin or [],
-                        'places': pls or [],
-                        'route_info': rinfo,
-                        'text': text_body
-                    })
-            # legacy single-set fields
-            suggestions = _norm_suggestions(obj.get('suggestions')) if not raw_plans else None
-            itinerary = _norm_itinerary(obj.get('itinerary')) if (not raw_plans and obj.get('itinerary')) else None
-            if _flask_g is not None and any([summary, plans_norm, suggestions, itinerary]):
-                try:
-                    _flask_g.agent_struct = {
-                        'summary': summary,
-                        'plans': plans_norm,
-                        'suggestions': suggestions or [],
-                        'itinerary': itinerary or []
-                    }
-                except Exception:
-                    pass
-
-        def _strip_trailing_citation_brackets(txt: str) -> str:
-            # remove trailing " [1, 2] [3]" like annotations
-            return _re.sub(r"(?:\s*\[[0-9,\s]+\])+\s*$", "", txt or "")
-
-        def _recover_places_fragment(txt: str):
-            """Heuristic recovery for broken {"places":[{...}, {...}, ... [1,2]} missing closing ]}.
-            Returns (text_without_fragment, places_list) or (None, None) if not found.
-            """
-            try:
-                m = _re.search(r"\{\s*\"(places|place)\"\s*:\s*\[", txt)
-                if not m:
-                    return None, None
-                start = m.start()
-                rest = txt[m.end():]
-                rest = _strip_trailing_citation_brackets(rest)
-                # scan rest to collect top-level JSON objects within the array
-                objs = []
-                i = 0
-                n = len(rest)
-                while i < n:
-                    if rest[i] == '{':
-                        depth = 1
-                        j = i + 1
-                        while j < n and depth > 0:
-                            ch = rest[j]
-                            if ch == '"':
-                                # skip string
-                                j += 1
-                                while j < n:
-                                    if rest[j] == '\\':
-                                        j += 2
-                                        continue
-                                    if rest[j] == '"':
-                                        j += 1
-                                        break
-                                    j += 1
+                    day = day_blk.get('day') or day_blk.get('day_number') or day_blk.get('dayNumber')
+                    try: day = int(day)
+                    except Exception: day = None
+                    items_raw = day_blk.get('items') or day_blk.get('plans') or []
+                    its = []
+                    if isinstance(items_raw, list):
+                        for it in items_raw[:24]:
+                            if not isinstance(it, dict):
                                 continue
-                            elif ch == '{':
-                                depth += 1
-                            elif ch == '}':
-                                depth -= 1
-                            j += 1
-                        if depth == 0:
-                            objs.append(rest[i:j])
-                            i = j
-                            # skip comma and spaces
-                            while i < n and rest[i] in ' \t\r\n,':
-                                i += 1
-                            continue
-                        else:
-                            break
-                    else:
-                        i += 1
-                if not objs:
-                    return None, None
-                places = []
-                for o in objs:
-                    try:
-                        places.append(json.loads(o))
-                    except Exception:
-                        continue
-                places = _normalize_places_list(places)
-                if places:
-                    return txt[:start].rstrip(), places
-                return None, None
+                            title = it.get('title') or it.get('name')
+                            if not isinstance(title, str) or not title.strip():
+                                continue
+                            time_s = it.get('time') or it.get('slot') or it.get('start')
+                            if isinstance(time_s, (int,float)):
+                                if 0 <= time_s < 24: time_s = f"{int(time_s):02d}:00"
+                                else: time_s = str(time_s)
+                            if not isinstance(time_s, str): time_s = None
+                            detail = it.get('detail') or it.get('desc') or it.get('description')
+                            if not isinstance(detail, str): detail = None
+                            its.append({'time': time_s, 'title': title.strip(), 'detail': detail.strip() if detail else None})
+                    out.append({'day': day, 'items': its})
+            return out
+        if plans:
+            for p in plans[:6]:
+                if not isinstance(p, dict):
+                    continue
+                title = p.get('title') if isinstance(p.get('title'), str) else None
+                if not title: continue
+                tags = p.get('tags') if isinstance(p.get('tags'), list) else []
+                tags = [str(t) for t in tags if isinstance(t,(str,int,float))][:8]
+                brief = p.get('brief') if isinstance(p.get('brief'), str) else None
+                itin = _norm_itinerary(p.get('itinerary'))
+                pls = _normalize_places_list(p.get('places'))
+                rinfo = _normalize_route_info(p.get('route_info') or p.get('route') or p.get('routeInfo'))
+                text_body = p.get('text') if isinstance(p.get('text'), str) else None
+                plans_norm.append({'title': title.strip(),'tags': tags,'brief': brief.strip() if brief else None,'itinerary': itin or [],'places': pls or [],'route_info': rinfo,'text': text_body})
+        if _flask_g is not None and (summary or plans_norm):
+            try:
+                _flask_g.agent_struct = {'summary': summary,'plans': plans_norm,'suggestions': [],'itinerary': []}
             except Exception:
-                return None, None
-        # Trim trailing citation brackets once at the start
-        s = _strip_trailing_citation_brackets(s)
+                pass
 
-        # 0) pure JSON content: try parsing the entire string as a JSON object
+    def _extract_from_obj(obj: dict):
+        places = obj.get('places') if isinstance(obj, dict) else None
+        if places is None and isinstance(obj, dict):
+            places = obj.get('place')
+        route_info = obj.get('route_info') if isinstance(obj, dict) else None
+        if route_info is None and isinstance(obj, dict):
+            route_info = obj.get('route') or obj.get('routeInfo')
+        text_field = obj.get('text') if isinstance(obj, dict) else None
+        _attach(obj)
+        places = _normalize_places_list(places)
+        route_info = _normalize_route_info(route_info)
+        return places, route_info, (text_field if isinstance(text_field, str) else None)
+
+    s = _strip_citations(s)
+    stripped = s.strip()
+
+    # 1. direct parse
+    try:
+        obj = json.loads(stripped)
+        if isinstance(obj, dict):
+            places, rinfo, text_field = _extract_from_obj(obj)
+            return "", places, rinfo, text_field
+    except Exception:
+        pass
+
+    # 2. single extra '}' recovery
+    if stripped.endswith('}}') and stripped.startswith('{'):
         try:
-            obj0 = json.loads(s.strip())
-            if isinstance(obj0, dict):
-                places0 = obj0.get('places') if isinstance(obj0, dict) else None
-                if places0 is None:
-                    places0 = obj0.get('place') if isinstance(obj0, dict) else None
-                route_info0 = obj0.get('route_info') if isinstance(obj0, dict) else None
-                if route_info0 is None and isinstance(obj0, dict):
-                    route_info0 = obj0.get('route') or obj0.get('routeInfo')
-                text_field0 = obj0.get('text') if isinstance(obj0, dict) else None
-                # attach extended schema fields if present
-                _attach_extended(obj0)
-                places0 = _normalize_places_list(places0)
-                route_info0 = _normalize_route_info(route_info0)
-                return "", places0, route_info0, (text_field0 if isinstance(text_field0, str) else None)
+            obj = json.loads(stripped[:-1])
+            if isinstance(obj, dict):
+                places, rinfo, text_field = _extract_from_obj(obj)
+                return "", places, rinfo, text_field
         except Exception:
             pass
 
-        # 1) fenced code block ```json {..} ``` (prefer the last one)
-        blocks = _re.findall(r"```(?:json)?\s*({[\s\S]*?})\s*```", s)
-        candidate = None
-        if blocks:
-            candidate = blocks[-1]
+    # 3. balanced object with trailing lone '}'
+    if stripped.endswith('}'):
+        cand = _balanced_first_object(stripped)
+        if cand and len(cand) < len(stripped):
+            remainder = stripped[len(cand):].strip()
+            if remainder in ('','}'):
+                try:
+                    obj = json.loads(cand)
+                    if isinstance(obj, dict):
+                        places, rinfo, text_field = _extract_from_obj(obj)
+                        return "", places, rinfo, text_field
+                except Exception:
+                    pass
+
+    # 4. fenced code block (last)
+    fenced_blocks = _re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", s)
+    if fenced_blocks:
+        raw_block = fenced_blocks[-1]
+        cand = _balanced_first_object(raw_block)
+        if cand:
             try:
-                obj = json.loads(candidate)
-                places = obj.get('places') if isinstance(obj, dict) else None
-                if places is None:
-                    places = obj.get('place') if isinstance(obj, dict) else None
-                route_info = obj.get('route_info') if isinstance(obj, dict) else None
-                if route_info is None and isinstance(obj, dict):
-                    route_info = obj.get('route') or obj.get('routeInfo')
-                text_field = obj.get('text') if isinstance(obj, dict) else None
-                _attach_extended(obj)
-                places = _normalize_places_list(places)
-                route_info = _normalize_route_info(route_info)
-                # remove the last fenced block
-                s2 = s
-                last_idx = s2.rfind('```')
-                if last_idx != -1:
-                    s2 = s2[:last_idx].rstrip()
-                return s2, places, route_info, (text_field if isinstance(text_field, str) else None)
-            except Exception:
-                candidate = None
-        # 2) regex fallback: object containing keys of interest (allow trailing citation brackets)
-        m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
-        if m:
-            try:
-                obj = json.loads(m.group(1))
-                places = obj.get('places') if isinstance(obj, dict) else None
-                if places is None:
-                    places = obj.get('place') if isinstance(obj, dict) else None
-                route_info = obj.get('route_info') if isinstance(obj, dict) else None
-                if route_info is None and isinstance(obj, dict):
-                    route_info = obj.get('route') or obj.get('routeInfo')
-                text_field = obj.get('text') if isinstance(obj, dict) else None
-                _attach_extended(obj)
-                places = _normalize_places_list(places)
-                route_info = _normalize_route_info(route_info)
-                return s[:m.start(1)].rstrip(), places, route_info, (text_field if isinstance(text_field, str) else None)
+                obj = json.loads(cand)
+                if isinstance(obj, dict):
+                    places, rinfo, text_field = _extract_from_obj(obj)
+                    last_idx = s.rfind('```')
+                    prefix = s[:last_idx].rstrip() if last_idx != -1 else s
+                    return prefix, places, rinfo, text_field
             except Exception:
                 pass
-        # 3) heuristic recovery for broken places arrays
-        base_text, recovered = _recover_places_fragment(s)
-        if recovered:
-            return base_text, recovered, None, None
-    except Exception:
-        pass
+
+    # 5. regex object containing key of interest
+    m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
+    if m:
+        try:
+            obj = json.loads(m.group(1))
+            if isinstance(obj, dict):
+                places, rinfo, text_field = _extract_from_obj(obj)
+                return s[:m.start(1)].rstrip(), places, rinfo, text_field
+        except Exception:
+            pass
+
+    # 6. heuristic broken places array recovery (simplified)
+    mp = _re.search(r"(\{\s*\"(places|place)\"\s*:\s*\[)", s)
+    if mp:
+        head = s[:mp.start()]
+        arr_tail = s[mp.end():]
+        # collect object snippets
+        objs=[]; i=0
+        while i < len(arr_tail):
+            if arr_tail[i] == '{':
+                depth=1; j=i+1
+                while j < len(arr_tail) and depth>0:
+                    ch = arr_tail[j]
+                    if ch=='"':
+                        j+=1
+                        while j < len(arr_tail):
+                            if arr_tail[j]=='\\': j+=2; continue
+                            if arr_tail[j]=='"': j+=1; break
+                            j+=1
+                        continue
+                    elif ch=='{': depth+=1
+                    elif ch=='}': depth-=1
+                    j+=1
+                if depth==0:
+                    objs.append(arr_tail[i:j])
+                    i=j
+                    while i < len(arr_tail) and arr_tail[i] in ' \t\r\n,': i+=1
+                    continue
+                else:
+                    break
+            else:
+                i+=1
+        if objs:
+            places=[]
+            for o in objs:
+                try: places.append(json.loads(o))
+                except Exception: continue
+            places=_normalize_places_list(places)
+            if places:
+                return head.rstrip(), places, None, None
+
     return s, None, None, None
 
 def _normalize_grounding_meta(event: dict) -> dict:
@@ -536,14 +548,13 @@ def _start_timer():
         request._start_time = monotonic()
     except Exception:
         request._start_time = None
-    # attach a lightweight correlation id for tracing
     try:
         request._trace_id = f"{random.getrandbits(64):016x}"
     except Exception:
         request._trace_id = None
 
 @app.after_request
-def _log_request(resp: Response):
+def _log_request(resp):  # type: ignore
     try:
         dur_ms = None
         if getattr(request, "_start_time", None) is not None:
@@ -594,6 +605,9 @@ JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "2880"))  # 48h
 # After ENV is known, apply dev fallback and compute configured flag
 if not AGENT_BASE_URL and ENV.lower() == "development":
     AGENT_BASE_URL = "http://localhost:8080"
+# dev 環境ではデフォルトで raw agent reply をフルログ（明示指定があればそれを優先）
+if ENV.lower() == "development" and not os.getenv('AGENT_LOG_RAW'):
+    os.environ['AGENT_LOG_RAW'] = 'full'
 agent_configured = bool(AGENT_BASE_URL)
 if agent_configured:
     logger.info(f"Agent base URL configured: {AGENT_BASE_URL}")
@@ -1211,7 +1225,10 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
     bridge_logger.debug(f"Raw agent response: {_snip_json(j)}")
     if LOG_PAYLOADS:
         try:
-            bridge_logger.info(f"Run response: {_snip_json(j)}")
+            if FULL_PAYLOAD:
+                bridge_logger.info(f"Run response(full): {_snip_json(j)}")
+            else:
+                bridge_logger.info(f"Run response: {_snip_text(_snip_json(j), 1200)}")
         except Exception:
             pass
     return j
@@ -1357,7 +1374,7 @@ def agent_chat():
         req_session_id = (data.get('session_id') or '').strip()
         if not req_session_id:
             return jsonify({"error": "session_id is required"}), 400
-        logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} trace={tid}")
+        logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} timeout={AGENT_HTTP_TIMEOUT}s trace={tid}")
 
         claims = require_auth(request)
         user_info, last_persona = None, None
@@ -1383,7 +1400,7 @@ def agent_chat():
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
         try:
-            events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=60, base_url=effective_base, ensure_session=True)
+            events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=AGENT_HTTP_TIMEOUT, base_url=effective_base, ensure_session=True)
         except Exception as e:
             logger.exception("agent_backend_unreachable")
             return jsonify({
@@ -1403,6 +1420,37 @@ def agent_chat():
                 # 第1段: 自然文のみ（JSONを含めない）
                 reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
                 raw_reply_text = reply_text  # JSON抽出前の生文字列を保持
+                # 先頭フェンス即時除去（後段抽出の成功率向上）
+                try:
+                    import re as _re2
+                    rt_strip = reply_text.lstrip()
+                    if rt_strip.startswith('```'):
+                        m_fence = _re2.match(r'^```(?:json)?\s*([\s\S]*?)\s*```', rt_strip)
+                        if m_fence:
+                            inner = m_fence.group(1)
+                            global AGENT_JSON_FENCE_STRIPPED
+                            AGENT_JSON_FENCE_STRIPPED += 1
+                            reply_text = inner
+                            raw_reply_text = inner
+                            if LOG_PAYLOADS:
+                                logger.info("agent_reply_fence_stripped: initial fenced block removed")
+                except Exception:
+                    pass
+                # Debug: raw agent reply logging (controlled by env AGENT_LOG_RAW)
+                if os.getenv('AGENT_LOG_RAW') == '1':
+                    try:
+                        _snippet = (raw_reply_text or '').replace('\n', ' ')[:400]
+                        logger.info(f"agent_raw_reply_snippet len={len(raw_reply_text or '')} snippet='{_snippet}'")
+                    except Exception:
+                        pass
+                elif os.getenv('AGENT_LOG_RAW') == 'full':
+                    try:
+                        if FULL_PAYLOAD:
+                            logger.info(f"agent_raw_reply_full len={len(raw_reply_text or '')} body={raw_reply_text}")
+                        else:
+                            logger.info(f"agent_raw_reply_full len={len(raw_reply_text or '')} body={_snip_text(raw_reply_text, 4000)}")
+                    except Exception:
+                        pass
                 # もし誤ってJSONが混じっても本文として扱い、抽出は第2段で別途行う
 
             meta_norm = _normalize_grounding_meta(final_event)
@@ -1562,11 +1610,33 @@ def agent_chat():
                     except Exception:
                         pass
 
-                # それでもJSONが無い場合は、ユーザーに再要求（JSON-onlyの遵守を促す）
+                # それでもJSONが無い場合: raw_reply 全体が実は完全な JSON か最終確認 (セーフガード)
+                if not json_found and isinstance(raw_reply_text, str):
+                    try:
+                        obj_guard = json.loads(raw_reply_text.strip())
+                        if isinstance(obj_guard, dict):
+                            # 直接抽出 (places/route_info/text)
+                            places_g = obj_guard.get('places') or obj_guard.get('place')
+                            route_g = obj_guard.get('route_info') or obj_guard.get('route') or obj_guard.get('routeInfo')
+                            text_g = obj_guard.get('text') if isinstance(obj_guard.get('text'), str) else None
+                            places = _normalize_places_list(places_g)
+                            route_info = _normalize_route_info(route_g)
+                            reply_text = text_g or ''
+                            json_found = True
+                    except Exception:
+                        pass
+
+                # 依然 JSON 不在ならユーザー再要求（attempted_json_snippet は廃止）
                 if not json_found:
                     global AGENT_JSON_FAIL
                     AGENT_JSON_FAIL += 1
-                    logger.warning("agent_output_not_json: no JSON detected in agent reply")
+                    try:
+                        snippet = (raw_reply_text or '')
+                        if isinstance(snippet, str):
+                            snippet = snippet.strip().replace('\n', ' ')[:200]
+                        logger.warning(f"agent_output_not_json: no JSON detected in agent reply snippet='{snippet}'")
+                    except Exception:
+                        logger.warning("agent_output_not_json: no JSON detected in agent reply")
                     msg = "内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。"
                     return jsonify({
                         'reply': msg,
@@ -1574,7 +1644,8 @@ def agent_chat():
                         'citations': [],
                         'grounding_html': None,
                         'route_info': None,
-                        'error': 'agent_output_not_json'
+                        'error': 'agent_output_not_json',
+                        'raw_reply': raw_reply_text
                     }), 502
             except Exception:
                 pass

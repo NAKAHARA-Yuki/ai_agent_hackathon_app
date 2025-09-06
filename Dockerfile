@@ -19,6 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # バックエンドのコードをコピー
 COPY server/ .
+# shared ロギング/共通コード
+COPY shared/ ./shared
 
 # 環境変数PORTをリッスン
 EXPOSE 8080
