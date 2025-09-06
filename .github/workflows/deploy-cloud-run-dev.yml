@@ -1,19 +1,23 @@
-name: Deploy to Cloud Run
+name: Deploy to Cloud Run (dev)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ dev ]
   workflow_dispatch:
 
+# Secret strategy (dev): 全て本番と共通の GitHub Secrets を利用します。
+#  - 理由: シンプルさと管理コスト削減を優先。dev ブランチはサービス名 suffix (-dev) のみで分離。
+#  - 影響: 同一プロジェクト/SA/リポジトリを共有するため、dev デプロイはリソース操作で本番と衝突しないようサービス名を常に -dev 付きで維持。
+#  - 将来分離したくなった場合: *_DEV 変数を再導入し、env/secret 参照を書き換えることで対応可能。
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-dev
   cancel-in-progress: true
 
 jobs:
-  agent-and-mcp:
-    # Build & deploy Agent + MCP first so we can pass the URL to the app
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    name: Build and Deploy Agent + MCP
+  agent-and-mcp-dev:
+    if: github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
+    name: Build and Deploy Agent + MCP (dev)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,6 +28,7 @@ jobs:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: ${{ secrets.CLOUD_RUN_REGION }}
       REPO_AGENT: ${{ secrets.ARTIFACT_REGISTRY_REPO_AGENT }}
+      APP_ENV: development
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,7 +49,7 @@ jobs:
         run: |
           gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
 
-      - name: Ensure Artifact Registry repository exists (agent)
+      - name: Ensure Artifact Registry repository exists (agent dev)
         env:
           REGION: ${{ env.REGION }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
@@ -53,102 +58,100 @@ jobs:
           set -e
           REPO_NAME=$(echo "${REPO_PATH}" | awk -F'/' '{print $2}')
           if [ -z "${REPO_NAME}" ]; then
-            echo "ARTIFACT_REGISTRY_REPO_AGENT must be '<PROJECT_ID>/<REPOSITORY_NAME>'" >&2
+            echo "ARTIFACT_REGISTRY_REPO_AGENT_DEV must be '<PROJECT_ID>/<REPOSITORY_NAME>'" >&2
             exit 1
           fi
           if ! gcloud artifacts repositories describe "${REPO_NAME}" --location="${REGION}" >/dev/null 2>&1; then
-            echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION}"
+            echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION} (dev)"
             if ! gcloud artifacts repositories create "${REPO_NAME}" \
                 --repository-format=docker \
                 --location="${REGION}" \
-                --description="ai_agent_hackathon_app agent images"; then
-              echo "WARN: No permission to create Artifact Registry repo for agent." >&2
+                --description="ai_agent_hackathon_app agent images (dev)"; then
+              echo "WARN: Could not create Artifact Registry repo for dev agent." >&2
             fi
           else
             echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
           fi
 
-      - name: Build and push images (Agent + MCP)
+      - name: Build and push images (Agent + MCP dev)
         env:
           REGION: ${{ env.REGION }}
           REPO_PATH: ${{ env.REPO_AGENT }}
         run: |
           set -e
-          AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
+          AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service-dev:${GITHUB_SHA}
+          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service-dev:${GITHUB_SHA}
           docker build -t ${AGENT_IMAGE} agent
           docker build -t ${MCP_IMAGE} mcp
           docker push ${AGENT_IMAGE}
           docker push ${MCP_IMAGE}
 
-      - name: Deploy MCP to Cloud Run (auth required)
+      - name: Deploy MCP (dev)
         env:
           REGION: ${{ env.REGION }}
         run: |
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/maps-mcp-service:${GITHUB_SHA}
-          gcloud run deploy maps-mcp-service \
+          MCP_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/maps-mcp-service-dev:${GITHUB_SHA}
+          gcloud run deploy maps-mcp-service-dev \
             --image ${MCP_IMAGE} \
             --region ${REGION} \
             --platform managed \
-            --port 3000
+            --port 3000 \
+            --set-env-vars=APP_ENV=development
 
-      - name: Deploy Agent to Cloud Run (with MCP URL)
+      - name: Deploy Agent (dev)
         env:
           REGION: ${{ env.REGION }}
         run: |
-          AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service:${GITHUB_SHA}
-          MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
+          AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service-dev:${GITHUB_SHA}
+          MCP_URL=$(gcloud run services describe maps-mcp-service-dev --region ${REGION} --format 'value(status.url)')
           MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
-          gcloud run deploy travel-agent-service \
+          gcloud run deploy travel-agent-service-dev \
             --image ${AGENT_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
+            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
 
-      - name: Grant Agent SA invoker on MCP service
+      - name: Grant Agent SA invoker on MCP service (dev)
         env:
           REGION: ${{ env.REGION }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
         run: |
-          AGENT_SA=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
+          AGENT_SA=$(gcloud run services describe travel-agent-service-dev --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
           if [ -z "$AGENT_SA" ]; then
             PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
             AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
           fi
-          echo "Granting roles/run.invoker to ${AGENT_SA} on maps-mcp-service"
-          gcloud run services add-iam-policy-binding maps-mcp-service \
+          gcloud run services add-iam-policy-binding maps-mcp-service-dev \
             --region ${REGION} \
             --member serviceAccount:${AGENT_SA} \
             --role roles/run.invoker
 
-      - name: Resolve Agent URL
+      - name: Resolve Agent URL (dev)
         id: resolve_agent_url
         env:
           REGION: ${{ env.REGION }}
         run: |
           set -e
-          URL=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(status.url)')
+          URL=$(gcloud run services describe travel-agent-service-dev --region ${REGION} --format 'value(status.url)')
           echo "agent_url=${URL}" >> $GITHUB_OUTPUT
 
-  build-and-deploy:
-    needs: agent-and-mcp
-    # Extra guard: run only on main branch or manual dispatch
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    name: Build and Deploy to Cloud Run
+  build-and-deploy-dev:
+    needs: agent-and-mcp-dev
+    if: github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
+    name: Build and Deploy App (dev)
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: ${{ secrets.CLOUD_RUN_REGION }}
-      SERVICE: travel-quiz-app
+      SERVICE: travel-quiz-app-dev
       REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
-      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app:${{ github.sha }}
-
+      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app-dev:${{ github.sha }}
+      APP_ENV: development
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -169,7 +172,7 @@ jobs:
         run: |
           gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
 
-      - name: Ensure Artifact Registry repository exists
+      - name: Ensure Artifact Registry repository exists (app dev)
         env:
           REGION: ${{ env.REGION }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
@@ -178,30 +181,30 @@ jobs:
           set -e
           REPO_NAME=$(echo "${REPO_PATH}" | awk -F'/' '{print $2}')
           if [ -z "${REPO_NAME}" ]; then
-            echo "ARTIFACT_REGISTRY_REPO must be '<PROJECT_ID>/<REPOSITORY_NAME>' (e.g., my-proj/containers)" >&2
+            echo "ARTIFACT_REGISTRY_REPO_APP_DEV must be '<PROJECT_ID>/<REPOSITORY_NAME>'" >&2
             exit 1
           fi
           if ! gcloud artifacts repositories describe "${REPO_NAME}" --location="${REGION}" >/dev/null 2>&1; then
-            echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION}"
+            echo "Creating Artifact Registry repo: ${REPO_NAME} in ${REGION} (dev)"
             if ! gcloud artifacts repositories create "${REPO_NAME}" \
                 --repository-format=docker \
                 --location="${REGION}" \
-                --description="ai_agent_hackathon_app images"; then
-              echo "WARN: No permission to create Artifact Registry repo. Please pre-create '${REPO_NAME}' or grant 'roles/artifactregistry.admin' to the deploying SA." >&2
+                --description="ai_agent_hackathon_app images (dev)"; then
+              echo "WARN: No permission to create Artifact Registry dev repo." >&2
             fi
           else
             echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
           fi
 
-      - name: Build Docker image
+      - name: Build Docker image (dev)
         run: |
           docker build -t ${REGION}-docker.pkg.dev/${IMAGE} .
 
-      - name: Push Docker image
+      - name: Push Docker image (dev)
         run: |
           docker push ${REGION}-docker.pkg.dev/${IMAGE}
 
-      - name: Deploy to Cloud Run
+      - name: Deploy App (dev)
         run: |
           gcloud run deploy ${SERVICE} \
             --image=${REGION}-docker.pkg.dev/${IMAGE} \
@@ -209,10 +212,10 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --port=8080 \
-            --max-instances=3 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp.outputs.agent_url }}
+            --max-instances=2 \
+            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp-dev.outputs.agent_url }}
 
-      - name: Resolve App URL
+      - name: Resolve App URL (dev)
         id: resolve_app_url
         env:
           REGION: ${{ env.REGION }}
@@ -220,23 +223,14 @@ jobs:
         run: |
           set -e
           APP_URL=$(gcloud run services describe ${SERVICE} --region ${REGION} --format 'value(status.url)')
-          if [ -z "${APP_URL}" ]; then
-            echo "Failed to resolve app service URL" >&2
-            exit 1
-          fi
           echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
 
-      - name: Update Agent with APP_SERVER_BASE
+      - name: Update Agent with APP_SERVER_BASE (dev)
         env:
           REGION: ${{ env.REGION }}
           APP_URL: ${{ steps.resolve_app_url.outputs.app_url }}
         run: |
           set -e
-          if [ -z "${APP_URL}" ]; then
-            echo "APP_URL is empty; cannot update Agent env" >&2
-            exit 1
-          fi
-          # Update Agent service to include APP_SERVER_BASE without overwriting other env vars
-          gcloud run services update travel-agent-service \
+          gcloud run services update travel-agent-service-dev \
             --region ${REGION} \
             --update-env-vars=APP_SERVER_BASE=${APP_URL}
