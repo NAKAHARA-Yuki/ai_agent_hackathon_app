@@ -72,7 +72,8 @@ DEFAULT_INSTRUCTION = (
 	"出力仕様（単一JSON）:\n{\n  \"summary\": \"全体要約 1-2文\",\n  \"plans\": [\n    { \"title\": \"案1タイトル\", \"tags\": [\"温泉\", \"自然\"], \"brief\": \"40字以内説明\", \"itinerary\": [ { \"day\":1, \"items\":[ {\"time\":\"09:00\", \"title\":\"スポット\", \"detail\":\"任意説明\"} ] } ], \"places\": [ { \"name\": \"正式名称\", \"lat\":35.0, \"lng\":139.0, \"note\":\"任意\" } ], \"route_info\": { \"origin\": \"名称 or 'lat,lng'\", \"destination\": \"名称 or 'lat,lng'\", \"waypoints\": [], \"mode\": \"driving|walking|bicycling|transit\" }, \"text\": \"GFM本文(概要/日別表)\" },\n    { \"title\": \"案2タイトル\", \"tags\": [\"文化\"], \"brief\": \"説明\", \"itinerary\": [], \"places\": [], \"route_info\": null, \"text\": \"...\" },\n    { \"title\": \"案3タイトル\", \"tags\": [\"グルメ\"], \"brief\": \"説明\", \"itinerary\": [], \"places\": [], \"route_info\": null, \"text\": \"...\" }\n  ]\n}\n\n"
 	"制約：\n- plans は必ず 3 件。title 25文字以内。tags 各 1-6 語。brief 40字以内。\n- itinerary: day 昇順 / time=HH:MM / 1日 2-8 items。\n- 各 plan の places 最大10 (重複名除外)。lat/lng 数値 or null。\n- route_info 任意。\n- text は該当プラン説明 + 簡潔日別表 (Markdown) を含め JSON 外へ書かない。\n- 余計なキー/末尾カンマ/シングルクォート禁止。\n\n"
 	"自己検証チェックリスト：\n1) JSON 1 個のみか?\n2) plans 配列 3 件か?\n3) 各 plan 必須キー (title,tags,brief,itinerary,places,text) あるか?\n4) 時刻形式/ day 順序 / items 数制約守るか?\n5) 不正/危険/閉鎖スポット含んでいないか?\n6) 前後に文字やコードフェンス無しか?\n\n"
-	"出力は開始文字 '{' から終了 '}' までの 1 個の JSON オブジェクトのみ。``` や説明文, マークダウン, 前後のテキストは禁止。"
+	"出力は開始文字 '{' から終了 '}' までの 1 個の JSON オブジェクトのみ。``` や説明文, マークダウン, 前後のテキストは禁止。\n"
+	"(EN Warning) Output exactly ONE raw JSON object only. DO NOT wrap in code fences. Any extra text or fences may cause the response to be rejected."
 )
 
 INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
