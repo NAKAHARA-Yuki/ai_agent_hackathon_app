@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import sys
 import time
 import random
 import re
@@ -13,6 +14,10 @@ from google.cloud import firestore
 import jwt
 from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Add shared module to path  
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from logging_config import configure_basic_cloud_logging
 
 # Ensure we load env from this directory (server/.env) even if CWD is repo root
 _env_path = Path(__file__).resolve().parent / '.env'
@@ -56,17 +61,15 @@ else:
 # Use a non-root static_url_path to avoid conflicts with SPA fallback
 app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/static')
 
-# Logging setup
+# Cloud-friendly logging setup 
 LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
-numeric_level = getattr(logging, LOG_LEVEL, logging.INFO)
-logging.basicConfig(
-    level=numeric_level,
-    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
-    force=True
-)
+try:
+    configure_basic_cloud_logging(level_name=LOG_LEVEL, force=True)
+except Exception:
+    configure_basic_cloud_logging(level_name="INFO", force=True)
+
 logger = logging.getLogger("server")
-logger.setLevel(numeric_level)
-app.logger.setLevel(numeric_level)
+app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 # Forced to True as requested
