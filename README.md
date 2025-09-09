@@ -253,6 +253,39 @@ GitHub Actions ワークフローにより自動デプロイ：
 - **ログレベル**: 本番環境では `LOG_LEVEL=INFO` に設定
 - **Firestore Rules**: セキュリティルールを適切に設定
 
+## 🔒 セキュリティ強化
+
+このアプリケーションには包括的なセキュリティ機能が実装されています：
+
+### インフラストラクチャセキュリティ
+- **VPCネットワーク分離**: プライベートサブネット、Cloud NAT、ファイアウォールルール
+- **IAM最小権限**: サービス専用アカウント、Workload Identity統合
+- **Secret Manager**: API キーと機密情報の安全な管理
+- **セキュリティ監視**: リアルタイム監視、自動アラート、ログ分析
+
+### アプリケーションセキュリティ  
+- **レート制限**: DDoS攻撃対策、API呼び出し制限
+- **セキュリティヘッダー**: XSS、CSRF、CSP保護
+- **認証強化**: JWT セキュリティ、認証ログ記録
+- **脆弱性対策**: コンテナスキャン、セキュリティパターン検出
+
+### セットアップ方法
+```bash
+# セキュリティインフラの自動セットアップ
+cd infrastructure/scripts
+export PROJECT_ID="your-gcp-project-id"
+export ENVIRONMENT="prod"
+./setup-infrastructure.sh
+
+# セキュリティ検証
+./validate-security.sh
+```
+
+詳細は以下のドキュメントを参照:
+- [SECURITY.md](./SECURITY.md) - セキュリティガイド
+- [SECURITY_IMPLEMENTATION_GUIDE.md](./SECURITY_IMPLEMENTATION_GUIDE.md) - 実装ガイド
+- [infrastructure/README.md](./infrastructure/README.md) - インフラ詳細
+
 ## 🛠️ 開発ガイドライン
 
 ### ブランチ戦略
