@@ -1604,6 +1604,50 @@ def agent_chat():
             events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=AGENT_HTTP_TIMEOUT, base_url=effective_base, ensure_session=True)
         except Exception as e:
             logger.exception("agent_backend_unreachable")
+            
+            # Development fallback: generate mock plans with images when agent service is unavailable
+            if ENV.lower() == 'development':
+                logger.info("Using development fallback for agent chat with image generation")
+                
+                # Extract travel keywords from the message
+                travel_keywords = message.lower()
+                mock_plans = [
+                    {
+                        'title': f'{travel_keywords}の素敵なプラン A',
+                        'description': f'{travel_keywords}を満喫する2泊3日の旅。心に残る思い出を作りましょう。',
+                        'tags': ['リラックス', '自然', '体験'],
+                    },
+                    {
+                        'title': f'{travel_keywords}の文化体験プラン B',
+                        'description': f'{travel_keywords}と地域の文化を楽しむ特別な旅程。歴史と伝統に触れる体験をお届けします。',
+                        'tags': ['文化', '歴史', '伝統'],
+                    },
+                    {
+                        'title': f'{travel_keywords}のアクティブプラン C',
+                        'description': f'{travel_keywords}でアクティブに過ごす冒険の旅。新しい発見と刺激的な体験が待っています。',
+                        'tags': ['アクティブ', '冒険', '発見'],
+                    }
+                ]
+                
+                # Generate images for mock plans
+                for i, plan in enumerate(mock_plans):
+                    plan_text = f"{plan['title']} {plan['description']}"
+                    plan_id = f"dev_{req_session_id}_{i}_{int(time.time())}"
+                    image_url = generate_and_save_travel_image(plan_text, plan_id)
+                    if image_url:
+                        plan['image_url'] = image_url
+                        logger.info(f"Generated development image for plan: {plan['title']}")
+                
+                return jsonify({
+                    "reply": f"{travel_keywords}のプランを3つご提案しました！どちらがお気に入りでしょうか？",
+                    "plans": mock_plans,
+                    "places": [],
+                    "citations": [],
+                    "grounding_html": None,
+                    "route_info": None,
+                    "_dev_mode": True
+                })
+            
             return jsonify({
                 "reply": "現在プラン作成サービスに接続できません。しばらくしてからお試しください。",
                 "error": "agent_backend_unreachable"

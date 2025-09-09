@@ -7,3 +7,4 @@ gevent
 google-cloud-firestore==2.16.0
 PyJWT==2.8.0
 Werkzeug==3.0.3
+Pillow==11.3.0
