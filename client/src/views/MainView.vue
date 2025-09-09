@@ -93,9 +93,9 @@ function restart() {
               v-for="plan in recentPlans" 
               :key="plan.id" 
               class="plan-item"
-              @click="router.push(`/plans/${plan.id}`)"
+              @click="router.push({ name: 'plan-detail', params: { id: plan.id } })"
               tabindex="0"
-              @keydown.enter.prevent="router.push(`/plans/${plan.id}`)"
+              @keydown.enter.prevent="router.push({ name: 'plan-detail', params: { id: plan.id } })"
             >
               <div class="plan-main">
                 <div class="plan-title">{{ plan.title }}</div>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { agentChat } from '@/services/apiClient'
 import InputScreen from '@/components/InputScreen.vue'
 import LoadingScreen from '@/components/LoadingScreen.vue'
@@ -8,6 +9,7 @@ import DetailScreen from '@/components/DetailScreen.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { createPlan } from '@/services/apiClient'
 
+const router = useRouter()
 const currentView = ref('input') // 'input' | 'loading' | 'suggestions' | 'detail'
 const travelPlans = ref([])
 const selectedPlan = ref(null)
@@ -82,7 +84,7 @@ function handleRefine(plan) {
   // Create a temporary plan and navigate to refinement
   createPlan(tempPlan, auth.authHeader()).then(response => {
     // Navigate to the plan chat view
-    window.location.assign(`/plans/${response.id}/chat`)
+    router.push({ name: 'plan-chat', params: { id: response.id } })
   }).catch(e => {
     console.error('Failed to create temp plan for refinement:', e)
   })
