@@ -66,6 +66,17 @@ function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'deta
 function handleGoBack() { currentView.value = 'suggestions' }
 function handleRegenerate(keyword) {
   // 新しいキーワードで再度プラン生成
+  if (!keyword || typeof keyword !== 'string') {
+    console.warn('Invalid keyword provided for regeneration:', keyword)
+    return
+  }
+  
+  // キーワードの長さチェック
+  if (keyword.length > 100) {
+    console.warn('Keyword too long for regeneration:', keyword.length)
+    return
+  }
+  
   handleCreatePlan(keyword)
 }
 async function handleConfirm(plan){

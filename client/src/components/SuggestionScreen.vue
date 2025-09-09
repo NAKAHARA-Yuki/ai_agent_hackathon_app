@@ -24,30 +24,44 @@
     </div>
     <div class="regenerate-section">
       <p class="regenerate-text">気に入るプランがありませんか？</p>
-      <div class="regenerate-form" v-if="showRegenerateInput">
+      <div class="regenerate-form" v-if="showRegenerateInput" role="region" aria-labelledby="regenerate-heading">
+        <h3 id="regenerate-heading" class="sr-only">新しいキーワードで再生成</h3>
+        <label for="regenerate-input" class="sr-only">新しいキーワードを入力</label>
         <input 
+          id="regenerate-input"
           v-model="regenerateKeyword" 
           type="text" 
           inputmode="search" 
           placeholder="新しいキーワードを入力してください" 
           class="regenerate-input"
+          maxlength="100"
           @keydown.enter.prevent="handleRegenerate"
+          aria-describedby="regenerate-help"
         />
+        <p id="regenerate-help" class="sr-only">エンターキーを押すか再生成ボタンをクリックして新しいプランを生成</p>
         <div class="regenerate-buttons">
-          <button @click="handleRegenerate" :disabled="!regenerateKeyword.trim()" class="regenerate-submit">再生成</button>
+          <button @click="handleRegenerate" :disabled="!regenerateKeyword.trim()" class="regenerate-submit" aria-describedby="regenerate-help">再生成</button>
           <button @click="cancelRegenerate" class="regenerate-cancel">キャンセル</button>
         </div>
       </div>
-      <button v-else @click="showRegenerateForm" class="regenerate-button">
+      <button v-else @click="showRegenerateForm" class="regenerate-button" aria-describedby="regenerate-description">
         🔄 新しいキーワードで再生成
       </button>
+      <p id="regenerate-description" class="sr-only">現在の提案が気に入らない場合は、新しいキーワードで別のプランを生成できます</p>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-const props = defineProps({ plans: { type: Array, default: () => [] } })
+const props = defineProps({ 
+  plans: { 
+    type: Array, 
+    required: true,
+    default: () => [],
+    validator: (value) => Array.isArray(value)
+  } 
+})
 const emit = defineEmits(['select-plan', 'regenerate'])
 
 const showRegenerateInput = ref(false)
@@ -55,10 +69,20 @@ const regenerateKeyword = ref('')
 
 // 簡易画像割当: タイトル + id を seed に Unsplash のランダムサムネイル（将来は API/自前画像に差し替え可）
 const keywords = ['travel','landscape','japan','city','nature','culture','ocean','mountain']
-const enrichedPlans = computed(() => props.plans.map((p, idx) => {
-  const key = encodeURIComponent(((p.title||'') + ' ' + keywords[idx % keywords.length]).trim())
-  return { raw: p, id: p.id, image: `https://source.unsplash.com/featured/400x300?${key}` }
-}))
+const enrichedPlans = computed(() => {
+  if (!Array.isArray(props.plans)) return []
+  
+  return props.plans.map((p, idx) => {
+    if (!p || typeof p !== 'object') return null
+    
+    const key = encodeURIComponent(((p.title||'') + ' ' + keywords[idx % keywords.length]).trim())
+    return { 
+      raw: p, 
+      id: p.id || idx, 
+      image: `https://source.unsplash.com/featured/400x300?${key}` 
+    }
+  }).filter(Boolean)
+})
 
 function showRegenerateForm() {
   showRegenerateInput.value = true
@@ -71,8 +95,14 @@ function cancelRegenerate() {
 }
 
 function handleRegenerate() {
-  if (!regenerateKeyword.value.trim()) return
-  emit('regenerate', regenerateKeyword.value)
+  const keyword = regenerateKeyword.value.trim()
+  if (!keyword) return
+  
+  // サニタイズ: 危険な文字を除去
+  const sanitizedKeyword = keyword.replace(/[<>'"&]/g, '')
+  if (sanitizedKeyword.length === 0) return
+  
+  emit('regenerate', sanitizedKeyword)
   showRegenerateInput.value = false
   regenerateKeyword.value = ''
 }
@@ -132,6 +162,11 @@ function handleRegenerate() {
   transform: translateY(0);
 }
 
+.regenerate-button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .regenerate-form {
   display: flex;
   flex-direction: column;
@@ -185,6 +220,11 @@ function handleRegenerate() {
   cursor: not-allowed;
 }
 
+.regenerate-submit:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .regenerate-cancel {
   background: transparent;
   color: var(--color-text-subtle);
@@ -198,6 +238,24 @@ function handleRegenerate() {
 
 .regenerate-cancel:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.regenerate-cancel:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* スクリーンリーダー専用テキスト */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (min-width:640px){
