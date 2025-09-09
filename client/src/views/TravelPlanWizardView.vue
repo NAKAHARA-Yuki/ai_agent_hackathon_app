@@ -64,6 +64,10 @@ async function handleCreatePlan(keyword) {
 }
 function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'detail' }
 function handleGoBack() { currentView.value = 'suggestions' }
+function handleRegenerate(keyword) {
+  // 新しいキーワードで再度プラン生成
+  handleCreatePlan(keyword)
+}
 async function handleConfirm(plan){
   if(saving.value) return
   try {
@@ -131,7 +135,7 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
     <div class="wizard-inner">
       <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
       <LoadingScreen v-else-if="currentView==='loading'" />
-      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" />
+      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" @regenerate="handleRegenerate" />
   <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" />
     </div>
   </div>
