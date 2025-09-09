@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { agentChat } from '@/services/apiClient'
 import InputScreen from '@/components/InputScreen.vue'
 import LoadingScreen from '@/components/LoadingScreen.vue'
@@ -7,6 +8,8 @@ import SuggestionScreen from '@/components/SuggestionScreen.vue'
 import DetailScreen from '@/components/DetailScreen.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { createPlan } from '@/services/apiClient'
+
+const router = useRouter()
 
 const currentView = ref('input') // 'input' | 'loading' | 'suggestions' | 'detail'
 const travelPlans = ref([])
@@ -64,6 +67,52 @@ async function handleCreatePlan(keyword) {
 }
 function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'detail' }
 function handleGoBack() { currentView.value = 'suggestions' }
+
+function handleRefine(plan) {
+  // Navigate to the plan chat view for refinement
+  // We need to save the plan first, then navigate to the refinement screen
+  const tempPlan = {
+    title: plan.title,
+    text: plan.text || plan.tags || '',
+    places: plan.places || [],
+    route_info: plan.route_info || null,
+    status: 'draft',
+    summary: plan.summary || null,
+    suggestions: plan.suggestions || [],
+    itinerary: plan.itinerary || []
+  }
+  
+  // Create a temporary plan and navigate to refinement
+  createPlan(tempPlan, auth.authHeader()).then(response => {
+    // Navigate to the plan chat view
+    router.push({ name: 'plan-chat', params: { id: response.id } })
+  }).catch(e => {
+    console.error('Failed to create temp plan for refinement:', e)
+  })
+}
+
+function handleRegenerate(keyword) {
+  // 新しいキーワードで再度プラン生成
+  if (!keyword || typeof keyword !== 'string') {
+    console.warn('Invalid keyword provided for regeneration:', keyword)
+    return
+  }
+  
+  // キーワードの長さチェック
+  if (keyword.length > 100) {
+    console.warn('Keyword too long for regeneration:', keyword.length)
+    return
+  }
+  
+  // 安全性チェック: 危険な文字が含まれていないか
+  if (/[<>'"&\x00-\x1F\x7F-\x9F]/.test(keyword)) {
+    console.warn('Invalid characters in keyword:', keyword)
+    return
+  }
+  
+  handleCreatePlan(keyword)
+}
+
 async function handleConfirm(plan){
   if(saving.value) return
   try {
@@ -131,8 +180,10 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
     <div class="wizard-inner">
       <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
       <LoadingScreen v-else-if="currentView==='loading'" />
-      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" />
-  <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" />
+
+      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" @regenerate="handleRegenerate" />
+
+  <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" @refine="handleRefine" />
     </div>
   </div>
 </template>

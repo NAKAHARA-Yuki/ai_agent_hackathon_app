@@ -24,6 +24,11 @@ async function load(){
 onMounted(load)
 
 function goBack(){ router.back() }
+
+function startRefinement() {
+  const planId = route.params.id
+  router.push(`/plans/${planId}/chat`)
+}
 </script>
 
 <template>
@@ -67,26 +72,111 @@ function goBack(){ router.back() }
           <li v-for="(p,i) in plan.places" :key="i">{{ p.name }}<small v-if="p.note"> — {{ p.note }}</small></li>
         </ul>
       </div>
+      
+      <!-- Refinement Button -->
+      <div class="action-buttons">
+        <button class="refine-btn" @click="startRefinement" aria-label="プランをブラッシュアップ">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 2v4"></path>
+            <path d="M16 2v4"></path>
+            <rect width="18" height="18" x="3" y="4" rx="2"></rect>
+            <path d="M3 10h18"></path>
+            <path d="M8 14h.01"></path>
+            <path d="M12 14h.01"></path>
+            <path d="M16 14h.01"></path>
+            <path d="M8 18h.01"></path>
+            <path d="M12 18h.01"></path>
+          </svg>
+          ブラッシュアップ
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.plan-detail-screen{ padding:16px 16px 80px; overflow:auto; height:100%; box-sizing:border-box; display:flex; flex-direction:column; gap:14px; }
-.back{ align-self:flex-start; background:#fff; border:1px solid #e2e8f0; padding:6px 12px; border-radius:10px; cursor:pointer; font-size:12px; box-shadow:0 2px 5px rgba(0,0,0,0.05); }
-.title{ font-size:20px; font-weight:700; margin:4px 0 0; letter-spacing:-.5px; }
-.summary{ margin:4px 0 8px; font-size:13px; color:#475569; line-height:1.5; }
-.suggestions ul{ list-style:none; padding:0; margin:4px 0 0; display:flex; flex-direction:column; gap:4px; }
-.suggestions li{ font-size:13px; line-height:1.4; }
+/* 全体: 余白 + 中央寄せカラム。height/overflow排除で二重スクロール崩れ防止 */
+/* ヘッダー固定 (site-header 約56px想定) による見切れ防止として top-padding 拡大 */
+.plan-detail-screen{ padding:72px 16px 120px; box-sizing:border-box; display:flex; flex-direction:column; gap:20px; max-width:920px; margin:0 auto; width:100%; scroll-margin-top:72px; }
+.back{ align-self:flex-start; background:#fff; border:1px solid #e2e8f0; padding:6px 14px; border-radius:12px; cursor:pointer; font-size:12px; line-height:1; box-shadow:0 2px 5px rgba(0,0,0,0.05); transition:background .2s,border-color .2s; }
+.back:hover{ background:#f1f5f9; }
+.title{ font-size:22px; font-weight:700; margin:0; letter-spacing:-.5px; line-height:1.25; word-break:break-word; }
+.summary{ margin:2px 0 4px; font-size:14px; color:#475569; line-height:1.6; word-break:break-word; overflow-wrap:anywhere; }
+
+/* セクション共通カード化 */
+.content{ display:flex; flex-direction:column; gap:28px; }
+.content > .suggestions,
+.content > .itinerary,
+.content > .raw-text,
+.content > .places{ background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px 18px 20px; box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); }
+
+h2{ font-size:15px; margin:0 0 10px; font-weight:700; color:#334155; letter-spacing:.2px; }
+h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
+
+/* 候補リスト */
+.suggestions ul{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
+.suggestions li{ font-size:13px; line-height:1.45; color:#475569; }
 .suggestions .tags{ color:#64748b; font-size:11px; }
 .suggestions .brief{ color:#475569; font-size:11px; }
-.itinerary .day{ background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px 12px; margin:8px 0; }
+
+/* 日程 */
+.itinerary .day{ background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px 12px; margin:10px 0 12px; }
+.itinerary .day:last-child{ margin-bottom:0; }
 .itinerary h3{ margin:0 0 6px; font-size:13px; font-weight:700; color:#334155; }
-.items{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:4px; }
-.items li{ font-size:13px; line-height:1.35; color:#475569; display:flex; flex-wrap:wrap; gap:4px; }
-.items .time{ font-weight:600; min-width:56px; }
-.raw-text pre{ white-space:pre-wrap; font-size:12px; background:#f8fafc; padding:10px 12px; border-radius:12px; border:1px solid #e2e8f0; }
-.places ul{ list-style:disc; padding-left:20px; margin:4px 0 0; display:flex; flex-direction:column; gap:2px; font-size:12px; }
+.items{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px; }
+.items li{ font-size:13px; line-height:1.4; color:#475569; display:flex; flex-wrap:wrap; gap:6px; }
+.items .time{ font-weight:600; min-width:52px; color:#0f172a; }
+
+/* 本文 */
+.raw-text pre{ white-space:pre-wrap; font-size:12.5px; line-height:1.55; background:#f1f5f9; padding:12px 14px; border-radius:14px; border:1px solid #e2e8f0; overflow:auto; max-height:480px; scrollbar-width:thin; }
+.raw-text pre::-webkit-scrollbar{ height:8px; width:8px; }
+.raw-text pre::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px; }
+
+/* 場所 */
+.places ul{ list-style:disc; padding-left:20px; margin:0; display:flex; flex-direction:column; gap:4px; font-size:12.5px; color:#475569; }
+.places li small{ color:#64748b; margin-left:2px; }
+
+/* 状態表示 */
 .loading, .error{ font-size:13px; color:#64748b; }
 .error{ color:#dc2626; }
+
+/* Action Buttons */
+.action-buttons { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px; box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); }
+.refine-btn { 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  gap:8px; 
+  width:100%; 
+  padding:12px 20px; 
+  background:linear-gradient(135deg, #3b82f6, #1d4ed8); 
+  color:#fff; 
+  border:none; 
+  border-radius:12px; 
+  font-size:14px; 
+  font-weight:600; 
+  cursor:pointer; 
+  transition:all .2s ease; 
+  box-shadow:0 4px 12px rgba(59,130,246,0.3); 
+}
+.refine-btn:hover { 
+  background:linear-gradient(135deg, #2563eb, #1e40af); 
+  transform:translateY(-1px); 
+  box-shadow:0 6px 16px rgba(59,130,246,0.4); 
+}
+.refine-btn:active { 
+  transform:translateY(0); 
+  box-shadow:0 2px 8px rgba(59,130,246,0.3); 
+}
+.refine-btn svg { 
+  width:18px; 
+  height:18px; 
+}
+
+@media (min-width:640px){
+  .title{ font-size:26px; }
+  .summary{ font-size:15px; }
+  h2{ font-size:16px; }
+  .raw-text pre{ font-size:13px; }
+}
 </style>
