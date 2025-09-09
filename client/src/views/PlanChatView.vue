@@ -18,7 +18,19 @@ const sessionId = ref('')
 const saving = ref(false)
 
 // Generate session ID for this chat
-sessionId.value = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+function generateUUID() {
+  if (crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback: Generate proper UUID v4
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
+sessionId.value = generateUUID()
 
 async function loadPlan() {
   try {
@@ -45,6 +57,26 @@ async function loadPlan() {
   }
 }
 
+function formatPlanContext(plan, userMessage) {
+  const summarySection = plan.summary ? `概要: ${plan.summary}` : ''
+  
+  const itinerarySection = plan.itinerary?.length ? 
+    '現在の日程:\n' + plan.itinerary.map((day, i) => 
+      `Day ${day.day || i+1}:\n` + 
+      (day.items || []).map(item => `- ${item.time || ''} ${item.title}`).join('\n')
+    ).join('\n\n') : ''
+  
+  return `現在のプラン「${plan.title}」について相談があります。
+
+${summarySection}
+
+${itinerarySection}
+
+ユーザーの要望: ${userMessage}
+
+上記のプランを改善した新しいプランを提案してください。できれば places 配列と itinerary も含めて JSON 形式で返してください。`
+}
+
 async function sendMessage() {
   if (!inputMessage.value.trim() || loading.value) return
   
@@ -67,20 +99,7 @@ async function sendMessage() {
   
   try {
     // Create context message with current plan details
-    const contextMessage = `現在のプラン「${currentPlan.value.title}」について相談があります。
-
-${currentPlan.value.summary ? `概要: ${currentPlan.value.summary}` : ''}
-
-${currentPlan.value.itinerary?.length ? 
-  '現在の日程:\n' + currentPlan.value.itinerary.map((day, i) => 
-    `Day ${day.day || i+1}:\n` + 
-    (day.items || []).map(item => `- ${item.time || ''} ${item.title}`).join('\n')
-  ).join('\n\n') : ''
-}
-
-ユーザーの要望: ${userMessage}
-
-上記のプランを改善した新しいプランを提案してください。できれば places 配列と itinerary も含めて JSON 形式で返してください。`
+    const contextMessage = formatPlanContext(currentPlan.value, userMessage)
 
     const response = await agentChat({
       message: contextMessage,
@@ -154,7 +173,13 @@ async function savePlan() {
     router.push('/plans')
   } catch (error) {
     console.error('Save error:', error)
-    alert('保存に失敗しました。もう一度お試しください。')
+    messages.value.push({
+      id: Date.now() + 1,
+      type: 'error',
+      content: '保存に失敗しました。もう一度お試しください。',
+      timestamp: new Date()
+    })
+    scrollToBottom()
   } finally {
     saving.value = false
   }
