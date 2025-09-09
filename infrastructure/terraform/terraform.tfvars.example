@@ -1,0 +1,14 @@
+# Terraform変数の設定例
+# このファイルをコピーしてterraform.tfvarsとして使用してください
+
+# 必須設定
+project_id = "your-gcp-project-id-here"
+region     = "asia-northeast1"
+environment = "prod"  # または "dev"
+
+# セキュリティ設定
+security_notification_email = "security@your-domain.com"
+
+# オプション設定（デフォルト値が設定されている場合は不要）
+# vpc_cidr = "10.0.0.0/24"
+# connector_cidr = "10.8.0.0/28"
