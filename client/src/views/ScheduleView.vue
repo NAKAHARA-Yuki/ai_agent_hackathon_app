@@ -19,7 +19,8 @@ async function load(){
       summary: p.summary || null,
       brief: p.brief || null,
       date: (p.created_at && p.created_at.seconds ? new Date(p.created_at.seconds*1000) : new Date()).toISOString().slice(0,10),
-      status: p.status || 'confirmed'
+      status: p.status || 'confirmed',
+      itinerary: p.itinerary || []
     }))
   } catch(e){ error.value = '読み込み失敗' } finally { loading.value=false }
 }
@@ -36,6 +37,28 @@ onMounted(load)
           <div class="date">{{ p.date }}</div>
           <div class="title">{{ p.title }}</div>
           <div v-if="p.summary || p.brief" class="preview">{{ p.summary || p.brief }}</div>
+          
+          <!-- Travel Plan Timetable Preview -->
+          <div v-if="p.itinerary && p.itinerary.length > 0" class="itinerary-preview">
+            <div class="itinerary-header">📅 日程表</div>
+            <div class="mini-itinerary">
+              <div v-for="(day, idx) in p.itinerary.slice(0, 2)" :key="idx" class="mini-day">
+                <span class="day-label">Day {{ day.day || (idx+1) }}</span>
+                <div class="mini-items">
+                  <div v-for="(item, i) in (day.items || []).slice(0, 2)" :key="i" class="mini-item">
+                    <span v-if="item.time" class="mini-time">{{ item.time }}</span>
+                    <span class="mini-title">{{ item.title }}</span>
+                  </div>
+                  <div v-if="day.items && day.items.length > 2" class="more-items">
+                    +{{ day.items.length - 2 }}件
+                  </div>
+                </div>
+              </div>
+              <div v-if="p.itinerary.length > 2" class="more-days">
+                +{{ p.itinerary.length - 2 }}日間の予定
+              </div>
+            </div>
+          </div>
         </div>
         <div class="badge" :class="p.status">{{ p.status === 'confirmed' ? '確定' : '下書き' }}</div>
       </div>
@@ -62,4 +85,73 @@ onMounted(load)
 .badge.confirmed { background:#dbeafe; color:#1d4ed8; }
 .badge.draft { background:#fef3c7; color:#b45309; }
 .empty { font-size:12px; color:var(--color-text-subtle); margin-top:24px; text-align:center; }
+
+/* Travel Plan Timetable Preview Styles */
+.itinerary-preview { 
+  margin-top:8px; 
+  padding:8px 10px; 
+  background:#f8fafc; 
+  border:1px solid #e2e8f0; 
+  border-radius:8px; 
+}
+
+.itinerary-header { 
+  font-size:11px; 
+  font-weight:600; 
+  color:#334155; 
+  margin-bottom:6px; 
+  letter-spacing:0.5px;
+}
+
+.mini-itinerary { 
+  display:flex; 
+  flex-direction:column; 
+  gap:4px; 
+}
+
+.mini-day { 
+  display:flex; 
+  align-items:flex-start; 
+  gap:6px; 
+  font-size:11px; 
+}
+
+.day-label { 
+  font-weight:600; 
+  color:#475569; 
+  min-width:40px; 
+  flex-shrink:0; 
+}
+
+.mini-items { 
+  display:flex; 
+  flex-direction:column; 
+  gap:2px; 
+  flex:1; 
+}
+
+.mini-item { 
+  display:flex; 
+  gap:4px; 
+  align-items:center; 
+  color:#64748b; 
+}
+
+.mini-time { 
+  font-weight:600; 
+  color:#475569; 
+  min-width:35px; 
+  font-size:10px; 
+}
+
+.mini-title { 
+  font-weight:500; 
+  line-height:1.3; 
+}
+
+.more-items, .more-days { 
+  font-size:10px; 
+  color:#94a3b8; 
+  font-style:italic; 
+}
 </style>
