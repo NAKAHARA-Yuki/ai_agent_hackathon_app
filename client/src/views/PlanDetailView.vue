@@ -24,6 +24,11 @@ async function load(){
 onMounted(load)
 
 function goBack(){ router.back() }
+
+function startRefinement() {
+  const planId = route.params.id
+  router.push(`/plans/${planId}/chat`)
+}
 </script>
 
 <template>
@@ -66,6 +71,24 @@ function goBack(){ router.back() }
         <ul>
           <li v-for="(p,i) in plan.places" :key="i">{{ p.name }}<small v-if="p.note"> — {{ p.note }}</small></li>
         </ul>
+      </div>
+      
+      <!-- Refinement Button -->
+      <div class="action-buttons">
+        <button class="refine-btn" @click="startRefinement" aria-label="プランをブラッシュアップ">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 2v4"></path>
+            <path d="M16 2v4"></path>
+            <rect width="18" height="18" x="3" y="4" rx="2"></rect>
+            <path d="M3 10h18"></path>
+            <path d="M8 14h.01"></path>
+            <path d="M12 14h.01"></path>
+            <path d="M16 14h.01"></path>
+            <path d="M8 18h.01"></path>
+            <path d="M12 18h.01"></path>
+          </svg>
+          ブラッシュアップ
+        </button>
       </div>
     </div>
   </div>
@@ -116,6 +139,39 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
 /* 状態表示 */
 .loading, .error{ font-size:13px; color:#64748b; }
 .error{ color:#dc2626; }
+
+/* Action Buttons */
+.action-buttons { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px; box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); }
+.refine-btn { 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  gap:8px; 
+  width:100%; 
+  padding:12px 20px; 
+  background:linear-gradient(135deg, #3b82f6, #1d4ed8); 
+  color:#fff; 
+  border:none; 
+  border-radius:12px; 
+  font-size:14px; 
+  font-weight:600; 
+  cursor:pointer; 
+  transition:all .2s ease; 
+  box-shadow:0 4px 12px rgba(59,130,246,0.3); 
+}
+.refine-btn:hover { 
+  background:linear-gradient(135deg, #2563eb, #1e40af); 
+  transform:translateY(-1px); 
+  box-shadow:0 6px 16px rgba(59,130,246,0.4); 
+}
+.refine-btn:active { 
+  transform:translateY(0); 
+  box-shadow:0 2px 8px rgba(59,130,246,0.3); 
+}
+.refine-btn svg { 
+  width:18px; 
+  height:18px; 
+}
 
 @media (min-width:640px){
   .title{ font-size:26px; }
