@@ -278,3 +278,13 @@ GitHub Actions ワークフローにより自動デプロイ：
 - ルート表示はキー不要の埋め込みを既定で使用します（InvalidKeyMapError 時でも表示可能）
 - Advanced Marker を使う場合は、Map ID を設定し、VITE_ENABLE_ADVANCED_MARKER=true にしてください
 
+## 📄 ライセンス
+
+このプロジェクトは著作権で保護されています。
+
+**Copyright (c) 2024 NAKAHARA-Yuki. All rights reserved.**
+
+このソフトウェアの使用、複製、配布、修正、またはその他の利用には、著作権者の事前の書面による許可が必要です。詳細については、[LICENSE](LICENSE) ファイルをご確認ください。
+
+ライセンスに関するお問い合わせは、プロジェクト所有者までご連絡ください。
+
