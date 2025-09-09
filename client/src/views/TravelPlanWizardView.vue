@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { createPlan } from '@/services/apiClient'
 
 const router = useRouter()
+
 const currentView = ref('input') // 'input' | 'loading' | 'suggestions' | 'detail'
 const travelPlans = ref([])
 const selectedPlan = ref(null)
@@ -89,6 +90,29 @@ function handleRefine(plan) {
     console.error('Failed to create temp plan for refinement:', e)
   })
 }
+
+function handleRegenerate(keyword) {
+  // 新しいキーワードで再度プラン生成
+  if (!keyword || typeof keyword !== 'string') {
+    console.warn('Invalid keyword provided for regeneration:', keyword)
+    return
+  }
+  
+  // キーワードの長さチェック
+  if (keyword.length > 100) {
+    console.warn('Keyword too long for regeneration:', keyword.length)
+    return
+  }
+  
+  // 安全性チェック: 危険な文字が含まれていないか
+  if (/[<>'"&\x00-\x1F\x7F-\x9F]/.test(keyword)) {
+    console.warn('Invalid characters in keyword:', keyword)
+    return
+  }
+  
+  handleCreatePlan(keyword)
+}
+
 async function handleConfirm(plan){
   if(saving.value) return
   try {
@@ -156,7 +180,9 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
     <div class="wizard-inner">
       <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
       <LoadingScreen v-else-if="currentView==='loading'" />
-      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" />
+
+      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" @regenerate="handleRegenerate" />
+
   <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" @refine="handleRefine" />
     </div>
   </div>
