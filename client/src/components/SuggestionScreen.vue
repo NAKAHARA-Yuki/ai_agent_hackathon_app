@@ -26,26 +26,49 @@
       <p class="regenerate-text">気に入るプランがありませんか？</p>
       <div class="regenerate-form" v-if="showRegenerateInput" role="region" aria-labelledby="regenerate-heading">
         <h3 id="regenerate-heading" class="sr-only">新しいキーワードで再生成</h3>
-        <label for="regenerate-input" class="sr-only">新しいキーワードを入力</label>
-        <input 
-          id="regenerate-input"
-          v-model="regenerateKeyword" 
-          type="text" 
-          inputmode="search" 
-          placeholder="新しいキーワードを入力してください" 
-          class="regenerate-input"
-          maxlength="100"
-          @keydown.enter.prevent="handleRegenerate"
-          aria-describedby="regenerate-help"
-        />
+        <div class="input-wrapper">
+          <label for="regenerate-input" class="sr-only">新しいキーワードを入力</label>
+          <input 
+            id="regenerate-input"
+            v-model="regenerateKeyword" 
+            type="text" 
+            inputmode="search" 
+            placeholder="新しいキーワードを入力してください" 
+            class="regenerate-input"
+            :class="{ 'input-error': errorMessage }"
+            maxlength="100"
+            @keydown.enter.prevent="handleRegenerate"
+            @input="errorMessage = ''"
+            aria-describedby="regenerate-help regenerate-counter"
+            :aria-invalid="!!errorMessage"
+          />
+          <div class="input-feedback">
+            <span id="regenerate-counter" class="character-counter" :class="{ 'counter-warning': characterCount > 90 }">
+              {{ characterCount }}/100
+            </span>
+          </div>
+        </div>
         <p id="regenerate-help" class="sr-only">エンターキーを押すか再生成ボタンをクリックして新しいプランを生成</p>
+        <div v-if="errorMessage" class="error-message" role="alert" aria-live="polite">
+          {{ errorMessage }}
+        </div>
         <div class="regenerate-buttons">
-          <button @click="handleRegenerate" :disabled="!regenerateKeyword.trim()" class="regenerate-submit" aria-describedby="regenerate-help">再生成</button>
-          <button @click="cancelRegenerate" class="regenerate-cancel">キャンセル</button>
+          <button 
+            @click="handleRegenerate" 
+            :disabled="!isKeywordValid || isRegenerating" 
+            class="regenerate-submit" 
+            :class="{ 'loading': isRegenerating }"
+            aria-describedby="regenerate-help"
+          >
+            <span v-if="isRegenerating">生成中...</span>
+            <span v-else>再生成</span>
+          </button>
+          <button @click="cancelRegenerate" class="regenerate-cancel" :disabled="isRegenerating">キャンセル</button>
         </div>
       </div>
       <button v-else @click="showRegenerateForm" class="regenerate-button" aria-describedby="regenerate-description">
-        🔄 新しいキーワードで再生成
+        <span class="button-icon">🔄</span>
+        <span class="button-text">新しいキーワードで再生成</span>
       </button>
       <p id="regenerate-description" class="sr-only">現在の提案が気に入らない場合は、新しいキーワードで別のプランを生成できます</p>
     </div>
@@ -58,14 +81,15 @@ const props = defineProps({
   plans: { 
     type: Array, 
     required: true,
-    default: () => [],
-    validator: (value) => Array.isArray(value)
+    validator: (value) => Array.isArray(value) && value.every(item => item && typeof item === 'object')
   } 
 })
 const emit = defineEmits(['select-plan', 'regenerate'])
 
 const showRegenerateInput = ref(false)
 const regenerateKeyword = ref('')
+const isRegenerating = ref(false)
+const errorMessage = ref('')
 
 // 簡易画像割当: タイトル + id を seed に Unsplash のランダムサムネイル（将来は API/自前画像に差し替え可）
 const keywords = ['travel','landscape','japan','city','nature','culture','ocean','mountain']
@@ -84,27 +108,53 @@ const enrichedPlans = computed(() => {
   }).filter(Boolean)
 })
 
+const characterCount = computed(() => regenerateKeyword.value.length)
+const isKeywordValid = computed(() => {
+  const keyword = regenerateKeyword.value.trim()
+  return keyword.length > 0 && keyword.length <= 100 && !/[<>'"&\x00-\x1F\x7F-\x9F]/.test(keyword)
+})
+
 function showRegenerateForm() {
   showRegenerateInput.value = true
   regenerateKeyword.value = ''
+  errorMessage.value = ''
 }
 
 function cancelRegenerate() {
   showRegenerateInput.value = false
   regenerateKeyword.value = ''
+  errorMessage.value = ''
+  isRegenerating.value = false
 }
 
-function handleRegenerate() {
+async function handleRegenerate() {
+  if (!isKeywordValid.value || isRegenerating.value) return
+  
   const keyword = regenerateKeyword.value.trim()
-  if (!keyword) return
   
-  // サニタイズ: 危険な文字を除去
-  const sanitizedKeyword = keyword.replace(/[<>'"&]/g, '')
-  if (sanitizedKeyword.length === 0) return
+  // 追加のサニタイズ: 制御文字と危険な文字を除去
+  const sanitizedKeyword = keyword.replace(/[<>'"&\x00-\x1F\x7F-\x9F]/g, '')
+  if (sanitizedKeyword.length === 0) {
+    errorMessage.value = 'キーワードに使用できない文字が含まれています'
+    return
+  }
   
-  emit('regenerate', sanitizedKeyword)
-  showRegenerateInput.value = false
-  regenerateKeyword.value = ''
+  if (sanitizedKeyword.length > 100) {
+    errorMessage.value = 'キーワードは100文字以内で入力してください'
+    return
+  }
+
+  try {
+    isRegenerating.value = true
+    errorMessage.value = ''
+    emit('regenerate', sanitizedKeyword)
+    showRegenerateInput.value = false
+    regenerateKeyword.value = ''
+  } catch (error) {
+    console.error('Regeneration error:', error)
+    errorMessage.value = '再生成中にエラーが発生しました。もう一度お試しください。'
+    isRegenerating.value = false
+  }
 }
 </script>
 
@@ -151,6 +201,9 @@ function handleRegenerate() {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .regenerate-button:hover {
@@ -163,8 +216,16 @@ function handleRegenerate() {
 }
 
 .regenerate-button:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--color-focus, #007bff);
   outline-offset: 2px;
+}
+
+.button-icon {
+  font-size: 16px;
+}
+
+.button-text {
+  white-space: nowrap;
 }
 
 .regenerate-form {
@@ -175,6 +236,10 @@ function handleRegenerate() {
   margin: 0 auto;
 }
 
+.input-wrapper {
+  position: relative;
+}
+
 .regenerate-input {
   width: 100%;
   padding: 12px 16px;
@@ -182,15 +247,47 @@ function handleRegenerate() {
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 12px;
   background: white;
-  color: var(--color-text);
+  color: var(--color-text, #333);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   box-sizing: border-box;
+  transition: border-color 0.2s ease;
 }
 
 .regenerate-input:focus {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--color-focus, #007bff);
   outline-offset: 2px;
-  border-color: var(--color-focus);
+  border-color: var(--color-focus, #007bff);
+}
+
+.regenerate-input.input-error {
+  border-color: #dc3545;
+  box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15);
+}
+
+.input-feedback {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.character-counter {
+  font-size: 12px;
+  color: var(--color-text-subtle, #666);
+}
+
+.character-counter.counter-warning {
+  color: #ff6b35;
+  font-weight: 600;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 12px;
+  margin: 0;
+  padding: 4px 8px;
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 6px;
 }
 
 .regenerate-buttons {
@@ -200,7 +297,7 @@ function handleRegenerate() {
 }
 
 .regenerate-submit {
-  background: var(--color-primary);
+  background: var(--color-primary, #007bff);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -208,11 +305,12 @@ function handleRegenerate() {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+  min-width: 80px;
 }
 
 .regenerate-submit:hover:not(:disabled) {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-hover, #0056b3);
 }
 
 .regenerate-submit:disabled {
@@ -220,14 +318,19 @@ function handleRegenerate() {
   cursor: not-allowed;
 }
 
+.regenerate-submit.loading {
+  background: #6c757d;
+  cursor: wait;
+}
+
 .regenerate-submit:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--color-focus, #007bff);
   outline-offset: 2px;
 }
 
 .regenerate-cancel {
   background: transparent;
-  color: var(--color-text-subtle);
+  color: var(--color-text-subtle, #666);
   border: 1px solid rgba(0, 0, 0, 0.2);
   padding: 10px 20px;
   border-radius: 10px;
@@ -236,12 +339,17 @@ function handleRegenerate() {
   transition: all 0.2s ease;
 }
 
-.regenerate-cancel:hover {
+.regenerate-cancel:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.05);
 }
 
+.regenerate-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .regenerate-cancel:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--color-focus, #007bff);
   outline-offset: 2px;
 }
 

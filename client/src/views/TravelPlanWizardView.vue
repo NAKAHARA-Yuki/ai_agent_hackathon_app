@@ -77,6 +77,12 @@ function handleRegenerate(keyword) {
     return
   }
   
+  // 安全性チェック: 危険な文字が含まれていないか
+  if (/[<>'"&\x00-\x1F\x7F-\x9F]/.test(keyword)) {
+    console.warn('Invalid characters in keyword:', keyword)
+    return
+  }
+  
   handleCreatePlan(keyword)
 }
 async function handleConfirm(plan){
