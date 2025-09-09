@@ -18,12 +18,22 @@ async function loadLatestPersona() {
   try {
     const resp = await fetch('/api/persona/latest', { headers: { ...auth.authHeader() } })
     if (resp.ok) {
-      persona.value = await resp.json()
+      const data = await resp.json()
+      // Ensure we have valid persona data with profile
+      if (data && typeof data === 'object' && data.profile && data.profile.title && data.profile.description) {
+        persona.value = data
+      } else {
+        console.warn('Invalid persona data received:', data)
+        persona.value = null
+      }
     } else {
+      console.log('No persona data found (HTTP', resp.status + ')')
       persona.value = null
     }
   } catch (e) {
+    console.error('Failed to load persona:', e)
     error.value = e?.message || '読み込みに失敗しました'
+    persona.value = null
   } finally {
     loading.value = false
   }
@@ -74,10 +84,17 @@ function restart() {
       <p class="lead">あなたの診断に基づき、パーソナライズされた旅の提案を続けられます。</p>
 
       <div v-if="loading">読み込み中...</div>
+      <div v-else-if="error" class="error">
+        <p>エラーが発生しました: {{ error }}</p>
+        <button @click="loadLatestPersona" class="retry-btn">再試行</button>
+      </div>
       <div v-else>
-        <div v-if="persona && persona.profile">
+        <div v-if="persona && persona.profile && persona.profile.title">
           <h3>現在のタイプ: {{ persona.profile.title }}</h3>
-          <p>{{ persona.profile.description }}</p>
+          <p>{{ persona.profile.description || '詳細情報は現在利用できません。' }}</p>
+          <div v-if="persona.profile.traitScores && Object.keys(persona.profile.traitScores).length > 0" class="trait-summary">
+            <small class="muted">診断結果に基づいてパーソナライズされています</small>
+          </div>
         </div>
         <div v-else class="muted">まだペルソナがありません。診断を実施してください。</div>
 
@@ -125,6 +142,33 @@ function restart() {
 .panel { width:min(920px,100%); background:white; padding:24px 20px; border-radius:14px; box-shadow:0 10px 24px rgba(0,0,0,0.06); border:1px solid #eef2f7; }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
+.error { 
+  color: #dc2626; 
+  padding: 16px; 
+  background: #fef2f2; 
+  border-radius: 8px; 
+  border: 1px solid #fecaca; 
+  margin-bottom: 16px; 
+}
+.retry-btn { 
+  background: #dc2626; 
+  color: white; 
+  border: none; 
+  border-radius: 6px; 
+  padding: 8px 12px; 
+  margin-top: 8px; 
+  cursor: pointer; 
+}
+.retry-btn:hover { 
+  background: #b91c1c; 
+}
+.trait-summary {
+  margin-top: 8px;
+}
+.trait-summary small {
+  font-size: 12px;
+  color: #9ca3af;
+}
 .actions { margin-top: 16px; display:flex; gap: 12px; }
 .primary { background: var(--color-primary); color:#fff; border:none; border-radius:10px; padding:10px 16px; }
 
