@@ -14,13 +14,20 @@ const hasResult = computed(() => !!quiz.finalResult)
 const recentPlans = ref([])
 const plansLoading = ref(true)
 
+// Helper function to validate persona data
+function isValidPersona(data) {
+  return data && 
+         typeof data === 'object' && 
+         data.profile && 
+         data.profile.title
+}
+
 async function loadLatestPersona() {
   try {
     const resp = await fetch('/api/persona/latest', { headers: { ...auth.authHeader() } })
     if (resp.ok) {
       const data = await resp.json()
-      // Ensure we have valid persona data with profile
-      if (data && typeof data === 'object' && data.profile && data.profile.title && data.profile.description) {
+      if (isValidPersona(data)) {
         persona.value = data
       } else {
         console.warn('Invalid persona data received:', data)
@@ -89,10 +96,10 @@ function restart() {
         <button @click="loadLatestPersona" class="retry-btn">再試行</button>
       </div>
       <div v-else>
-        <div v-if="persona && persona.profile && persona.profile.title">
+        <div v-if="persona?.profile?.title">
           <h3>現在のタイプ: {{ persona.profile.title }}</h3>
           <p>{{ persona.profile.description || '詳細情報は現在利用できません。' }}</p>
-          <div v-if="persona.profile.traitScores && Object.keys(persona.profile.traitScores).length > 0" class="trait-summary">
+          <div v-if="persona.profile?.traitScores && Object.keys(persona.profile.traitScores).length > 0" class="trait-summary">
             <small class="muted">診断結果に基づいてパーソナライズされています</small>
           </div>
         </div>
