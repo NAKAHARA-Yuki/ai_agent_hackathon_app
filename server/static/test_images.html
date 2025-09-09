@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Image Generation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .plan-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .plan-image { width: 100%; height: 200px; object-fit: cover; background: #ddd; }
+        .plan-content { padding: 20px; }
+        .plan-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .plan-description { color: #666; line-height: 1.5; margin-bottom: 10px; }
+        .plan-tags { color: #0066cc; font-size: 14px; }
+        .test-button { background: #0066cc; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; margin-bottom: 20px; }
+        .test-button:hover { background: #0052a3; }
+        .loading { text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 旅行画像生成テスト</h1>
+            <p>Gemini 2.5 Flash Image を使用した旅行プラン画像生成のデモ</p>
+            <button class="test-button" onclick="generateTravelPlans()">旅行プランと画像を生成</button>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            画像を生成中...
+        </div>
+        
+        <div id="plans-container" class="plans-grid">
+            <!-- Plans will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        async function generateTravelPlans() {
+            const keywords = ['京都の紅葉', '北海道の雪景色', '沖縄の海', '富士山登山', '温泉巡り'];
+            const keyword = keywords[Math.floor(Math.random() * keywords.length)];
+            
+            const loadingEl = document.getElementById('loading');
+            const containerEl = document.getElementById('plans-container');
+            
+            loadingEl.style.display = 'block';
+            containerEl.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/test/travel_plans_with_images', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ keyword })
+                });
+                
+                const data = await response.json();
+                
+                if (data.plans) {
+                    containerEl.innerHTML = data.plans.map(plan => `
+                        <div class="plan-card">
+                            <img src="${plan.image_url}" alt="${plan.title}" class="plan-image" 
+                                 onerror="this.style.background='linear-gradient(45deg, #667eea 0%, #764ba2 100%)'; this.style.display='block';">
+                            <div class="plan-content">
+                                <div class="plan-title">${plan.title}</div>
+                                <div class="plan-description">${plan.description}</div>
+                                <div class="plan-tags">${plan.tags.join(' ')}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                containerEl.innerHTML = '<div style="text-align: center; color: red;">エラーが発生しました</div>';
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        }
+        
+        // Load initial plans
+        generateTravelPlans();
+    </script>
+</body>
+</html>

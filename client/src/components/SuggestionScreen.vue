@@ -30,11 +30,22 @@ import { computed } from 'vue'
 const props = defineProps({ plans: { type: Array, default: () => [] } })
 defineEmits(['select-plan'])
 
-// 簡易画像割当: タイトル + id を seed に Unsplash のランダムサムネイル（将来は API/自前画像に差し替え可）
+// 画像の処理: 生成された画像があればそれを使用、なければUnsplashのランダム画像をフォールバック
 const keywords = ['travel','landscape','japan','city','nature','culture','ocean','mountain']
 const enrichedPlans = computed(() => props.plans.map((p, idx) => {
-  const key = encodeURIComponent(((p.title||'') + ' ' + keywords[idx % keywords.length]).trim())
-  return { raw: p, id: p.id, image: `https://source.unsplash.com/featured/400x300?${key}` }
+  let image
+  
+  // Check if the plan has a generated image
+  if (p.image_url) {
+    // Use the generated image from the server
+    image = p.image_url.startsWith('http') ? p.image_url : `http://localhost:8080${p.image_url}`
+  } else {
+    // Fallback to Unsplash (original behavior)
+    const key = encodeURIComponent(((p.title||'') + ' ' + keywords[idx % keywords.length]).trim())
+    image = `https://source.unsplash.com/featured/400x300?${key}`
+  }
+  
+  return { raw: p, id: p.id, image }
 }))
 </script>
 

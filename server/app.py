@@ -7,6 +7,8 @@ import re
 import json
 import requests
 import logging
+import base64
+import io
 from time import monotonic
 from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, send_from_directory, request, Response
@@ -1102,6 +1104,205 @@ def call_gemini_api(prompt, model_name='gemini-2.5-flash'):
     # APIからのレスポンスを直接JSONとしてパース
     return response.json()
 
+def call_gemini_image_api(prompt, model_name='imagen-3.0-generate-001'):
+    """
+    Gemini Image APIをRESTで呼び出す関数。
+    """
+    if not genai_configured:
+        raise Exception("GEMINI_API_KEY is not configured for image generation.")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateImage"
+    headers = {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': api_key
+    }
+    data = {
+        "prompt": {
+            "text": prompt
+        },
+        "safetySettings": [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_ONLY_HIGH"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_ONLY_HIGH"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_ONLY_HIGH"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_ONLY_HIGH"
+            }
+        ]
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    response.raise_for_status()
+    
+    return response.json()
+
+def create_development_placeholder_image(travel_plan_text, plan_id):
+    """
+    開発環境用：プレースホルダー画像を作成する。
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont  # type: ignore
+        
+        # Create a simple colored image with travel plan title
+        width, height = 400, 300
+        
+        # Choose color based on plan content
+        colors = [
+            (70, 130, 180),    # Steel Blue - for nature/ocean
+            (34, 139, 34),     # Forest Green - for mountains
+            (255, 140, 0),     # Dark Orange - for cultural sites
+            (220, 20, 60),     # Crimson - for urban adventures
+            (75, 0, 130),      # Indigo - for spiritual/temples
+        ]
+        
+        # Simple hash to pick consistent color for same content
+        color_index = hash(travel_plan_text[:50]) % len(colors)
+        bg_color = colors[color_index]
+        
+        # Create image
+        img = Image.new('RGB', (width, height), bg_color)
+        draw = ImageDraw.Draw(img)
+        
+        # Add gradient effect
+        for i in range(height):
+            alpha = int(255 * (1 - i / height * 0.3))
+            gradient_color = tuple(max(0, min(255, c + alpha // 4)) for c in bg_color)
+            draw.line([(0, i), (width, i)], fill=gradient_color)
+        
+        # Add title text
+        title = travel_plan_text[:30] + ('...' if len(travel_plan_text) > 30 else '')
+        try:
+            # Try to use a default font
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+        except:
+            font = ImageFont.load_default()
+        
+        # Calculate text position
+        bbox = draw.textbbox((0, 0), title, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        x = (width - text_width) // 2
+        y = height // 2 - text_height // 2
+        
+        # Add text with shadow
+        draw.text((x+2, y+2), title, fill=(0, 0, 0, 128), font=font)  # Shadow
+        draw.text((x, y), title, fill=(255, 255, 255), font=font)      # Main text
+        
+        # Add "DEMO" watermark
+        demo_font = ImageFont.load_default()
+        draw.text((10, height-25), "DEMO IMAGE", fill=(255, 255, 255, 180), font=demo_font)
+        
+        # Save image
+        timestamp = int(time.time())
+        filename = f"demo_travel_plan_{plan_id}_{timestamp}.png"
+        static_dir = os.path.join(os.path.dirname(__file__), 'static', 'generated_images')
+        os.makedirs(static_dir, exist_ok=True)
+        file_path = os.path.join(static_dir, filename)
+        
+        img.save(file_path, 'PNG')
+        logger.info(f"Created development placeholder image: {filename}")
+        
+        return f"/static/generated_images/{filename}"
+        
+    except ImportError:
+        logger.warning("PIL not available for development image generation, using external placeholder")
+        # Fallback to a placeholder service
+        return f"https://via.placeholder.com/400x300/{hex(hash(travel_plan_text) % 0xFFFFFF)[2:]:0>6}/FFFFFF?text=Travel+Plan"
+    except Exception as e:
+        logger.error(f"Failed to create development placeholder image: {e}")
+        return None
+
+def generate_travel_image_prompt(travel_plan_text):
+    """
+    旅行プランのテキストから画像生成用のプロンプトを作成する。
+    """
+    # 旅行プランから主要な要素を抽出してプロンプトを生成
+    prompt = f"""
+    Create a beautiful, inspiring travel image that represents this Japanese travel plan. 
+    The image should be scenic, inviting, and capture the essence of the travel experience described.
+    Make it suitable for a travel planning application interface.
+    
+    Travel plan context: {travel_plan_text[:500]}
+    
+    Style: Professional travel photography, bright and vibrant, showing Japanese landscapes or cultural elements, 
+    high quality, suitable for web display, aspect ratio 4:3
+    """
+    return prompt.strip()
+
+def save_generated_image(image_data_base64, filename):
+    """
+    生成された画像をbase64データから保存する。
+    """
+    try:
+        # base64データをデコード
+        image_bytes = base64.b64decode(image_data_base64)
+        
+        # ファイルパスを作成
+        static_dir = os.path.join(os.path.dirname(__file__), 'static', 'generated_images')
+        os.makedirs(static_dir, exist_ok=True)
+        file_path = os.path.join(static_dir, filename)
+        
+        # ファイルに保存
+        with open(file_path, 'wb') as f:
+            f.write(image_bytes)
+        
+        return f"/static/generated_images/{filename}"
+    except Exception as e:
+        logger.error(f"Failed to save generated image: {e}")
+        return None
+
+def generate_and_save_travel_image(travel_plan_text, plan_id):
+    """
+    旅行プランから画像を生成して保存する。
+    """
+    if not genai_configured:
+        logger.warning("Gemini API not configured, using development fallback for image generation")
+        
+        # Development fallback: create a colored placeholder image
+        if ENV == 'development':
+            return create_development_placeholder_image(travel_plan_text, plan_id)
+        else:
+            return None
+    
+    try:
+        # 画像生成用のプロンプトを作成
+        prompt = generate_travel_image_prompt(travel_plan_text)
+        
+        # 画像を生成
+        response = call_gemini_image_api(prompt)
+        
+        # レスポンスから画像データを取得
+        if 'candidates' in response and response['candidates']:
+            candidate = response['candidates'][0]
+            if 'image' in candidate and 'data' in candidate['image']:
+                image_data = candidate['image']['data']
+                
+                # ファイル名を生成（タイムスタンプ + プランID）
+                timestamp = int(time.time())
+                filename = f"travel_plan_{plan_id}_{timestamp}.jpg"
+                
+                # 画像を保存
+                image_url = save_generated_image(image_data, filename)
+                if image_url:
+                    logger.info(f"Generated travel image saved: {image_url}")
+                    return image_url
+        
+        logger.warning("No image data found in API response")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Failed to generate travel image: {e}")
+        return None
+
 def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dict | None = None, timeout_sec: int = 30):
     """
     Agent サービスの /v1/plan を呼び出す。
@@ -1670,6 +1871,7 @@ def agent_chat():
 
         # ログで見切れないよう route_info を先に配置
         resp = { 'reply': reply_text or '提案を作成しました。', 'route_info': route_info, 'places': places, 'citations': citations, 'grounding_html': grounding_html }
+        
         # Attach structured agent output (new schema) if extraction stored it
         try:
             from flask import g as _g  # type: ignore
@@ -1678,12 +1880,24 @@ def agent_chat():
                 if struct.get('summary'):
                     resp['summary'] = struct.get('summary')
                 if 'plans' in struct and struct.get('plans'):
-                    resp['plans'] = struct.get('plans')
+                    plans = struct.get('plans')
+                    # Generate images for each travel plan
+                    for i, plan in enumerate(plans):
+                        if isinstance(plan, dict) and ('title' in plan or 'description' in plan):
+                            plan_text = f"{plan.get('title', '')} {plan.get('description', '')}".strip()
+                            if plan_text:
+                                plan_id = f"{req_session_id}_{i}_{int(time.time())}"
+                                image_url = generate_and_save_travel_image(plan_text, plan_id)
+                                if image_url:
+                                    plan['image_url'] = image_url
+                                    logger.info(f"Generated image for travel plan: {plan.get('title', 'Untitled')}")
+                    resp['plans'] = plans
                 if 'suggestions' in struct and struct.get('suggestions'):
                     resp['suggestions'] = struct.get('suggestions')
                 if 'itinerary' in struct and struct.get('itinerary'):
                     resp['itinerary'] = struct.get('itinerary')
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error adding travel plan images: {e}")
             pass
         if LOG_PAYLOADS:
             logger.info(f"/api/agent/chat response body: {_snip_json(resp)} trace={tid}")
@@ -2004,6 +2218,57 @@ def generate_plan():
     except Exception as e:
         logger.exception("An error occurred during plan generation")
         return jsonify({"error": "Failed to generate travel plans with AI", "details": str(e)}), 500
+
+
+@app.route('/api/test/travel_plans_with_images', methods=['POST'])
+def test_travel_plans_with_images():
+    """
+    開発・テスト用：旅行プランと生成画像のデモエンドポイント
+    """
+    data = request.get_json() or {}
+    keyword = data.get('keyword', '温泉旅行')
+    
+    # サンプル旅行プランを作成
+    sample_plans = [
+        {
+            'title': f'{keyword}プラン A',
+            'description': f'{keyword}を楽しむ2泊3日の旅。自然豊かな場所でリラックスできる素晴らしい体験をお届けします。',
+            'tags': ['リラックス', '自然', '温泉'],
+        },
+        {
+            'title': f'{keyword}プラン B', 
+            'description': f'{keyword}と文化体験を組み合わせた充実の旅程。歴史ある街並みと美食を堪能できます。',
+            'tags': ['文化', '歴史', '美食'],
+        },
+        {
+            'title': f'{keyword}プラン C',
+            'description': f'{keyword}でアクティブな体験を満喫。アウトドア活動と絶景スポットを巡る冒険の旅。',
+            'tags': ['アクティブ', '絶景', '冒険'],
+        }
+    ]
+    
+    # 各プランに画像を生成
+    for i, plan in enumerate(sample_plans):
+        plan_text = f"{plan['title']} {plan['description']}"
+        plan_id = f"test_{i}_{int(time.time())}"
+        image_url = generate_and_save_travel_image(plan_text, plan_id)
+        if image_url:
+            plan['image_url'] = image_url
+            logger.info(f"Generated test image for plan: {plan['title']}")
+    
+    return jsonify({
+        'plans': sample_plans,
+        'message': 'テスト用の旅行プランと画像を生成しました'
+    })
+
+
+@app.route('/static/generated_images/<filename>')
+def serve_generated_image(filename):
+    """
+    生成された画像を配信する。
+    """
+    static_dir = os.path.join(os.path.dirname(__file__), 'static', 'generated_images')
+    return send_from_directory(static_dir, filename)
 
 
 # ==== Auth endpoints (Firestore) ====

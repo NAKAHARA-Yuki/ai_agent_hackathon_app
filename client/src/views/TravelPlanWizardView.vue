@@ -33,6 +33,7 @@ async function handleCreatePlan(keyword) {
         places: p.places || [],
         route_info: p.route_info || null,
         text: p.text || '',
+        image_url: p.image_url || null,  // Add generated image URL
         __raw: p,
         __full: resp
       }))
