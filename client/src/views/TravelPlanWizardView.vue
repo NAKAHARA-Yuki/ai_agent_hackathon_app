@@ -64,6 +64,29 @@ async function handleCreatePlan(keyword) {
 }
 function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'detail' }
 function handleGoBack() { currentView.value = 'suggestions' }
+
+function handleRefine(plan) {
+  // Navigate to the plan chat view for refinement
+  // We need to save the plan first, then navigate to the refinement screen
+  const tempPlan = {
+    title: plan.title,
+    text: plan.text || plan.tags || '',
+    places: plan.places || [],
+    route_info: plan.route_info || null,
+    status: 'draft',
+    summary: plan.summary || null,
+    suggestions: plan.suggestions || [],
+    itinerary: plan.itinerary || []
+  }
+  
+  // Create a temporary plan and navigate to refinement
+  createPlan(tempPlan, auth.authHeader()).then(response => {
+    // Navigate to the plan chat view
+    window.location.assign(`/plans/${response.id}/chat`)
+  }).catch(e => {
+    console.error('Failed to create temp plan for refinement:', e)
+  })
+}
 async function handleConfirm(plan){
   if(saving.value) return
   try {
@@ -132,7 +155,7 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
       <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
       <LoadingScreen v-else-if="currentView==='loading'" />
       <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" />
-  <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" />
+  <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" @refine="handleRefine" />
     </div>
   </div>
 </template>

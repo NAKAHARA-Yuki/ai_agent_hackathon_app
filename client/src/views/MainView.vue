@@ -11,6 +11,8 @@ const persona = ref(null)
 const loading = ref(true)
 const error = ref('')
 const hasResult = computed(() => !!quiz.finalResult)
+const recentPlans = ref([])
+const plansLoading = ref(true)
 
 async function loadLatestPersona() {
   try {
@@ -27,7 +29,32 @@ async function loadLatestPersona() {
   }
 }
 
-onMounted(loadLatestPersona)
+async function loadRecentPlans() {
+  try {
+    const resp = await fetch('/api/plans', { headers: { ...auth.authHeader() } })
+    if (resp.ok) {
+      const data = await resp.json()
+      // Get the most recent 3 plans
+      recentPlans.value = (data.items || []).slice(0, 3).map(plan => ({
+        id: plan.id,
+        title: plan.title,
+        summary: plan.summary || plan.brief || '',
+        date: (plan.created_at && plan.created_at.seconds ? 
+          new Date(plan.created_at.seconds * 1000) : new Date()).toLocaleDateString('ja-JP'),
+        status: plan.status || 'confirmed'
+      }))
+    }
+  } catch (e) {
+    console.error('Failed to load recent plans:', e)
+  } finally {
+    plansLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadLatestPersona()
+  loadRecentPlans()
+})
 
 function goResults() {
   router.push({ name: 'results' })
@@ -57,6 +84,35 @@ function restart() {
         <div class="actions">
           <button class="primary" @click="router.push({ name: 'travel-wizard' })">旅行計画の作成</button>
         </div>
+
+        <!-- Recent Travel Plans Section -->
+        <div class="recent-plans" v-if="!plansLoading">
+          <h3>最近の旅行プラン</h3>
+          <div v-if="recentPlans.length > 0" class="plans-list">
+            <div 
+              v-for="plan in recentPlans" 
+              :key="plan.id" 
+              class="plan-item"
+              @click="router.push(`/plans/${plan.id}`)"
+              tabindex="0"
+              @keydown.enter.prevent="router.push(`/plans/${plan.id}`)"
+            >
+              <div class="plan-main">
+                <div class="plan-title">{{ plan.title }}</div>
+                <div v-if="plan.summary" class="plan-summary">{{ plan.summary }}</div>
+                <div class="plan-meta">
+                  <span class="plan-date">{{ plan.date }}</span>
+                  <span class="plan-status" :class="plan.status">{{ plan.status === 'confirmed' ? '確定' : '下書き' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p v-else class="no-plans">まだ保存されたプランがありません。</p>
+        </div>
+        <div v-else class="recent-plans loading">
+          <h3>最近の旅行プラン</h3>
+          <p>読み込み中...</p>
+        </div>
       </div>
       </section>
     </main>
@@ -71,4 +127,105 @@ function restart() {
 .muted { color:#6b7280; }
 .actions { margin-top: 16px; display:flex; gap: 12px; }
 .primary { background: var(--color-primary); color:#fff; border:none; border-radius:10px; padding:10px 16px; }
+
+/* Recent Plans Section */
+.recent-plans { 
+  margin-top: 24px; 
+  padding-top: 20px; 
+  border-top: 1px solid #e5e7eb; 
+}
+
+.recent-plans h3 { 
+  margin: 0 0 12px 0; 
+  font-size: 16px; 
+  font-weight: 600; 
+  color: #374151; 
+}
+
+.plans-list { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+}
+
+.plan-item { 
+  background: #f9fafb; 
+  border: 1px solid #e5e7eb; 
+  border-radius: 8px; 
+  padding: 12px; 
+  cursor: pointer; 
+  transition: all 0.2s; 
+}
+
+.plan-item:hover { 
+  background: #f3f4f6; 
+  border-color: #d1d5db; 
+  transform: translateY(-1px); 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+}
+
+.plan-item:focus-visible { 
+  outline: 2px solid var(--color-primary); 
+  outline-offset: 2px; 
+}
+
+.plan-title { 
+  font-size: 14px; 
+  font-weight: 600; 
+  color: #1f2937; 
+  margin-bottom: 4px; 
+}
+
+.plan-summary { 
+  font-size: 12px; 
+  color: #6b7280; 
+  line-height: 1.4; 
+  margin-bottom: 6px; 
+  display: -webkit-box; 
+  -webkit-line-clamp: 2; 
+  -webkit-box-orient: vertical; 
+  overflow: hidden; 
+}
+
+.plan-meta { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+}
+
+.plan-date { 
+  font-size: 11px; 
+  color: #9ca3af; 
+}
+
+.plan-status { 
+  font-size: 10px; 
+  padding: 2px 6px; 
+  border-radius: 12px; 
+  font-weight: 600; 
+  letter-spacing: 0.5px; 
+  background: #e5e7eb; 
+  color: #6b7280; 
+}
+
+.plan-status.confirmed { 
+  background: #dbeafe; 
+  color: #1d4ed8; 
+}
+
+.plan-status.draft { 
+  background: #fef3c7; 
+  color: #b45309; 
+}
+
+.no-plans { 
+  font-size: 12px; 
+  color: #9ca3af; 
+  text-align: center; 
+  padding: 16px 0; 
+}
+
+.recent-plans.loading { 
+  color: #9ca3af; 
+}
 </style>
