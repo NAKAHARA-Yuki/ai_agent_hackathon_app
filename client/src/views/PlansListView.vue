@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { listPlans } from '@/services/apiClient'
 import BackButton from '@/components/BackButton.vue'
 import Toast from '@/components/Toast.vue'
 
+const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(false)
 const items = ref([])
@@ -23,9 +25,8 @@ async function fetchPlans() {
 }
 
 function openDetail(it){
-  // シンプルに planner へ遷移し、将来的に詳細表示用ビューを差し替え
-  // TODO: 別途 /plan/:id 詳細ビュー実装
-  toast.value = '詳細ビューは未実装です'
+  // Navigate to the plan detail view
+  router.push(`/plans/${it.id}`)
 }
 
 onMounted(fetchPlans)

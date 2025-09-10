@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { deletePlan } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -9,6 +10,7 @@ const auth = useAuthStore()
 const plan = ref(null)
 const loading = ref(true)
 const error = ref('')
+const deleting = ref(false)
 
 async function load(){
   loading.value = true
@@ -28,6 +30,25 @@ function goBack(){ router.back() }
 function startRefinement() {
   const planId = route.params.id
   router.push(`/plans/${planId}/chat`)
+}
+
+async function confirmDelete() {
+  if (!plan.value) return
+  
+  const confirmed = confirm(`「${plan.value.title}」を削除しますか？\nこの操作は取り消せません。`)
+  if (!confirmed) return
+  
+  deleting.value = true
+  try {
+    await deletePlan(route.params.id, auth.authHeader())
+    // Navigate back to plans list after successful deletion
+    router.push('/plans')
+  } catch (e) {
+    console.error('Delete failed:', e)
+    alert('削除に失敗しました。時間をおいて再試行してください。')
+  } finally {
+    deleting.value = false
+  }
 }
 </script>
 
@@ -73,7 +94,7 @@ function startRefinement() {
         </ul>
       </div>
       
-      <!-- Refinement Button -->
+      <!-- Action Buttons -->
       <div class="action-buttons">
         <button class="refine-btn" @click="startRefinement" aria-label="プランをブラッシュアップ">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -88,6 +109,17 @@ function startRefinement() {
             <path d="M12 18h.01"></path>
           </svg>
           ブラッシュアップ
+        </button>
+        
+        <button class="delete-btn" @click="confirmDelete" :disabled="deleting" aria-label="プランを削除">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c0-1 1-2 2-2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          {{ deleting ? '削除中...' : '削除' }}
         </button>
       </div>
     </div>
@@ -141,7 +173,7 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
 .error{ color:#dc2626; }
 
 /* Action Buttons */
-.action-buttons { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px; box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); }
+.action-buttons { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px; box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); display:flex; flex-direction:column; gap:12px; }
 .refine-btn { 
   display:flex; 
   align-items:center; 
@@ -169,6 +201,42 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
   box-shadow:0 2px 8px rgba(59,130,246,0.3); 
 }
 .refine-btn svg { 
+  width:18px; 
+  height:18px; 
+}
+
+.delete-btn { 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  gap:8px; 
+  width:100%; 
+  padding:12px 20px; 
+  background:linear-gradient(135deg, #dc2626, #b91c1c); 
+  color:#fff; 
+  border:none; 
+  border-radius:12px; 
+  font-size:14px; 
+  font-weight:600; 
+  cursor:pointer; 
+  transition:all .2s ease; 
+  box-shadow:0 4px 12px rgba(220,38,38,0.3); 
+}
+.delete-btn:hover:not(:disabled) { 
+  background:linear-gradient(135deg, #b91c1c, #991b1b); 
+  transform:translateY(-1px); 
+  box-shadow:0 6px 16px rgba(220,38,38,0.4); 
+}
+.delete-btn:active:not(:disabled) { 
+  transform:translateY(0); 
+  box-shadow:0 2px 8px rgba(220,38,38,0.3); 
+}
+.delete-btn:disabled { 
+  opacity:0.6; 
+  cursor:not-allowed; 
+  transform:none; 
+}
+.delete-btn svg { 
   width:18px; 
   height:18px; 
 }

@@ -83,6 +83,19 @@ export async function createPlan(payload, authHeader){
   return doc
 }
 
+export async function deletePlan(planId, authHeader){
+  if (!useMock) {
+    const resp = await fetch(`/api/plans/${planId}`, { method:'DELETE', headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } })
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    return resp.json()
+  }
+  // Mock: remove from localStorage
+  const plans = lsGet('mockPlans', [])
+  const filtered = plans.filter(p => p.id !== planId)
+  lsSet('mockPlans', filtered)
+  return { status: 'deleted' }
+}
+
 export async function mapsKey(){
   if (!useMock) {
     try { return await realFetch('/api/maps-key') } catch { return { key:'', advanced:false, mapId:'' } }
