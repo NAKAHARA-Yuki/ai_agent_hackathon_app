@@ -7,7 +7,7 @@ import re
 import json
 import requests
 import logging
-from time import monotonic
+from time import monotonic, sleep
 from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, send_from_directory, request, Response
 from dotenv import load_dotenv
@@ -136,6 +136,44 @@ SENSITIVE_KEYS = {"password", "pass", "token", "authorization", "api_key", "apik
 AGENT_JSON_OK = 0
 AGENT_JSON_FAIL = 0
 AGENT_JSON_FENCE_STRIPPED = 0
+
+def retry_on_503(func, max_retries=3, base_delay=1.0, *args, **kwargs):
+    """
+    HTTP 503エラー時のリトライ処理ラッパー。
+    指数バックオフでリトライし、最大回数に達した場合は最後の例外を再発生させる。
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):  # 初回 + リトライ回数
+        try:
+            return func(*args, **kwargs)
+        except requests.RequestException as e:
+            last_exception = e
+            
+            # 503以外のHTTPエラーまたは非HTTPエラーの場合はすぐに再発生
+            if not hasattr(e, 'response') or e.response is None:
+                raise
+            
+            status_code = e.response.status_code
+            if status_code != 503:
+                raise
+                
+            # 最大リトライ回数に達した場合は例外を再発生
+            if attempt >= max_retries:
+                logger.warning(f"503 retry exhausted after {max_retries} attempts, giving up")
+                raise
+                
+            # 指数バックオフで待機
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+            logger.info(f"503 error detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries + 1})")
+            sleep(delay)
+        except Exception as e:
+            # requests以外の例外（JSON解析エラーなど）はすぐに再発生
+            raise
+    
+    # ここには到達しないはずだが、念のため
+    if last_exception:
+        raise last_exception
 
 def _balanced_first_object(seg: str):
     """Return the first complete top-level JSON object substring found in seg using
@@ -1077,63 +1115,60 @@ def get_questions():
 
 def call_gemini_api(prompt, model_name='gemini-2.5-flash'):
     """
-    Gemini APIをRESTで呼び出す共通関数。
+    Gemini APIをRESTで呼び出す共通関数。503エラー時は自動リトライを行う。
     """
     if not genai_configured:
         raise Exception("GEMINI_API_KEY is not configured.")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-    headers = {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': api_key
-    }
-    data = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "responseMimeType": "application/json",
+    def _make_request():
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+        headers = {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': api_key
         }
-    }
+        data = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+            }
+        }
+        
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status() # HTTPエラーがあれば例外を発生させる
+        
+        # APIからのレスポンスを直接JSONとしてパース
+        return response.json()
     
-    response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status() # HTTPエラーがあれば例外を発生させる
-    
-    # APIからのレスポンスを直接JSONとしてパース
-    return response.json()
+    return retry_on_503(_make_request)
 
 def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dict | None = None, timeout_sec: int = 30):
     """
-    Agent サービスの /v1/plan を呼び出す。
+    Agent サービスの /v1/plan を呼び出す。503エラー時は自動リトライを行う。
     persona: { title: str, description: str, traitScores?: dict }
     """
     if not agent_configured:
         raise Exception("Agent base URL is not configured.")
-    url = AGENT_BASE_URL.rstrip('/') + '/v1/plan'
-    headers = { 'Content-Type': 'application/json' }
-    if AGENT_API_KEY:
-        headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
-    payload = {
-        "persona": persona,
-    }
-    if profile:
-        payload["profile"] = profile
-    if constraints:
-        payload["constraints"] = constraints
-    try:
+    
+    def _make_request():
+        url = AGENT_BASE_URL.rstrip('/') + '/v1/plan'
+        headers = { 'Content-Type': 'application/json' }
+        if AGENT_API_KEY:
+            headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
+        payload = {
+            "persona": persona,
+        }
+        if profile:
+            payload["profile"] = profile
+        if constraints:
+            payload["constraints"] = constraints
+        
         resp = requests.post(url, headers=headers, json=payload, timeout=timeout_sec)
         resp.raise_for_status()
         return resp.json()
-    except requests.RequestException as e:
-        status = getattr(getattr(e, 'response', None), 'status_code', 'n/a')
-        body = None
-        try:
-            body = e.response.text if getattr(e, 'response', None) is not None else None
-        except Exception:
-            body = None
-        body_snip = (body[:500] + '…') if body and len(body) > 500 else (body or '')
-        logging.getLogger('agent_bridge').error(f"/v1/plan failed: status={status} body={body_snip}")
-        raise
+    
+    return retry_on_503(_make_request)
 
 def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60, base_url: str | None = None, ensure_session: bool = True):
     """ADK api_server に従った呼び出し手順でチャット実行。
@@ -1153,8 +1188,8 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
 
     # 2) セッション作成（初回のみ／冪等）
     if ensure_session:
-        sess_url = f"{base}/apps/{app_name}/users/{user_id}/sessions/{session_id}"
-        try:
+        def _create_session():
+            sess_url = f"{base}/apps/{app_name}/users/{user_id}/sessions/{session_id}"
             bridge_logger.info(f"Create session: POST {sess_url}")
             r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
             text_snip = (r.text[:300] + '…') if (getattr(r, 'text', None) and len(r.text) > 300) else (r.text or '')
@@ -1164,9 +1199,14 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
                     bridge_logger.info(f"Create session OK (already exists): {r.status_code} body={text_snip}")
                 else:
                     bridge_logger.info(f"Create session OK: {r.status_code}")
+                return r
             else:
                 bridge_logger.error(f"Create session unexpected status: {r.status_code} body={text_snip}")
                 r.raise_for_status()
+            return r
+            
+        try:
+            retry_on_503(_create_session)
         except Exception as e:
             bridge_logger.error(f"Create session failed: {e}")
             raise RuntimeError(f"Failed to create session: {e}")
@@ -1174,38 +1214,43 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
         bridge_logger.info("Skip create session (already initialized on server side)")
 
     # 3) 実行
-    run_url = f"{base}/run"
-    # 強制的にJSON-onlyを促す前置き注記（モデル/サーバ側が対応すればMIME強制に近い効果）
-    prefix = (
-        "以下の応答は、単一のJSONオブジェクトのみで返してください。"
-        "前後に説明やコードフェンス、余分な空白・句読点を一切付けないでください。\n"
-        "必ず次のスキーマに厳密に従ってください。\n"
-        "{\n"
-        "  \"text\": \"ユーザーへ見せる本文。GFMのMarkdownを使用可（見出し・箇条書き・表）。表はパイプ区切りのMarkdownテーブルで記述してください。\",\n"
-        "  \"places\": [ { \"name\": string, \"lat\": number|null, \"lng\": number|null, \"note\": string|null, \"url\": string|null } ] (省略可),\n"
-        "  \"route_info\": { \"origin\": string, \"destination\": string, \"waypoints\": [string], \"mode\": \"driving|walking|bicycling|transit\" } (省略可)\n"
-        "}\n\n"
-        "注意: \n"
-        "- 本文(text)にリストや比較を載せる場合はMarkdownテーブルを活用してください。\n"
-    "- 旅行日程(スケジュール)は、可能なら以下の列を持つ表で提示してください: アイコン|時間|予定|詳細|[その他(場所/費用/備考など)]。\n"
-        "- URLは本文かplaces.urlに含められます。\n"
-    )
-    payload = {
-        "app_name": app_name,
-        "user_id": user_id,
-        "session_id": session_id,
-        "new_message": { "role": "user", "parts": [{"text": prefix + message_text}] }
-    }
-    bridge_logger.info(f"Run agent: POST {run_url} app={app_name} user={user_id} session={session_id} msg_len={len(message_text)}")
-    if LOG_PAYLOADS:
-        try:
-            bridge_logger.info(f"Run payload: {_snip_json(payload)}")
-        except Exception:
-            pass
-    t0 = monotonic()
-    try:
+    def _run_agent():
+        run_url = f"{base}/run"
+        # 強制的にJSON-onlyを促す前置き注記（モデル/サーバ側が対応すればMIME強制に近い効果）
+        prefix = (
+            "以下の応答は、単一のJSONオブジェクトのみで返してください。"
+            "前後に説明やコードフェンス、余分な空白・句読点を一切付けないでください。\n"
+            "必ず次のスキーマに厳密に従ってください。\n"
+            "{\n"
+            "  \"text\": \"ユーザーへ見せる本文。GFMのMarkdownを使用可（見出し・箇条書き・表）。表はパイプ区切りのMarkdownテーブルで記述してください。\",\n"
+            "  \"places\": [ { \"name\": string, \"lat\": number|null, \"lng\": number|null, \"note\": string|null, \"url\": string|null } ] (省略可),\n"
+            "  \"route_info\": { \"origin\": string, \"destination\": string, \"waypoints\": [string], \"mode\": \"driving|walking|bicycling|transit\" } (省略可)\n"
+            "}\n\n"
+            "注意: \n"
+            "- 本文(text)にリストや比較を載せる場合はMarkdownテーブルを活用してください。\n"
+        "- 旅行日程(スケジュール)は、可能なら以下の列を持つ表で提示してください: アイコン|時間|予定|詳細|[その他(場所/費用/備考など)]。\n"
+            "- URLは本文かplaces.urlに含められます。\n"
+        )
+        payload = {
+            "app_name": app_name,
+            "user_id": user_id,
+            "session_id": session_id,
+            "new_message": { "role": "user", "parts": [{"text": prefix + message_text}] }
+        }
+        bridge_logger.info(f"Run agent: POST {run_url} app={app_name} user={user_id} session={session_id} msg_len={len(message_text)}")
+        if LOG_PAYLOADS:
+            try:
+                bridge_logger.info(f"Run payload: {_snip_json(payload)}")
+            except Exception:
+                pass
+                
         r2 = requests.post(run_url, headers=headers, json=payload, timeout=timeout_sec)
         r2.raise_for_status()
+        return r2
+        
+    t0 = monotonic()
+    try:
+        r2 = retry_on_503(_run_agent)
     except requests.RequestException as e:
         dt = (monotonic() - t0) * 1000
         status = getattr(getattr(e, 'response', None), 'status_code', 'n/a')

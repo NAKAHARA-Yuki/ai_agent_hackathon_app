@@ -35,16 +35,45 @@ function mockAgentReply(message){
 }
 
 // ---- Real Fetch Helper ----
-async function realFetch(url, options){
-  const resp = await fetch(url, options)
+async function realFetch(url, options) {
+  const MAX_RETRIES = 3;
+  const BASE_DELAY = 1000; // 1秒
   
-  // 401 レスポンスの場合は認証エラーを投げる
-  if (resp.status === 401) {
-    throw new Error('認証の有効期限が切れました。再度ログインしてください。')
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const resp = await fetch(url, options);
+      
+      // 401 レスポンスの場合は認証エラーを投げる（リトライなし）
+      if (resp.status === 401) {
+        throw new Error('認証の有効期限が切れました。再度ログインしてください。');
+      }
+      
+      // 503の場合はリトライする
+      if (resp.status === 503) {
+        if (attempt >= MAX_RETRIES) {
+          // 最大リトライ回数に達した場合
+          console.warn(`503 retry exhausted after ${MAX_RETRIES} attempts for ${url}`);
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        
+        // 指数バックオフで待機
+        const delay = BASE_DELAY * (2 ** attempt) + Math.random() * 1000;
+        console.log(`503 error detected, retrying ${url} in ${delay.toFixed(0)}ms (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue; // リトライ
+      }
+      
+      // その他のHTTPエラー
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      
+      return resp.json();
+    } catch (error) {
+      // ネットワークエラーやJSONパースエラーなど、HTTPステータス以外のエラーはそのまま投げる
+      throw error;
+    }
   }
-  
-  if(!resp.ok) throw new Error(`HTTP ${resp.status}`)
-  return resp.json()
 }
 
 // ---- Public API ----
