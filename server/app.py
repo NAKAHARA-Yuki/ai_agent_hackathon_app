@@ -137,7 +137,7 @@ AGENT_JSON_OK = 0
 AGENT_JSON_FAIL = 0
 AGENT_JSON_FENCE_STRIPPED = 0
 
-def retry_on_503(func, *args, max_retries=3, base_delay=1.0, **kwargs):
+def retry_on_503(func, max_retries=3, base_delay=1.0, *args, **kwargs):
     """
     HTTP 503エラー時のリトライ処理ラッパー。
     指数バックオフでリトライし、最大回数に達した場合は最後の例外を再発生させる。
@@ -1168,18 +1168,7 @@ def call_agent_plan(persona: dict, profile: dict | None = None, constraints: dic
         resp.raise_for_status()
         return resp.json()
     
-    try:
-        return retry_on_503(_make_request)
-    except requests.RequestException as e:
-        status = getattr(getattr(e, 'response', None), 'status_code', 'n/a')
-        body = None
-        try:
-            body = e.response.text if getattr(e, 'response', None) is not None else None
-        except Exception:
-            body = None
-        body_snip = (body[:500] + '…') if body and len(body) > 500 else (body or '')
-        logging.getLogger('agent_bridge').error(f"/v1/plan failed: status={status} body={body_snip}")
-        raise
+    return retry_on_503(_make_request)
 
 def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_text: str, timeout_sec: int = 60, base_url: str | None = None, ensure_session: bool = True):
     """ADK api_server に従った呼び出し手順でチャット実行。

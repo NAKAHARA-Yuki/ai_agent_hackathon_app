@@ -70,16 +70,7 @@ async function realFetch(url, options) {
       
       return resp.json();
     } catch (error) {
-      // ネットワークエラーやJSONパースエラーなど、HTTPステータス以外のエラー
-      if (error.message.includes('HTTP 503') && attempt < MAX_RETRIES) {
-        // 503エラーの場合のみリトライ
-        const delay = BASE_DELAY * (2 ** attempt) + Math.random() * 1000;
-        console.log(`Network error (likely 503), retrying ${url} in ${delay.toFixed(0)}ms (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-      
-      // その他のエラーはそのまま投げる
+      // ネットワークエラーやJSONパースエラーなど、HTTPステータス以外のエラーはそのまま投げる
       throw error;
     }
   }
