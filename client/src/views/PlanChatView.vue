@@ -201,6 +201,17 @@ const hasChanges = computed(() => {
   return JSON.stringify(currentPlan.value) !== JSON.stringify(originalPlan.value)
 })
 
+// Modal state for detailed view
+const showDetailModal = ref(false)
+
+function openDetailModal() {
+  showDetailModal.value = true
+}
+
+function closeDetailModal() {
+  showDetailModal.value = false
+}
+
 onMounted(loadPlan)
 </script>
 
@@ -219,11 +230,16 @@ onMounted(loadPlan)
       </div>
     </div>
 
-    <!-- Current Plan Preview -->
-    <div v-if="currentPlan" class="plan-preview">
+    <!-- Current Plan Preview - Clickable Card -->
+    <div v-if="currentPlan" class="plan-preview" @click="openDetailModal">
       <div class="plan-header">
         <h2>{{ currentPlan.title }}</h2>
-        <span v-if="hasChanges" class="modified-badge">更新済み</span>
+        <div class="header-right">
+          <span v-if="hasChanges" class="modified-badge">更新済み</span>
+          <svg class="tap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
       </div>
       
       <div v-if="currentPlan.itinerary?.length" class="mini-itinerary">
@@ -240,6 +256,8 @@ onMounted(loadPlan)
           +{{ currentPlan.itinerary.length - 2 }}日間
         </div>
       </div>
+      
+      <div class="tap-hint">タップして詳細を表示</div>
     </div>
 
     <!-- Chat Messages -->
@@ -300,6 +318,66 @@ onMounted(loadPlan)
         </button>
       </div>
     </div>
+
+    <!-- Detailed Plan Modal -->
+    <div v-if="showDetailModal" class="modal-overlay" @click="closeDetailModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2>{{ currentPlan?.title }}</h2>
+          <button class="close-btn" @click="closeDetailModal" aria-label="閉じる">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div v-if="currentPlan">
+            <div v-if="hasChanges" class="update-notice">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12l2 2 4-4"/>
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
+              このプランはブラッシュアップにより更新されました
+            </div>
+            
+            <p v-if="currentPlan.summary" class="summary">{{ currentPlan.summary }}</p>
+            
+            <div v-if="currentPlan.suggestions && currentPlan.suggestions.length" class="suggestions">
+              <h3>候補</h3>
+              <ul>
+                <li v-for="(s,i) in currentPlan.suggestions" :key="i">
+                  <strong>{{ s.title }}</strong>
+                  <span v-if="s.tags && s.tags.length" class="tags"> — {{ s.tags.join(' / ') }}</span>
+                  <span v-if="s.brief" class="brief"> {{ s.brief }}</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div v-if="currentPlan.itinerary && currentPlan.itinerary.length" class="itinerary">
+              <h3>日程</h3>
+              <div v-for="(d,idx) in currentPlan.itinerary" :key="idx" class="day">
+                <h4>Day {{ d.day || (idx+1) }}</h4>
+                <ul class="items">
+                  <li v-for="(it,i2) in d.items" :key="i2">
+                    <span class="time" v-if="it.time">{{ it.time }}</span>
+                    <span class="item-title">{{ it.title }}</span>
+                    <span class="item-detail" v-if="it.detail"> — {{ it.detail }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+            <div v-if="currentPlan.places && currentPlan.places.length" class="places">
+              <h3>場所</h3>
+              <ul>
+                <li v-for="(p,i) in currentPlan.places" :key="i">{{ p.name }}<small v-if="p.note"> — {{ p.note }}</small></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -355,21 +433,34 @@ onMounted(loadPlan)
   color: #64748b;
 }
 
-/* Plan Preview - Compact version for better screen utilization */
+/* Plan Preview - Enhanced as clickable card */
 .plan-preview {
   background: white;
   margin: 4px 16px 8px 16px;
-  padding: 12px;
-  border-radius: 12px;
+  padding: 16px;
+  border-radius: 16px;
   border: 1px solid #e2e8f0;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.plan-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  border-color: #3b82f6;
+}
+
+.plan-preview:active {
+  transform: translateY(-1px);
 }
 
 .plan-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .plan-header h2 {
@@ -377,32 +468,52 @@ onMounted(loadPlan)
   font-size: 16px;
   font-weight: 600;
   color: #1e293b;
+  flex: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .modified-badge {
   background: #10b981;
   color: white;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 12px;
   font-weight: 500;
+}
+
+.tap-icon {
+  width: 18px;
+  height: 18px;
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.plan-preview:hover .tap-icon {
+  color: #3b82f6;
 }
 
 .mini-itinerary {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .mini-day {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .mini-day strong {
-  font-size: 12px;
+  font-size: 13px;
   color: #475569;
+  font-weight: 600;
 }
 
 .mini-items {
@@ -415,15 +526,34 @@ onMounted(loadPlan)
   background: #f1f5f9;
   color: #475569;
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-weight: 500;
 }
 
 .more-days {
-  font-size: 11px;
+  font-size: 12px;
   color: #64748b;
   text-align: center;
+  padding: 6px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.tap-hint {
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
   padding: 4px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.plan-preview:hover .tap-hint {
+  color: #3b82f6;
 }
 
 /* Chat Container - Optimized for single screen */
@@ -627,6 +757,302 @@ onMounted(loadPlan)
   
   .message-content {
     max-width: 70%;
+  }
+}
+
+/* Enhanced mobile optimizations */
+@media (max-width: 480px) {
+  .chat-header {
+    padding: 12px 16px;
+  }
+  
+  .chat-header h1 {
+    font-size: 16px;
+  }
+  
+  .plan-preview {
+    margin: 4px 12px 8px 12px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+  
+  .plan-header h2 {
+    font-size: 15px;
+  }
+  
+  .mini-day strong {
+    font-size: 12px;
+  }
+  
+  .mini-item, .more {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  .message-content {
+    max-width: 90%;
+    padding: 10px 14px;
+  }
+  
+  .message-text {
+    font-size: 13px;
+  }
+  
+  .chat-input {
+    padding: 8px 12px;
+  }
+  
+  .message-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 10px 14px;
+  }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  max-width: 90vw;
+  max-height: 85vh;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Enhanced mobile modal optimization */
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+  
+  .modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+  
+  .modal-header {
+    padding: 16px 20px;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+}
+
+.close-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.update-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #bbf7d0;
+}
+
+.update-notice svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.modal-body .summary {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.6;
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.modal-body .suggestions,
+.modal-body .itinerary,
+.modal-body .places {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.modal-body h3 {
+  font-size: 16px;
+  margin: 0 0 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.modal-body h4 {
+  font-size: 14px;
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.modal-body .suggestions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-body .suggestions li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #475569;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.modal-body .suggestions .tags {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.modal-body .suggestions .brief {
+  color: #475569;
+  font-size: 12px;
+}
+
+.modal-body .itinerary .day {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.modal-body .itinerary .day:last-child {
+  margin-bottom: 0;
+}
+
+.modal-body .items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-body .items li {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.modal-body .items .time {
+  font-weight: 600;
+  min-width: 60px;
+  color: #0f172a;
+}
+
+.modal-body .items .item-title {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.modal-body .items .item-detail {
+  color: #64748b;
+}
+
+.modal-body .places ul {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.modal-body .places li small {
+  color: #64748b;
+  margin-left: 4px;
+}
+
+@media (min-width: 640px) {
+  .modal-content {
+    max-width: 600px;
   }
 }
 </style>
