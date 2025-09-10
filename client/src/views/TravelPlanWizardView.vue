@@ -205,8 +205,21 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
 .wizard-screen { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
 /* スクロールが必要な領域にのみ付与 */
 .wizard-scroll { flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior: contain; }
-/* 余白縮小（小画面） */
-@media (max-width:600px){
-  .wizard-screen { padding-bottom: env(safe-area-inset-bottom); }
+/* モバイルでの適切な表示 - カード伸縮の防止 */
+@media (max-width: 768px) {
+  .wizard-wrap { 
+    height: auto; /* 固定高さを解除 */
+    min-height: 100vh; /* 最小高さのみ設定 */
+  }
+  
+  .wizard-inner { 
+    flex: none; /* flex伸長を無効化 */
+    min-height: auto; 
+  }
+  
+  .wizard-screen { 
+    flex: none; /* flex伸長を無効化してコンテンツサイズに合わせる */
+    padding-bottom: env(safe-area-inset-bottom); 
+  }
 }
 </style>

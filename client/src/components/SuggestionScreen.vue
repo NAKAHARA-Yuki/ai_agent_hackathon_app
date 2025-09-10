@@ -366,6 +366,28 @@ async function handleRegenerate() {
   border: 0;
 }
 
+/* モバイルでの適切な表示 - カードの伸縮を防止 */
+@media (max-width: 768px) {
+  .suggestions-screen { 
+    flex: none; /* wizard-screenの flex:1 1 auto をオーバーライド */
+    min-height: auto; /* 最小高さを自動に設定 */
+    padding: 16px; 
+    margin: 16px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    background: var(--color-surface, #fff);
+  }
+  
+  .cards {
+    padding: 4px 0 20px; /* 左右のpaddingを削除 */
+  }
+  
+  .regenerate-section {
+    margin: 16px 0 0;
+    padding: 16px;
+  }
+}
+
 @media (min-width:640px){
   .card { height:180px; }
   .title { font-size:18px; }
