@@ -164,7 +164,7 @@ async function handleRegenerate() {
 .header .tagline { margin:4px 0 4px; text-align:center; font-size:12px; color:var(--color-text-subtle); }
 /* 縦一列表示 */
 .cards { display:flex; flex-direction:column; gap:18px; padding:4px 2px 20px; }
-.card { position:relative; width:100%; height:180px; border-radius:18px; overflow:hidden; cursor:pointer; isolation:isolate; background:#ddd; display:flex; }
+.card { position:relative; width:100%; height:160px; border-radius:18px; overflow:hidden; cursor:pointer; isolation:isolate; background:#ddd; display:flex; }
 .card::before { content:""; position:absolute; inset:0; background:var(--bg-img) center/cover no-repeat; filter:brightness(1) saturate(1.1); transition:transform .6s ease; }
 .card-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.05)); mix-blend-mode:multiply; }
 .card-content { position:relative; z-index:2; margin-top:auto; padding:14px 16px 14px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:6px; }
@@ -367,7 +367,7 @@ async function handleRegenerate() {
 }
 
 @media (min-width:640px){
-  .card { height:200px; }
+  .card { height:180px; }
   .title { font-size:18px; }
   .regenerate-form { max-width: 500px; }
 }
