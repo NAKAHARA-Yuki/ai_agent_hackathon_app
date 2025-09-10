@@ -760,6 +760,54 @@ onMounted(loadPlan)
   }
 }
 
+/* Enhanced mobile optimizations */
+@media (max-width: 480px) {
+  .chat-header {
+    padding: 12px 16px;
+  }
+  
+  .chat-header h1 {
+    font-size: 16px;
+  }
+  
+  .plan-preview {
+    margin: 4px 12px 8px 12px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+  
+  .plan-header h2 {
+    font-size: 15px;
+  }
+  
+  .mini-day strong {
+    font-size: 12px;
+  }
+  
+  .mini-item, .more {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  .message-content {
+    max-width: 90%;
+    padding: 10px 14px;
+  }
+  
+  .message-text {
+    font-size: 13px;
+  }
+  
+  .chat-input {
+    padding: 8px 12px;
+  }
+  
+  .message-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 10px 14px;
+  }
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;
@@ -786,6 +834,27 @@ onMounted(loadPlan)
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Enhanced mobile modal optimization */
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+  
+  .modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+  
+  .modal-header {
+    padding: 16px 20px;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
 }
 
 .modal-header {
