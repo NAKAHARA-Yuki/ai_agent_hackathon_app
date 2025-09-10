@@ -115,4 +115,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     /* ピンチズームを無効化（必要に応じて） */
     touch-action: manipulation;
   }
+  
+  /* すべての要素でbox-sizingを確実にborder-boxに */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
 }

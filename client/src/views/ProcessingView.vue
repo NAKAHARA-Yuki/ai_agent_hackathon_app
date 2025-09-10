@@ -68,6 +68,7 @@ const stageText = computed(() => {
     flex-direction: column;
     justify-content: center;
     padding: 24px;
+    box-sizing: border-box;
   }
 }
 </style>

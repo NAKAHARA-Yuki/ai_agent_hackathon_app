@@ -114,6 +114,7 @@ button.primary { background:#2d7ef7; color:white; border:none; padding:12px 16px
     flex-direction: column;
     justify-content: center;
     padding: 24px;
+    box-sizing: border-box;
   }
 }
 </style>

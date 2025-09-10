@@ -153,7 +153,7 @@ function restart() {
 /* モバイルでの全画面対応 */
 @media (max-width: 768px) {
   .main { 
-    padding: 16px; 
+    padding: 0; 
     place-items: stretch;
   }
   .panel { 
@@ -161,7 +161,8 @@ function restart() {
     border-radius: 0; 
     box-shadow: none; 
     border: none;
-    padding: 20px;
+    padding: 16px;
+    box-sizing: border-box;
   }
 }
 .error { 

@@ -95,10 +95,11 @@ h1 { margin: 0 0 8px; font-size: 1.6rem; color:#1f2937; }
     flex-direction: column;
     justify-content: center;
     padding: 24px;
+    box-sizing: border-box;
   }
 }
 @media (max-width: 600px) {
-  .panel { padding:14px; }
+  .panel { padding:14px; box-sizing: border-box; }
   .grid { grid-template-columns: repeat(2, 1fr); gap:8px; }
   .tile { padding:12px; border-radius:12px; }
   .tile .emoji { font-size:24px; }

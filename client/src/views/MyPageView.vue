@@ -271,6 +271,7 @@ button.primary { background:#2563eb; color:#fff; border:none; padding:10px 16px;
     box-shadow: none; 
     padding: 24px;
     overflow-y: auto;
+    box-sizing: border-box;
   }
   .grid { 
     grid-template-columns: 1fr; 

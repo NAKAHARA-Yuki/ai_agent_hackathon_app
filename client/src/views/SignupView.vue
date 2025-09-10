@@ -94,6 +94,7 @@ button.primary { background: var(--color-primary); color:white; border:none; pad
     flex-direction: column;
     justify-content: center;
     padding: 24px;
+    box-sizing: border-box;
   }
 }
 </style>
