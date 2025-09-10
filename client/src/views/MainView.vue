@@ -150,17 +150,16 @@ function restart() {
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
 
-/* モバイルでの全画面対応 */
+/* モバイルでの適切な表示 */
 @media (max-width: 768px) {
   .main { 
-    padding: 0; 
-    place-items: stretch;
+    padding: 16px; 
   }
   .panel { 
     width: 100%; 
-    border-radius: 0; 
-    box-shadow: none; 
-    border: none;
+    border-radius: var(--radius-lg); 
+    box-shadow: var(--shadow-md); 
+    border: 1px solid var(--color-border);
     padding: 16px;
     box-sizing: border-box;
   }
