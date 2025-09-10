@@ -181,4 +181,13 @@ onUnmounted(() => {
 :deep(.route-travel-wizard) .content, :deep(.content:has(> .wizard-wrap)) { padding:0; }
 /* travel-wizard では外側スクロールも抑止 */
 :deep(.content:has(> .wizard-wrap)) { overflow:hidden; }
+
+/* モバイルでの全画面対応 */
+@media (max-width: 768px) {
+  .content { 
+    padding: 0; 
+    justify-content: center; 
+    align-items: center;
+  }
+}
 </style>

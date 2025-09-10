@@ -97,4 +97,24 @@ async function submit() {
 .field input { padding: 10px 12px; border-radius: 8px; border:1px solid #dde1e7; }
 .error { color:#c0392b; margin: 4px 0; }
 button.primary { background:#2d7ef7; color:white; border:none; padding:12px 16px; border-radius:10px; }
+
+/* モバイルでの全画面対応 */
+@media (max-width: 768px) {
+  .auth { 
+    padding: 0; 
+    place-items: stretch;
+  }
+  .panel { 
+    width: 100%; 
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0; 
+    box-shadow: none; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+}
 </style>

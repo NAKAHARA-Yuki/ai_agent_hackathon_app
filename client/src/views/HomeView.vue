@@ -35,4 +35,12 @@ p {
   margin: 20px 0;
   color: #555;
 }
+
+/* モバイルでの全画面対応 */
+@media (max-width: 768px) {
+  .home { 
+    padding: 0; 
+    place-items: stretch;
+  }
+}
 </style>

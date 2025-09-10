@@ -149,6 +149,22 @@ function restart() {
 .panel { width:min(920px,100%); background:white; padding:24px 20px; border-radius:14px; box-shadow:0 10px 24px rgba(0,0,0,0.06); border:1px solid #eef2f7; }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
+
+/* モバイルでの全画面対応 */
+@media (max-width: 768px) {
+  .main { 
+    padding: 0; 
+    place-items: stretch;
+  }
+  .panel { 
+    width: 100%; 
+    border-radius: 0; 
+    box-shadow: none; 
+    border: none;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+}
 .error { 
   color: #dc2626; 
   padding: 16px; 
