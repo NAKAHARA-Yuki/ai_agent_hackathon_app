@@ -256,6 +256,26 @@ button.primary { background:#2563eb; color:#fff; border:none; padding:10px 16px;
 .toast { position: sticky; top: 8px; background:#16a34a; color:#fff; padding:6px 10px; border-radius: 8px; display:inline-block; margin-left: 8px; }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* モバイルでの全画面対応 */
+@media (max-width: 768px) {
+  .mypage { 
+    padding: 0; 
+    place-items: stretch;
+  }
+  .panel { 
+    width: 100%; 
+    min-height: 100vh;
+    min-height: 100dvh;
+    border-radius: 0; 
+    box-shadow: none; 
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .grid { 
+    grid-template-columns: 1fr; 
+  }
+}
 .segmented { display:inline-flex; background:#f3f4f6; border-radius:10px; padding:2px; gap:2px; }
 .segmented.compact { padding:1px; gap:2px; }
 .seg-btn { border:none; background:transparent; padding:4px 8px; border-radius:6px; cursor:pointer; color:#374151; font-size: 12px; line-height: 1.1; }
