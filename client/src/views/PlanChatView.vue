@@ -118,7 +118,7 @@ async function sendMessage() {
     }
     messages.value.push(aiMsg)
     
-    // Update current plan with new data
+    // Update current plan with new data while preserving existing data
     if (response.summary || response.plans?.length || response.itinerary?.length || response.places?.length) {
       const updatedPlan = { ...currentPlan.value }
       
@@ -127,12 +127,17 @@ async function sendMessage() {
         // Use first plan from suggestions
         const firstPlan = response.plans[0]
         if (firstPlan.title) updatedPlan.title = firstPlan.title
-        if (firstPlan.itinerary) updatedPlan.itinerary = firstPlan.itinerary
-        if (firstPlan.places) updatedPlan.places = firstPlan.places
+        if (firstPlan.itinerary?.length) updatedPlan.itinerary = firstPlan.itinerary
+        if (firstPlan.places?.length) updatedPlan.places = firstPlan.places
       }
       if (response.itinerary?.length) updatedPlan.itinerary = response.itinerary
       if (response.places?.length) updatedPlan.places = response.places
       if (response.suggestions?.length) updatedPlan.suggestions = response.suggestions
+      
+      // Ensure itinerary is never lost - preserve from original if not in response
+      if (!updatedPlan.itinerary || updatedPlan.itinerary.length === 0) {
+        updatedPlan.itinerary = originalPlan.value.itinerary || []
+      }
       
       currentPlan.value = updatedPlan
     }
@@ -156,14 +161,17 @@ async function savePlan() {
   
   saving.value = true
   try {
+    // Ensure itinerary is preserved from either current or original plan
+    const preservedItinerary = currentPlan.value.itinerary || originalPlan.value.itinerary || []
+    
     const planData = {
       title: currentPlan.value.title + ' (改善版)',
       text: currentPlan.value.text || currentPlan.value.summary || '',
       summary: currentPlan.value.summary,
-      itinerary: currentPlan.value.itinerary || [],
-      places: currentPlan.value.places || [],
-      route_info: currentPlan.value.route_info,
-      suggestions: currentPlan.value.suggestions || [],
+      itinerary: preservedItinerary,
+      places: currentPlan.value.places || originalPlan.value.places || [],
+      route_info: currentPlan.value.route_info || originalPlan.value.route_info,
+      suggestions: currentPlan.value.suggestions || originalPlan.value.suggestions || [],
       status: 'confirmed'
     }
     
