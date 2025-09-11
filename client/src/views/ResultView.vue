@@ -23,18 +23,45 @@ async function loadPersonaData() {
   if (personaData.value) return // Already loaded
   try {
     loading.value = true
+    console.log('Loading persona data from API...')
     const resp = await fetch('/api/persona/latest', { headers: { ...auth.authHeader() } })
+    console.log('Persona API response status:', resp.status)
+    
     if (resp.ok) {
       const data = await resp.json()
+      console.log('Persona API data:', data)
+      
       if (data?.profile) {
+        // Validate the profile data
+        const profile = data.profile
+        if (!profile.title || !profile.description) {
+          console.warn('Persona profile missing title or description:', profile)
+        }
         personaData.value = data
+        console.log('Persona data loaded successfully')
+      } else {
+        console.warn('No profile found in persona data')
       }
+    } else {
+      console.warn('Persona API returned non-OK status:', resp.status)
     }
   } catch (e) {
     console.error('Failed to load persona data:', e)
   } finally {
     loading.value = false
   }
+}
+
+// Sanitize and validate text content
+function sanitizeText(text) {
+  if (!text) return ''
+  const cleaned = String(text).trim()
+  // Check for placeholder characters or corrupted text
+  if (/^[◯○〇\u25CB\u25CF\u25EF]+$/.test(cleaned)) {
+    console.warn('Detected placeholder characters in text:', cleaned)
+    return ''
+  }
+  return cleaned
 }
 
 // Memoized persona-based result calculation
@@ -48,9 +75,13 @@ const personaBasedResult = computed(() => {
   const scores = Object.values(traitScores).filter(score => !isNaN(score))
   const average = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0
   
+  // Sanitize title and description
+  const title = sanitizeText(profile.title) || '診断結果'
+  const description = sanitizeText(profile.description) || '診断結果の詳細情報を読み込み中です。'
+  
   return {
-    title: profile.title || '診断結果',
-    description: profile.description || '',
+    title,
+    description,
     plans: [], // No plans from persona data
     scoreDetails: {
       average: average.toFixed(2),
@@ -68,7 +99,19 @@ const displayResult = computed(() => {
   }
   
   // Otherwise, use the memoized persona-based result
-  return personaBasedResult.value
+  const result = personaBasedResult.value
+  
+  // Extra defensive check: ensure we always have displayable content
+  if (result && (!result.title || !result.description)) {
+    console.warn('DisplayResult has missing content, using fallbacks')
+    return {
+      ...result,
+      title: result.title || personaData.value?.profile?.title || '診断結果',
+      description: result.description || personaData.value?.profile?.description || '診断結果を読み込み中です。'
+    }
+  }
+  
+  return result
 })
 
 const traitsOrder = computed(() => {
@@ -158,9 +201,9 @@ function goMain() {
     <div v-else-if="displayResult && displayResult.scoreDetails">
       <div class="result-section result-summary">
         <h2>🎉 診断結果 🎉</h2>
-        <h3>あなたの旅行タイプは... <strong>{{ displayResult.title }}</strong> です！</h3>
-        <p>{{ displayResult.description }}</p>
-        <p><strong>総合平均スコア: {{ displayResult.scoreDetails.average }}</strong></p>
+        <h3>あなたの旅行タイプは... <strong class="travel-type-title">{{ displayResult.title || '取得中...' }}</strong> です！</h3>
+        <p class="travel-type-description">{{ displayResult.description || '詳細情報を読み込んでいます...' }}</p>
+        <p><strong>総合平均スコア: {{ displayResult.scoreDetails.average || '計算中...' }}</strong></p>
       </div>
 
             <div class="result-section chart-section">
@@ -460,5 +503,26 @@ button.primary { background: var(--color-primary); color:#fff; border:none; padd
   .score-details th, .score-details td { padding: 10px 12px; }
   .result-actions { padding: 0 4px; }
   button.primary { width: 100%; padding: 12px; }
+}
+
+/* Ensure proper font rendering for Japanese text */
+.travel-type-title, .travel-type-description {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.travel-type-title {
+  color: #ff4b2b !important;
+  font-weight: 700 !important;
+  font-size: inherit !important;
+  display: inline !important;
+}
+
+.travel-type-description {
+  font-size: 1.1rem !important;
+  line-height: 1.7 !important;
+  color: #444 !important;
 }
 </style>
