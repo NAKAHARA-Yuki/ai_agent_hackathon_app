@@ -123,9 +123,49 @@ onMounted(fetchPlans)
 </template>
 
 <style scoped>
-.plans-list { display:flex; flex-direction:column; gap:12px; width:100%; }
-.header { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.9); padding:8px 10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
-.header h1 { font-size:18px; margin:0; flex:1; }
+.plans-list { 
+  display:flex; 
+  flex-direction:column; 
+  gap:12px; 
+  width:100%; 
+  padding: 0 16px 20px;
+  box-sizing: border-box;
+}
+
+/* モバイル対応: より適切なパディング */
+@media (max-width: 768px) {
+  .plans-list {
+    padding: 0 8px 24px;
+    gap: 10px;
+  }
+}
+
+.header { 
+  display:flex; 
+  align-items:center; 
+  gap:12px; 
+  background:rgba(255,255,255,0.9); 
+  padding:8px 10px; 
+  border-radius:12px; 
+  box-shadow:0 4px 10px rgba(0,0,0,0.05); 
+}
+.header h1 { 
+  font-size:18px; 
+  margin:0; 
+  flex:1; 
+}
+
+/* モバイル対応: ヘッダーサイズ調整 */
+@media (max-width: 768px) {
+  .header {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  
+  .header h1 {
+    font-size: 16px;
+  }
+}
 
 /* Active Plan Banner */
 .active-plan-banner {
@@ -185,7 +225,32 @@ onMounted(fetchPlans)
 
 .state { padding:20px; text-align:center; color:#374151; }
 .state.error { color:#b91c1c; }
-.cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:12px; }
+.cards { 
+  display:grid; 
+  grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); 
+  gap:12px; 
+}
+
+/* モバイル対応: グリッドレイアウトの最適化 */
+@media (max-width: 768px) {
+  .cards { 
+    grid-template-columns: 1fr; /* 1列レイアウトでより使いやすく */
+    gap: 10px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .cards { 
+    grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); 
+  }
+}
+
+/* 非常に小さな画面用の調整 */
+@media (max-width: 480px) {
+  .cards { 
+    gap: 8px;
+  }
+}
 
 .card { 
   background: var(--color-surface); 
@@ -199,6 +264,7 @@ onMounted(fetchPlans)
   cursor:pointer; 
   position: relative;
   transition: all 0.2s ease;
+  min-height: 100px; /* 最小高さを確保 */
 }
 
 .card:active { transform: translateY(1px); }
@@ -221,6 +287,7 @@ onMounted(fetchPlans)
   color: var(--color-text); 
   line-height:1.3; 
   flex: 1;
+  word-break: break-word; /* 長いタイトルの改行対応 */
 }
 
 .toggle-btn {
@@ -236,6 +303,31 @@ onMounted(fetchPlans)
   color: #9ca3af;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  min-width: 24px; /* タッチターゲットの確保 */
+}
+
+/* モバイル対応: カードとボタンの調整 */
+@media (max-width: 768px) {
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+    min-height: 110px;
+  }
+  
+  .card .title {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  
+  .toggle-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px; /* より大きなタッチターゲット */
+  }
+  
+  .card-header {
+    gap: 12px;
+  }
 }
 
 .toggle-btn:hover {
@@ -272,7 +364,9 @@ onMounted(fetchPlans)
 .empty { text-align:center; padding:30px 10px; color:#6b7280; grid-column:1/-1; }
 
 @media (max-width: 600px){ 
-  .cards { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); } 
+  .cards { 
+    grid-template-columns: 1fr; /* 既に上で設定済みだが、後方互換性のため保持 */
+  } 
   
   .banner-content {
     flex-direction: column;
@@ -283,6 +377,26 @@ onMounted(fetchPlans)
   .chat-btn {
     align-self: stretch;
     justify-content: center;
+    padding: 10px 18px;
+    font-size: 15px;
+    min-height: 44px; /* タッチフレンドリーなサイズ */
+  }
+}
+
+/* さらに小さな画面用の追加調整 */
+@media (max-width: 480px) {
+  .banner-title {
+    font-size: 15px;
+  }
+  
+  .banner-subtitle {
+    font-size: 11px;
+  }
+  
+  .chat-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+    min-height: 48px;
   }
 }
 </style>

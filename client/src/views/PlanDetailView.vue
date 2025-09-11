@@ -110,10 +110,71 @@ function startRefinement() {
   min-height: 100vh;
   scroll-margin-top: calc(80px + env(safe-area-inset-top));
 }
-.back{ align-self:flex-start; background:#fff; border:1px solid #e2e8f0; padding:6px 14px; border-radius:12px; cursor:pointer; font-size:12px; line-height:1; box-shadow:0 2px 5px rgba(0,0,0,0.05); transition:background .2s,border-color .2s; }
+
+/* モバイル対応: パディングとレイアウトの最適化 */
+@media (max-width: 768px) {
+  .plan-detail-screen {
+    padding: calc(70px + env(safe-area-inset-top)) 8px calc(90px + env(safe-area-inset-bottom));
+    gap: 16px;
+    max-width: 100%;
+    margin: 0;
+  }
+}
+.back{ 
+  align-self:flex-start; 
+  background:#fff; 
+  border:1px solid #e2e8f0; 
+  padding:8px 16px; 
+  border-radius:12px; 
+  cursor:pointer; 
+  font-size:12px; 
+  line-height:1; 
+  box-shadow:0 2px 5px rgba(0,0,0,0.05); 
+  transition:background .2s,border-color .2s;
+  min-height: 44px; /* Touch-friendly minimum size */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .back:hover{ background:#f1f5f9; }
-.title{ font-size:22px; font-weight:700; margin:0; letter-spacing:-.5px; line-height:1.25; word-break:break-word; }
-.summary{ margin:2px 0 4px; font-size:14px; color:#475569; line-height:1.6; word-break:break-word; overflow-wrap:anywhere; }
+.back:active{ transform: translateY(1px); }
+
+.title{ 
+  font-size:22px; 
+  font-weight:700; 
+  margin:0; 
+  letter-spacing:-.5px; 
+  line-height:1.25; 
+  word-break:break-word; 
+}
+
+.summary{ 
+  margin:2px 0 4px; 
+  font-size:14px; 
+  color:#475569; 
+  line-height:1.6; 
+  word-break:break-word; 
+  overflow-wrap:anywhere; 
+}
+
+/* モバイル対応: タイトルとサマリーのサイズ調整 */
+@media (max-width: 768px) {
+  .back {
+    padding: 10px 18px;
+    font-size: 13px;
+    min-height: 48px; /* より大きなタッチターゲット */
+  }
+  
+  .title {
+    font-size: 20px;
+    line-height: 1.3;
+  }
+  
+  .summary {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
 
 /* セクション共通カード化 */
 .content{ 
@@ -126,7 +187,29 @@ function startRefinement() {
 .content > .suggestions,
 .content > .itinerary,
 .content > .raw-text,
-.content > .places{ background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px 18px 20px; box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); }
+.content > .places{ 
+  background:#fff; 
+  border:1px solid #e2e8f0; 
+  border-radius:18px; 
+  padding:18px 18px 20px; 
+  box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); 
+}
+
+/* モバイル対応: コンテンツセクションの調整 */
+@media (max-width: 768px) {
+  .content {
+    gap: 20px;
+  }
+  
+  .content > .suggestions,
+  .content > .itinerary,
+  .content > .raw-text,
+  .content > .places {
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    margin: 0; /* 余白をリセット */
+  }
+}
 
 h2{ font-size:15px; margin:0 0 10px; font-weight:700; color:#334155; letter-spacing:.2px; }
 h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
@@ -206,7 +289,8 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
   font-weight:600; 
   cursor:pointer; 
   transition:all .2s ease; 
-  box-shadow:0 4px 12px rgba(59,130,246,0.3); 
+  box-shadow:0 4px 12px rgba(59,130,246,0.3);
+  min-height: 44px; /* Touch-friendly size */
 }
 .refine-btn:hover { 
   background:linear-gradient(135deg, #2563eb, #1e40af); 
@@ -219,7 +303,23 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
 }
 .refine-btn svg { 
   width:18px; 
-  height:18px; 
+  height:18px;
+}
+
+/* モバイル対応: アクションボタンの調整 */
+@media (max-width: 768px) {
+  .action-buttons {
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 24px;
+  }
+  
+  .refine-btn {
+    padding: 14px 24px;
+    font-size: 15px;
+    min-height: 48px;
+    border-radius: 10px;
+  }
 }
 
 @media (min-width:640px){

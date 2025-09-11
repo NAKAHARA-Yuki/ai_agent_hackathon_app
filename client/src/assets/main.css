@@ -110,10 +110,43 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     overscroll-behavior: none;
     /* ピンチズームを無効化（必要に応じて） */
     touch-action: manipulation;
+    /* フォントサイズの自動調整を防止 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   
   /* すべての要素でbox-sizingを確実にborder-boxに */
   *, *::before, *::after {
     box-sizing: border-box;
+  }
+  
+  /* タッチターゲットの最小サイズ確保 */
+  button, [role="button"], input, select, textarea {
+    min-height: var(--tap-min);
+  }
+  
+  /* フォーカスインジケータをより目立たせる */
+  button:focus-visible, 
+  a:focus-visible, 
+  input:focus-visible, 
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* 小さな画面での追加の調整 */
+@media (max-width: 480px) {
+  :root {
+    --font-size-base: 14px;
+    --space-4: 12px;
+    --space-6: 20px;
+  }
+  
+  button {
+    padding: 14px 20px;
+    font-size: 15px;
+    min-height: 48px;
   }
 }

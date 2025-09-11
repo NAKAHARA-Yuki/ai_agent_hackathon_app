@@ -128,14 +128,105 @@ onUnmounted(() => {
 <style scoped>
 #app-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 
-.site-header { width:100%; display:flex; align-items:center; justify-content:space-between; padding:8px calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left)); background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position:relative; z-index: 100; box-sizing: border-box; border-bottom: 1px solid rgba(0,0,0,0.04); }
-.brand { font-weight: 700; color:#1f2937; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.brand-link { color: inherit; text-decoration: none; cursor: pointer; display: inline-block; padding: 4px 6px; border-radius: 6px; }
-.brand-link:hover { background: rgba(0,0,0,0.05); }
-.nav { display:flex; align-items:center; gap:10px; position: relative; flex: 0 0 auto; }
-.nav .link { background:transparent; border:none; color:#2563eb; cursor:pointer; font-size: 14px; }
+.site-header { 
+  width:100%; 
+  display:flex; 
+  align-items:center; 
+  justify-content:space-between; 
+  padding:8px calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left)); 
+  background: rgba(255,255,255,0.7); 
+  backdrop-filter: blur(6px); 
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
+  position:relative; 
+  z-index: 100; 
+  box-sizing: border-box; 
+  border-bottom: 1px solid rgba(0,0,0,0.04); 
+  min-height: 56px; /* 最小高さを確保 */
+}
 
-.user-name { color: var(--color-text); font-weight: 600; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* モバイル対応: ヘッダーの調整 */
+@media (max-width: 768px) {
+  .site-header {
+    padding: 10px calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left));
+    min-height: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-header {
+    padding: 8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));
+  }
+}
+.brand { 
+  font-weight: 700; 
+  color:#1f2937; 
+  flex: 1 1 auto; 
+  min-width: 0; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap; 
+  font-size: 18px; /* フォントサイズを明示 */
+}
+.brand-link { 
+  color: inherit; 
+  text-decoration: none; 
+  cursor: pointer; 
+  display: inline-block; 
+  padding: 4px 6px; 
+  border-radius: 6px; 
+}
+.brand-link:hover { background: rgba(0,0,0,0.05); }
+
+.nav { 
+  display:flex; 
+  align-items:center; 
+  gap:10px; 
+  position: relative; 
+  flex: 0 0 auto; 
+}
+.nav .link { 
+  background:transparent; 
+  border:none; 
+  color:#2563eb; 
+  cursor:pointer; 
+  font-size: 14px; 
+}
+
+.user-name { 
+  color: var(--color-text); 
+  font-weight: 600; 
+  max-width: 40vw; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap; 
+}
+
+/* モバイル対応: ブランドとナビの調整 */
+@media (max-width: 768px) {
+  .brand {
+    font-size: 16px;
+  }
+  
+  .user-name {
+    max-width: 30vw;
+    font-size: 14px;
+  }
+  
+  .nav {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand {
+    font-size: 15px;
+  }
+  
+  .user-name {
+    max-width: 25vw;
+    font-size: 13px;
+  }
+}
 
 .menu { position: relative; }
 .icon-btn { width: 36px; height: 36px; border:1px solid rgba(0,0,0,0.06); background:rgba(255,255,255,0.6); cursor:pointer; padding: 6px; border-radius: 10px; display:flex; flex-direction: column; justify-content: center; align-items:center; gap:4px; margin-left: 6px; }
@@ -185,9 +276,27 @@ onUnmounted(() => {
 /* モバイルでの全画面対応 */
 @media (max-width: 768px) {
   .content { 
-    padding: 0; 
+    padding: 8px; 
     justify-content: center; 
     align-items: center;
+    /* travel-wizardなど特定のビューでは調整 */
+  }
+  
+  /* travel-wizard以外のビューでのパディング調整 */
+  :deep(.content:not(:has(> .wizard-wrap))) {
+    padding: 8px;
+    align-items: flex-start; /* 上寄せに変更 */
+  }
+}
+
+/* 非常に小さな画面での追加調整 */
+@media (max-width: 480px) {
+  .content {
+    padding: 4px;
+  }
+  
+  :deep(.content:not(:has(> .wizard-wrap))) {
+    padding: 4px;
   }
 }
 </style>
