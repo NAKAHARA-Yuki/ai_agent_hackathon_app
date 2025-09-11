@@ -369,13 +369,15 @@ async function handleRegenerate() {
 /* モバイルでの適切な表示 - カードの伸縮を防止 */
 @media (max-width: 768px) {
   .suggestions-screen { 
-    flex: none; /* wizard-screenの flex:1 1 auto をオーバーライド */
-    min-height: auto; /* 最小高さを自動に設定 */
+    flex: 1; 
+    min-height: 0;
+    overflow-y: auto;
     padding: 16px; 
-    margin: 16px;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    background: var(--color-surface, #fff);
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
   }
   
   .cards {
@@ -385,6 +387,7 @@ async function handleRegenerate() {
   .regenerate-section {
     margin: 16px 0 0;
     padding: 16px;
+    background: rgba(255, 255, 255, 0.9);
   }
 }
 
