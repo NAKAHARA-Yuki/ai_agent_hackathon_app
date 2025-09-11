@@ -2,7 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import { planDetail } from '@/services/apiClient'
+import { planDetail, deletePlan } from '@/services/apiClient'
+import Toast from '@/components/Toast.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,6 +11,9 @@ const auth = useAuthStore()
 const plan = ref(null)
 const loading = ref(true)
 const error = ref('')
+const toast = ref('')
+const deleting = ref(false)
+const showDeleteConfirm = ref(false)
 
 async function load(){
   loading.value = true
@@ -36,6 +40,37 @@ function goBack(){ router.back() }
 function startRefinement() {
   const planId = route.params.id
   router.push(`/plans/${planId}/chat`)
+}
+
+function confirmDelete() {
+  showDeleteConfirm.value = true
+}
+
+function cancelDelete() {
+  showDeleteConfirm.value = false
+}
+
+async function executeDelete() {
+  if (deleting.value) return
+  
+  deleting.value = true
+  showDeleteConfirm.value = false
+  
+  try {
+    const planId = route.params.id
+    await deletePlan(planId, auth.authHeader())
+    toast.value = 'プランを削除しました'
+    
+    // Navigate back to plans list after a short delay
+    setTimeout(() => {
+      router.push('/plans')
+    }, 1500)
+  } catch(e) {
+    console.error('Delete error:', e)
+    toast.value = 'プランの削除に失敗しました: ' + (e.message || '不明なエラー')
+  } finally {
+    deleting.value = false
+  }
 }
 </script>
 
@@ -81,7 +116,7 @@ function startRefinement() {
         </ul>
       </div>
       
-      <!-- Refinement Button -->
+      <!-- Action Buttons -->
       <div class="action-buttons">
         <button class="refine-btn" @click="startRefinement" aria-label="プランをブラッシュアップ">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -97,8 +132,44 @@ function startRefinement() {
           </svg>
           ブラッシュアップ
         </button>
+        
+        <button 
+          class="delete-btn" 
+          @click="confirmDelete" 
+          :disabled="deleting"
+          aria-label="プランを削除"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c0-1 1-2 2-2v2"></path>
+            <line x1="10" x2="10" y1="11" y2="17"></line>
+            <line x1="14" x2="14" y1="11" y2="17"></line>
+          </svg>
+          {{ deleting ? '削除中...' : 'プランを削除' }}
+        </button>
+      </div>
+      
+      <!-- Delete Confirmation Dialog -->
+      <div v-if="showDeleteConfirm" class="delete-confirm-overlay" @click="cancelDelete">
+        <div class="delete-confirm-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3>プランの削除</h3>
+          </div>
+          <div class="dialog-content">
+            <p>「{{ plan?.title || '無題プラン' }}」を削除しますか？</p>
+            <p>この操作は取り消せません。</p>
+          </div>
+          <div class="dialog-actions">
+            <button class="cancel-btn" @click="cancelDelete">キャンセル</button>
+            <button class="confirm-delete-btn" @click="executeDelete" :disabled="deleting">
+              {{ deleting ? '削除中...' : '削除する' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
+    <Toast v-model="toast" />
   </div>
 </template>
 
@@ -281,7 +352,11 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
   box-shadow:0 4px 12px -4px rgba(15,23,42,0.06);
   margin-top: 20px;
   margin-bottom: 20px; /* Extra space to prevent footer overlap */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
+
 .refine-btn { 
   display:flex; 
   align-items:center; 
@@ -300,18 +375,155 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
   box-shadow:0 4px 12px rgba(59,130,246,0.3);
   min-height: 44px; /* Touch-friendly size */
 }
+
 .refine-btn:hover { 
   background:linear-gradient(135deg, #2563eb, #1e40af); 
   transform:translateY(-1px); 
   box-shadow:0 6px 16px rgba(59,130,246,0.4); 
 }
+
 .refine-btn:active { 
   transform:translateY(0); 
   box-shadow:0 2px 8px rgba(59,130,246,0.3); 
 }
+
 .refine-btn svg { 
   width:18px; 
   height:18px;
+}
+
+.delete-btn { 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  gap:8px; 
+  width:100%; 
+  padding:12px 20px; 
+  background:linear-gradient(135deg, #ef4444, #dc2626); 
+  color:#fff; 
+  border:none; 
+  border-radius:12px; 
+  font-size:14px; 
+  font-weight:600; 
+  cursor:pointer; 
+  transition:all .2s ease; 
+  box-shadow:0 4px 12px rgba(239,68,68,0.3);
+  min-height: 44px; /* Touch-friendly size */
+}
+
+.delete-btn:hover:not(:disabled) { 
+  background:linear-gradient(135deg, #dc2626, #b91c1c); 
+  transform:translateY(-1px); 
+  box-shadow:0 6px 16px rgba(239,68,68,0.4); 
+}
+
+.delete-btn:active:not(:disabled) { 
+  transform:translateY(0); 
+  box-shadow:0 2px 8px rgba(239,68,68,0.3); 
+}
+
+.delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.delete-btn svg { 
+  width:18px; 
+  height:18px;
+}
+
+/* Delete Confirmation Dialog */
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.delete-confirm-dialog {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 400px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.dialog-header {
+  padding: 20px 20px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dialog-header h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dialog-content {
+  padding: 20px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.dialog-content p {
+  margin: 0 0 12px;
+}
+
+.dialog-content p:last-child {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+.dialog-actions {
+  padding: 16px 20px 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancel-btn, .confirm-delete-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 40px;
+  border: none;
+}
+
+.cancel-btn {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.cancel-btn:hover {
+  background: #e5e7eb;
+}
+
+.confirm-delete-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.confirm-delete-btn:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.confirm-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* モバイル対応: アクションボタンの調整 */
@@ -320,13 +532,45 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
     border-radius: 12px;
     padding: 14px;
     margin-bottom: 24px;
+    gap: 10px;
   }
   
-  .refine-btn {
+  .refine-btn, .delete-btn {
     padding: 14px 24px;
     font-size: 15px;
     min-height: 48px;
     border-radius: 10px;
+  }
+  
+  .delete-confirm-overlay {
+    padding: 12px;
+  }
+  
+  .delete-confirm-dialog {
+    border-radius: 12px;
+  }
+  
+  .dialog-header {
+    padding: 16px 16px 0;
+  }
+  
+  .dialog-header h3 {
+    font-size: 16px;
+  }
+  
+  .dialog-content {
+    padding: 16px;
+    font-size: 14px;
+  }
+  
+  .dialog-actions {
+    padding: 12px 16px 16px;
+    flex-direction: column-reverse;
+  }
+  
+  .cancel-btn, .confirm-delete-btn {
+    width: 100%;
+    min-height: 44px;
   }
 }
 

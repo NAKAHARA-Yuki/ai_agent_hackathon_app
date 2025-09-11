@@ -167,4 +167,27 @@ export async function planDetail(planId, authHeader) {
   return plan
 }
 
+export async function deletePlan(planId, authHeader) {
+  if (!useMock) {
+    const resp = await fetch(`/api/plans/${planId}`, { 
+      method: 'DELETE', 
+      headers: { 'Content-Type': 'application/json', ...(authHeader||{}) } 
+    })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    return resp.json()
+  }
+  // Mock mode - remove plan from localStorage
+  const plans = lsGet('mockPlans', [])
+  const updatedPlans = plans.filter(p => p.id !== planId)
+  lsSet('mockPlans', updatedPlans)
+  
+  // Also clear active plan if it was the deleted one
+  const activePlan = lsGet('mockActivePlan', null)
+  if (activePlan && activePlan.id === planId) {
+    lsSet('mockActivePlan', null)
+  }
+  
+  return { status: 'deleted' }
+}
+
 export function isMock(){ return useMock }
