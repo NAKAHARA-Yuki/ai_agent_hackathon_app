@@ -10,7 +10,7 @@
         <button @click="onClick" :disabled="!keyword.trim()" class="submit">プランを作成</button>
       </div>
     </main>
-    <footer class="screen-footer">モック生成 (ローカル)</footer>
+
   </div>
 </template>
 
