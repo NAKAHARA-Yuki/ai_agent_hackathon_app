@@ -3,10 +3,12 @@ import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
+import { useActivePlanStore } from '@/stores/activePlanStore'
 
 const router = useRouter()
 const auth = useAuthStore()
 const quiz = useQuizStore()
+const activePlanStore = useActivePlanStore()
 const persona = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -71,6 +73,8 @@ async function loadRecentPlans() {
 onMounted(() => {
   loadLatestPersona()
   loadRecentPlans()
+  // Fetch active plan for travel day mode
+  activePlanStore.fetchActivePlan()
 })
 
 function goResults() {
@@ -81,6 +85,12 @@ function restart() {
   router.push({ name: 'home' })
 }
 
+function openTravelDayChat() {
+  if (activePlanStore.activePlanId) {
+    router.push({ name: 'travel-day-chat', params: { id: activePlanStore.activePlanId } })
+  }
+}
+
 </script>
 
 <template>
@@ -89,6 +99,22 @@ function restart() {
       <section class="panel">
   <h1>メインページ</h1>
       <p class="lead">あなたの診断に基づき、パーソナライズされた旅の提案を続けられます。</p>
+
+      <!-- Active Plan Quick Access (Travel Day Mode) -->
+      <div v-if="activePlanStore.isActive" class="active-plan-banner">
+        <div class="banner-content">
+          <div class="banner-info">
+            <div class="banner-title">{{ activePlanStore.activePlanTitle }}</div>
+            <div class="banner-subtitle">旅行当日モード中</div>
+          </div>
+          <button @click="openTravelDayChat" class="chat-btn" aria-label="旅行当日チャット">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+            チャット
+          </button>
+        </div>
+      </div>
 
       <div v-if="loading">読み込み中...</div>
       <div v-else-if="error" class="error">
@@ -293,5 +319,94 @@ function restart() {
 
 .recent-plans.loading { 
   color: #9ca3af; 
+}
+
+/* Active Plan Banner */
+.active-plan-banner {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  margin-bottom: 16px;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.banner-info {
+  flex: 1;
+}
+
+.banner-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.banner-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.chat-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 600px){ 
+  .banner-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .chat-btn {
+    align-self: stretch;
+    justify-content: center;
+    padding: 10px 18px;
+    font-size: 15px;
+    min-height: 44px; /* タッチフレンドリーなサイズ */
+  }
+}
+
+/* さらに小さな画面用の追加調整 */
+@media (max-width: 480px) {
+  .banner-title {
+    font-size: 15px;
+  }
+  
+  .banner-subtitle {
+    font-size: 11px;
+  }
+  
+  .chat-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+    min-height: 48px;
+  }
 }
 </style>
