@@ -22,10 +22,10 @@
 - **After**: Lazy loading of sub-agents in root coordinator, proper import order
 - **Result**: No more agent duplication or parent assignment conflicts
 
-### 3. Model Update
-- **Before**: `gemini-2.5-pro` 
-- **After**: `gemini-2.0-flash-exp`
-- **Result**: Better stability and tool compatibility
+### 3. Model Configuration
+- **Current**: `gemini-2.5-pro` (as requested by user feedback)
+- **Previous**: `gemini-2.0-flash-exp` (used temporarily for compatibility)
+- **Result**: Using preferred model with improved tool configuration
 
 ### 4. FunctionTool Import Fix
 - **Before**: Only tried `function_tool` import

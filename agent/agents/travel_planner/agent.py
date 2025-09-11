@@ -74,7 +74,7 @@ if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
 	os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 	os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")  # Use a more stable model variant
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")  # Use gemini-2.5-pro as requested
 log.info(f"Travel Planner Agent model: {MODEL}")
 
 TRAVEL_PLANNER_INSTRUCTION = (
