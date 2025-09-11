@@ -126,6 +126,16 @@ function openTravelDayChat() {
           <h3>現在のタイプ: {{ persona.profile.title }}</h3>
           <p>{{ persona.profile.description || '詳細情報は現在利用できません。' }}</p>
           <div v-if="persona.profile?.traitScores && Object.keys(persona.profile.traitScores).length > 0" class="trait-summary">
+            <h4>📊 あなたの特性</h4>
+            <div class="trait-compact-list">
+              <div v-for="(score, trait) in persona.profile.traitScores" :key="trait" class="trait-compact-item">
+                <span class="trait-compact-name">{{ trait }}</span>
+                <div class="trait-compact-bar">
+                  <div class="trait-compact-fill" :style="{ width: (score / 4) * 100 + '%' }"></div>
+                  <span class="trait-compact-score">{{ score }}</span>
+                </div>
+              </div>
+            </div>
             <small class="muted">診断結果に基づいてパーソナライズされています</small>
           </div>
         </div>
@@ -211,8 +221,73 @@ function openTravelDayChat() {
   background: #b91c1c; 
 }
 .trait-summary {
-  margin-top: 8px;
+  margin-top: 16px;
 }
+
+.trait-summary h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.trait-compact-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.trait-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.trait-compact-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.trait-compact-bar {
+  flex: 1;
+  position: relative;
+  background: #e0e7ff;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.trait-compact-fill {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.5s ease;
+  min-width: 12px;
+}
+
+.trait-compact-score {
+  position: absolute;
+  right: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1px 3px;
+  border-radius: 3px;
+  min-width: 12px;
+  text-align: center;
+}
+
 .trait-summary small {
   font-size: 12px;
   color: #9ca3af;
