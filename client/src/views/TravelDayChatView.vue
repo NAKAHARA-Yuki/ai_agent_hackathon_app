@@ -10,6 +10,11 @@ const router = useRouter()
 const auth = useAuthStore()
 const activePlanStore = useActivePlanStore()
 
+// Constants for UI display limits
+const SESSION_ID_PREFIX = 'travel-day-'
+const MAX_DISPLAYED_PLACES = 5
+const MAX_DISPLAYED_CITATIONS = 3
+
 const plan = ref(null)
 const messages = ref([])
 const inputMessage = ref('')
@@ -29,7 +34,7 @@ function generateUUID() {
   })
 }
 
-sessionId.value = 'travel-day-' + generateUUID()
+sessionId.value = SESSION_ID_PREFIX + generateUUID()
 
 async function loadPlan() {
   try {
@@ -175,7 +180,7 @@ onMounted(loadPlan)
             <div v-if="message.places && message.places.length" class="message-places">
               <h4>おすすめスポット</h4>
               <div class="places-list">
-                <div v-for="(place, i) in message.places.slice(0, 5)" :key="i" class="place-item">
+                <div v-for="(place, i) in message.places.slice(0, MAX_DISPLAYED_PLACES)" :key="i" class="place-item">
                   <strong>{{ place.name }}</strong>
                   <span v-if="place.note" class="place-note">{{ place.note }}</span>
                 </div>
@@ -187,7 +192,7 @@ onMounted(loadPlan)
               <details>
                 <summary>参考情報 ({{ message.citations.length }}件)</summary>
                 <div class="citations-list">
-                  <a v-for="citation in message.citations.slice(0, 3)" 
+                  <a v-for="citation in message.citations.slice(0, MAX_DISPLAYED_CITATIONS)" 
                      :key="citation.index" 
                      :href="citation.uri" 
                      target="_blank" 

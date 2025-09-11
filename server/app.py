@@ -116,6 +116,11 @@ except Exception:
 logger = logging.getLogger("server")
 app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
+# Constants for active plan context formatting
+MAX_ITINERARY_DAYS = 3  # Limit to avoid token limits
+MAX_ITEMS_PER_DAY = 4   # Limit items per day
+MAX_PLACES = 6          # Limit places in context
+
 # Agent呼び出しHTTPタイムアウト（秒）環境変数で調整可能。デフォルト90。
 try:
     AGENT_HTTP_TIMEOUT = int(os.getenv('AGENT_HTTP_TIMEOUT') or '90')
@@ -1454,17 +1459,17 @@ def agent_chat():
                                 
                                 if itinerary:
                                     active_plan_context += "日程:\n"
-                                    for day in itinerary[:3]:  # Limit to avoid token limits
+                                    for day in itinerary[:MAX_ITINERARY_DAYS]:
                                         day_num = day.get('day', 1)
                                         active_plan_context += f"Day {day_num}:\n"
                                         items = day.get('items', [])
-                                        for item in items[:4]:  # Limit items per day
+                                        for item in items[:MAX_ITEMS_PER_DAY]:
                                             time_str = item.get('time', '')
                                             title = item.get('title', '')
                                             active_plan_context += f"  {time_str} {title}\n"
                                 
                                 if places:
-                                    place_names = [p.get('name', '') for p in places[:6] if p.get('name')]
+                                    place_names = [p.get('name', '') for p in places[:MAX_PLACES] if p.get('name')]
                                     if place_names:
                                         active_plan_context += f"関連スポット: {', '.join(place_names)}\n"
                                 
