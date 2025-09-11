@@ -5,10 +5,16 @@ import json
 from typing import Any
 from google.adk.agents import LlmAgent
 
-# Import sub-agents using absolute imports
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from travel_planner.agent import travel_planner_agent
-from travel_advisor.agent import travel_advisor_agent
+# Import sub-agents using relative imports
+try:
+    # Try relative imports first (preferred)
+    from ..travel_planner.agent import travel_planner_agent
+    from ..travel_advisor.agent import travel_advisor_agent
+except ImportError:
+    # Fallback to sys.path manipulation if needed
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    from travel_planner.agent import travel_planner_agent
+    from travel_advisor.agent import travel_advisor_agent
 
 # 共有モジュール(shared/logging_config.py)は本コンテナにコピーしない方針のため
 # インポートに失敗した場合は最小限のフォールバックを内蔵定義する。
@@ -80,16 +86,19 @@ ROOT_COORDINATOR_INSTRUCTION = (
 )
 
 # Define the root coordinator agent with sub-agents
-root_agent = LlmAgent(
-	name="root_coordinator",
-	model=MODEL,
-	description="Coordinate requests to appropriate sub-agents (travel_planner or travel_advisor)",
-	instruction=ROOT_COORDINATOR_INSTRUCTION,
-	sub_agents=[
-		travel_planner_agent,
-		travel_advisor_agent
-	],
-	tools=[],  # Root agent doesn't need direct tools, sub-agents handle them
-)
-
-log.info("Root Coordinator Agent initialized with travel_planner and travel_advisor sub-agents")
+try:
+	root_agent = LlmAgent(
+		name="root_coordinator",
+		model=MODEL,
+		description="Coordinate requests to appropriate sub-agents (travel_planner or travel_advisor)",
+		instruction=ROOT_COORDINATOR_INSTRUCTION,
+		sub_agents=[
+			travel_planner_agent,
+			travel_advisor_agent
+		],
+		tools=[],  # Root agent doesn't need direct tools, sub-agents handle them
+	)
+	log.info("Root Coordinator Agent initialized with travel_planner and travel_advisor sub-agents")
+except Exception as e:
+	log.error(f"Failed to initialize Root Coordinator Agent: {e}")
+	raise

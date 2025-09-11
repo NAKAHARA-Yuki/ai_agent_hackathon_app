@@ -5,10 +5,20 @@ from typing import Any
 from google.adk.agents import LlmAgent
 import httpx
 
-# Add the root agent directory to path for tools import
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from tools.maps_mcp import register_maps_mcp_tool
-from google.adk.tools import google_search
+# Import tools with better error handling
+try:
+    # Try relative import first
+    from ...tools.maps_mcp import register_maps_mcp_tool
+except ImportError:
+    # Fallback to adding parent directory to path
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+    from tools.maps_mcp import register_maps_mcp_tool
+
+try:
+    from google.adk.tools import google_search
+except ImportError as e:
+    log.warning(f"Failed to import google_search tool: {e}")
+    google_search = None
 
 # 共有モジュール(shared/logging_config.py)は本コンテナにコピーしない方針のため
 # インポートに失敗した場合は最小限のフォールバックを内蔵定義する。
@@ -81,16 +91,30 @@ TRAVEL_PLANNER_INSTRUCTION = (
 )
 
 tools = []
-tools += register_maps_mcp_tool()  # GoogleMapMCP
-tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
+try:
+    tools += register_maps_mcp_tool()  # GoogleMapMCP
+    log.info("Maps MCP tool registered successfully")
+except Exception as e:
+    log.warning(f"Failed to register Maps MCP tool: {e}")
 
-log.info("Travel Planner Sub-Agent: Tools registered: maps_mcp, google_search")
+if google_search:
+    tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
+    log.info("Google search tool registered successfully")
+else:
+    log.warning("Google search tool not available")
+
+log.info(f"Travel Planner Sub-Agent: {len(tools)} tools registered")
 
 # Define the travel planner sub-agent
-travel_planner_agent = LlmAgent(
-	name="travel_planner",
-	model=MODEL,
-	description="Generate domestic travel plans in Japanese from persona/profile/constraints",
-	instruction=TRAVEL_PLANNER_INSTRUCTION,
-	tools=tools,
-)
+try:
+	travel_planner_agent = LlmAgent(
+		name="travel_planner",
+		model=MODEL,
+		description="Generate domestic travel plans in Japanese from persona/profile/constraints",
+		instruction=TRAVEL_PLANNER_INSTRUCTION,
+		tools=tools,
+	)
+	log.info(f"Travel Planner Agent initialized with {len(tools)} tools")
+except Exception as e:
+	log.error(f"Failed to initialize Travel Planner Agent: {e}")
+	raise
