@@ -74,7 +74,7 @@ if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
 	os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 	os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")  # Use gemini-2.5-pro as requested
 log.info(f"Travel Planner Agent model: {MODEL}")
 
 TRAVEL_PLANNER_INSTRUCTION = (
@@ -90,18 +90,21 @@ TRAVEL_PLANNER_INSTRUCTION = (
 	"(EN Warning) Output exactly ONE raw JSON object only. No markdown headings/tables/fences. Any extra text may cause rejection."
 )
 
+# Configure tools - avoid mixing built-in and custom tools to prevent function calling conflicts
 tools = []
-try:
-    tools += register_maps_mcp_tool()  # GoogleMapMCP
-    log.info("Maps MCP tool registered successfully")
-except Exception as e:
-    log.warning(f"Failed to register Maps MCP tool: {e}")
 
+# First try to use built-in google_search (preferred for stability)
 if google_search:
     tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
-    log.info("Google search tool registered successfully")
+    log.info("Using built-in Google search tool")
 else:
-    log.warning("Google search tool not available")
+    # Fallback to MCP tools only if google_search is not available
+    try:
+        mcp_tools = register_maps_mcp_tool()  # GoogleMapMCP
+        tools.extend(mcp_tools)
+        log.info(f"Using MCP tools as fallback: {len(mcp_tools)} tools registered")
+    except Exception as e:
+        log.warning(f"Failed to register MCP tools: {e}")
 
 log.info(f"Travel Planner Sub-Agent: {len(tools)} tools registered")
 
@@ -119,31 +122,4 @@ except Exception as e:
 	log.error(f"Failed to initialize Travel Planner Agent: {e}")
 	raise
 
-# Also expose the root_agent from root_coordinator for ADK agent loader
-# This ensures all possible import paths work: travel_planner.agent.root_agent and travel_planner.root_agent
-
-# Set root_agent to None initially to avoid circular import during module loading
-root_agent = None
-
-def _load_root_agent():
-	"""Load root_agent after all modules are initialized."""
-	global root_agent
-	if root_agent is None:
-		try:
-			# Import after travel_planner_agent is created to avoid circular imports
-			import sys
-			import os
-			sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-			from root_coordinator.agent import root_agent as imported_root_agent
-			root_agent = imported_root_agent
-			log.info("root_agent loaded successfully in travel_planner.agent module")
-		except ImportError as e:
-			log.warning(f"Could not load root_agent in agent module: {e}")
-			root_agent = None
-	return root_agent
-
-# Try to load root_agent immediately if possible
-try:
-	_load_root_agent()
-except:
-	pass  # Will be None and can be loaded later
+# Remove circular import - root_agent should only be defined in root_coordinator

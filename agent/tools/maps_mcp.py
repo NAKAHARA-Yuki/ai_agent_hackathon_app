@@ -6,9 +6,14 @@ import httpx
 
 try:
     # Prefer official ADK function tool wrapper if available
-    from google.adk.tools import function_tool as adk_function_tool
-except Exception:  # pragma: no cover - optional at runtime
-    adk_function_tool = None
+    from google.adk.tools import FunctionTool
+    adk_function_tool = FunctionTool
+except ImportError:
+    try:
+        # Fallback to function_tool if FunctionTool is not available
+        from google.adk.tools import function_tool as adk_function_tool
+    except ImportError:  # pragma: no cover - optional at runtime
+        adk_function_tool = None
 
 
 MAPS_MCP_ENDPOINT_URL = os.getenv("MAPS_MCP_ENDPOINT_URL")  # e.g., https://maps-mcp-xxxxx.a.run.app/tools/retrieve-google-maps-platform-docs
@@ -70,13 +75,20 @@ def register_maps_mcp_tool() -> List:
     if adk_function_tool is None:
         return tools
     try:
-        tools.append(
-            adk_function_tool(
-                retrieve_google_maps_platform_docs,
-                name="retrieve_google_maps_platform_docs",
-                description="Google Maps Platformの最新ドキュメント/コードを検索し要約を返す",
+        if hasattr(adk_function_tool, '__call__'):
+            # If it's a function (function_tool)
+            tools.append(
+                adk_function_tool(
+                    retrieve_google_maps_platform_docs,
+                    name="retrieve_google_maps_platform_docs",
+                    description="Google Maps Platformの最新ドキュメント/コードを検索し要約を返す",
+                )
             )
-        )
+        else:
+            # If it's a class (FunctionTool)
+            tools.append(
+                adk_function_tool(retrieve_google_maps_platform_docs)
+            )
     except Exception:
         # Fail closed; simply don't register the tool
         return []
