@@ -130,7 +130,7 @@ async function handleConfirm(plan){
     }
     await createPlan(payload, auth.authHeader())
     // 保存後ホーム（main）へ遷移 or 予定へ
-    window.location.assign('/schedule')
+    window.location.assign('/plans')
   } catch(e){ console.error('wizard save failed', e) } finally { saving.value=false }
 }
 

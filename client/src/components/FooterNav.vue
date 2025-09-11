@@ -9,7 +9,7 @@ const active = computed(() => {
   return {
     home: p.startsWith('/main'),
     plan: p.startsWith('/travel-wizard'),
-    schedule: p.startsWith('/schedule'),
+    schedule: p.startsWith('/plans'),
     tasks: p.startsWith('/tasks')
   }
 })
@@ -33,7 +33,7 @@ function go(name){ if(route.name!==name) router.push({ name }) }
       </svg>
       <span class="label">プラン</span>
     </button>
-    <button class="nav-item" :class="{active:active.schedule}" @click="go('schedule')" aria-label="旅行予定">
+    <button class="nav-item" :class="{active:active.schedule}" @click="go('plans')" aria-label="旅行予定">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
         <line x1="16" y1="2" x2="16" y2="6" />
