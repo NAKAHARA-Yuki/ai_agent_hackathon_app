@@ -97,8 +97,9 @@ function startRefinement() {
 <style scoped>
 /* 全体: 余白 + 中央寄せカラム。height/overflow排除で二重スクロール崩れ防止 */
 /* ヘッダー固定による見切れ防止として top-padding を十分に確保 */
+/* フッター固定による見切れ防止として bottom-padding を十分に確保 */
 .plan-detail-screen{ 
-  padding: calc(80px + env(safe-area-inset-top)) 16px calc(120px + env(safe-area-inset-bottom)); 
+  padding: calc(80px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom)); 
   box-sizing:border-box; 
   display:flex; 
   flex-direction:column; 
@@ -115,7 +116,13 @@ function startRefinement() {
 .summary{ margin:2px 0 4px; font-size:14px; color:#475569; line-height:1.6; word-break:break-word; overflow-wrap:anywhere; }
 
 /* セクション共通カード化 */
-.content{ display:flex; flex-direction:column; gap:28px; }
+.content{ 
+  display:flex; 
+  flex-direction:column; 
+  gap:28px; 
+  overflow: visible; /* Ensure content sections are not clipped */
+  flex: 1; /* Allow content to grow */
+}
 .content > .suggestions,
 .content > .itinerary,
 .content > .raw-text,
@@ -131,11 +138,34 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
 .suggestions .brief{ color:#475569; font-size:11px; }
 
 /* 日程 */
-.itinerary .day{ background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px 12px; margin:10px 0 12px; }
+.itinerary .day{ 
+  background:#f8fafc; 
+  border:1px solid #e2e8f0; 
+  border-radius:14px; 
+  padding:10px 12px 12px; 
+  margin:10px 0 12px; 
+  overflow: visible; /* Ensure content is not clipped */
+}
 .itinerary .day:last-child{ margin-bottom:0; }
 .itinerary h3{ margin:0 0 6px; font-size:13px; font-weight:700; color:#334155; }
-.items{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px; }
-.items li{ font-size:13px; line-height:1.4; color:#475569; display:flex; flex-wrap:wrap; gap:6px; }
+.items{ 
+  list-style:none; 
+  padding:0; 
+  margin:0; 
+  display:flex; 
+  flex-direction:column; 
+  gap:5px; 
+  overflow: visible; /* Ensure items are not clipped */
+}
+.items li{ 
+  font-size:13px; 
+  line-height:1.4; 
+  color:#475569; 
+  display:flex; 
+  flex-wrap:wrap; 
+  gap:6px; 
+  overflow: visible; /* Ensure individual items are not clipped */
+}
 .items .time{ font-weight:600; min-width:52px; color:#0f172a; }
 
 /* 本文 */
@@ -152,7 +182,15 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
 .error{ color:#dc2626; }
 
 /* Action Buttons */
-.action-buttons { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px; box-shadow:0 4px 12px -4px rgba(15,23,42,0.06); }
+.action-buttons { 
+  background:#fff; 
+  border:1px solid #e2e8f0; 
+  border-radius:18px; 
+  padding:18px; 
+  box-shadow:0 4px 12px -4px rgba(15,23,42,0.06);
+  margin-top: 20px;
+  margin-bottom: 20px; /* Extra space to prevent footer overlap */
+}
 .refine-btn { 
   display:flex; 
   align-items:center; 

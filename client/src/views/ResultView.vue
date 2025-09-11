@@ -154,11 +154,12 @@ function goMain() {
 
 <style scoped>
 .result-view { 
-  display:grid; 
-  place-items:center; 
+  display:flex; 
+  flex-direction:column; 
+  align-items:center; 
   min-height:100vh; 
-  padding: calc(80px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 20px); 
-  overflow:auto; 
+  padding: calc(80px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom)); 
+  overflow-y:auto; 
   width: 100%; 
   box-sizing: border-box;
 }
