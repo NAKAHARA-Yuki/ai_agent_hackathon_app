@@ -74,7 +74,7 @@ if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
 	os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 	os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")  # Use a more stable model variant
 log.info(f"Travel Advisor Agent model: {MODEL}")
 
 TRAVEL_ADVISOR_INSTRUCTION = (
@@ -87,18 +87,21 @@ TRAVEL_ADVISOR_INSTRUCTION = (
 	"出力は開始文字 '{' から終了 '}' までの 1 個の JSON オブジェクトのみ。コードフェンス、説明文、マークダウンは禁止。"
 )
 
+# Configure tools - avoid mixing built-in and custom tools to prevent function calling conflicts
 tools = []
-try:
-    tools += register_maps_mcp_tool()  # GoogleMapMCP
-    log.info("Maps MCP tool registered successfully")
-except Exception as e:
-    log.warning(f"Failed to register Maps MCP tool: {e}")
 
+# First try to use built-in google_search (preferred for stability)
 if google_search:
     tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
-    log.info("Google search tool registered successfully")
+    log.info("Using built-in Google search tool")
 else:
-    log.warning("Google search tool not available")
+    # Fallback to MCP tools only if google_search is not available
+    try:
+        mcp_tools = register_maps_mcp_tool()  # GoogleMapMCP
+        tools.extend(mcp_tools)
+        log.info(f"Using MCP tools as fallback: {len(mcp_tools)} tools registered")
+    except Exception as e:
+        log.warning(f"Failed to register MCP tools: {e}")
 
 log.info(f"Travel Advisor Sub-Agent: {len(tools)} tools registered")
 

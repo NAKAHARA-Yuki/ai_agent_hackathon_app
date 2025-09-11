@@ -5,16 +5,39 @@ import json
 from typing import Any
 from google.adk.agents import LlmAgent
 
-# Import sub-agents using relative imports
-try:
-    # Try relative imports first (preferred)
-    from ..travel_planner.agent import travel_planner_agent
-    from ..travel_advisor.agent import travel_advisor_agent
-except ImportError:
-    # Fallback to sys.path manipulation if needed
-    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-    from travel_planner.agent import travel_planner_agent
-    from travel_advisor.agent import travel_advisor_agent
+# Import sub-agents with better error handling and avoiding circular imports
+_travel_planner_agent = None
+_travel_advisor_agent = None
+
+def _get_sub_agents():
+    """Lazy import sub-agents to avoid circular import issues."""
+    global _travel_planner_agent, _travel_advisor_agent
+    
+    if _travel_planner_agent is None or _travel_advisor_agent is None:
+        try:
+            # Use absolute imports to avoid confusion
+            import sys
+            import os
+            
+            # Add the parent agents directory to path
+            agents_dir = os.path.dirname(__file__)
+            parent_dir = os.path.dirname(agents_dir)
+            if parent_dir not in sys.path:
+                sys.path.insert(0, parent_dir)
+            
+            # Import sub-agents directly from their modules
+            travel_planner_module = __import__('travel_planner.agent', fromlist=['travel_planner_agent'])
+            _travel_planner_agent = travel_planner_module.travel_planner_agent
+            
+            travel_advisor_module = __import__('travel_advisor.agent', fromlist=['travel_advisor_agent'])
+            _travel_advisor_agent = travel_advisor_module.travel_advisor_agent
+            
+            log.info("Sub-agents imported successfully")
+        except Exception as e:
+            log.error(f"Failed to import sub-agents: {e}")
+            raise ImportError(f"Could not import required sub-agents: {e}")
+    
+    return _travel_planner_agent, _travel_advisor_agent
 
 # 共有モジュール(shared/logging_config.py)は本コンテナにコピーしない方針のため
 # インポートに失敗した場合は最小限のフォールバックを内蔵定義する。
@@ -70,7 +93,7 @@ if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
 	os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 	os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")  # Use a more stable model variant
 log.info(f"Root Coordinator Agent model: {MODEL}")
 
 ROOT_COORDINATOR_INSTRUCTION = (
@@ -87,6 +110,8 @@ ROOT_COORDINATOR_INSTRUCTION = (
 
 # Define the root coordinator agent with sub-agents
 try:
+	travel_planner_agent, travel_advisor_agent = _get_sub_agents()
+	
 	root_agent = LlmAgent(
 		name="root_coordinator",
 		model=MODEL,
