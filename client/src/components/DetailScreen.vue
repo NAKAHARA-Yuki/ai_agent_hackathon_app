@@ -29,24 +29,27 @@
         </div>
         <p v-else class="placeholder">日程データがありません</p>
       </section>
+      
+      <!-- Move buttons below the itinerary section -->
+      <div class="cta-section">
+        <button class="cta secondary" @click="$emit('refine', plan)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 2v4"></path>
+            <path d="M16 2v4"></path>
+            <rect width="18" height="18" x="3" y="4" rx="2"></rect>
+            <path d="M3 10h18"></path>
+            <path d="M8 14h.01"></path>
+            <path d="M12 14h.01"></path>
+            <path d="M16 14h.01"></path>
+            <path d="M8 18h.01"></path>
+            <path d="M12 18h.01"></path>
+          </svg>
+          ブラッシュアップ
+        </button>
+        <button class="cta primary" @click="$emit('confirm', plan)">このプランを確定する</button>
+      </div>
+      
       <div class="spacer"></div>
-    </div>
-    <div class="cta-bar">
-      <button class="cta secondary" @click="$emit('refine', plan)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M8 2v4"></path>
-          <path d="M16 2v4"></path>
-          <rect width="18" height="18" x="3" y="4" rx="2"></rect>
-          <path d="M3 10h18"></path>
-          <path d="M8 14h.01"></path>
-          <path d="M12 14h.01"></path>
-          <path d="M16 14h.01"></path>
-          <path d="M8 18h.01"></path>
-          <path d="M12 18h.01"></path>
-        </svg>
-        ブラッシュアップ
-      </button>
-      <button class="cta primary" @click="$emit('confirm', plan)">このプランを確定する</button>
     </div>
   </div>
 </template>
@@ -86,7 +89,7 @@ const heroUrl = computed(() => `url(https://source.unsplash.com/featured/800x600
 .hero-text .tags { margin:0; font-size:12px; opacity:.9; }
 .hero-text .brief { margin:4px 0 0; font-size:11px; opacity:.95; max-width:90%; line-height:1.3; }
 
-.body { padding:18px 18px calc(160px + env(safe-area-inset-bottom)); max-width:640px; width:100%; margin:0 auto; }
+.body { padding:18px 18px calc(20px + env(safe-area-inset-bottom)); max-width:640px; width:100%; margin:0 auto; }
 .section { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px 18px 16px; box-shadow:0 4px 14px -4px rgba(0,0,0,0.08); }
 .section h2 { margin:0 0 10px; font-size:14px; font-weight:700; letter-spacing:.5px; color:#334155; }
 .itinerary { list-style:disc; padding-left:20px; margin:0; display:flex; flex-direction:column; gap:4px; font-size:13px; line-height:1.45; color:#475569; }
@@ -102,24 +105,19 @@ const heroUrl = computed(() => `url(https://source.unsplash.com/featured/800x600
 .placeholder { font-size:12px; color:#94a3b8; margin:0; }
 .spacer { height:60px; }
 
-.cta-bar { 
-  position:fixed; 
-  left:0; 
-  right:0; 
-  bottom:0; 
-  padding:12px 14px calc(14px + env(safe-area-inset-bottom)); 
-  background:linear-gradient(to top, rgba(255,255,255,0.92), rgba(255,255,255,0.75)); 
-  backdrop-filter:blur(10px); 
-  display:flex; 
-  justify-content:center; 
-  gap:8px;
-  z-index:50; 
-  border-top:1px solid rgba(0,0,0,0.08); 
+.cta-section { 
+  margin-top: 24px;
+  padding: 20px 0;
+  display: flex; 
+  justify-content: center; 
+  gap: 8px;
+  max-width: 600px;
+  width: 100%;
 }
 
 .cta { 
   flex:1;
-  max-width:300px; 
+  max-width:200px; 
   font-weight:600; 
   font-size:15px; 
   padding:14px 20px; 
@@ -179,5 +177,35 @@ const heroUrl = computed(() => `url(https://source.unsplash.com/featured/800x600
 @media (min-width:640px){
   .body { padding-left:24px; padding-right:24px; }
   .cta { font-size:16px; }
+}
+
+/* Mobile responsive styles for CTA section */
+@media (max-width: 768px) {
+  .cta-section {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 16px 0;
+  }
+  
+  .cta {
+    max-width: 100%;
+    min-height: 48px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cta-section {
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px 0;
+  }
+  
+  .cta {
+    padding: 16px 20px;
+    font-size: 15px;
+    min-height: 52px;
+  }
 }
 </style>

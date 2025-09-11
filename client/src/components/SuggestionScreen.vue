@@ -82,7 +82,11 @@ const props = defineProps({
     type: Array, 
     required: true,
     validator: (value) => Array.isArray(value) && value.every(item => item && typeof item === 'object')
-  } 
+  },
+  lastKeyword: {
+    type: String,
+    default: ''
+  }
 })
 const emit = defineEmits(['select-plan', 'regenerate'])
 
@@ -116,7 +120,8 @@ const isKeywordValid = computed(() => {
 
 function showRegenerateForm() {
   showRegenerateInput.value = true
-  regenerateKeyword.value = ''
+  // Pre-fill with the last keyword
+  regenerateKeyword.value = props.lastKeyword || ''
   errorMessage.value = ''
 }
 

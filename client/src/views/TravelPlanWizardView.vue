@@ -16,9 +16,14 @@ const travelPlans = ref([])
 const selectedPlan = ref(null)
 const saving = ref(false)
 const auth = useAuthStore()
+const lastKeyword = ref('') // Store the last used keyword for regeneration
 
 async function handleCreatePlan(keyword) {
   if (!keyword || currentView.value !== 'input') return
+  
+  // Store the keyword for potential regeneration
+  lastKeyword.value = keyword
+  
   currentView.value = 'loading'
   try {
     // 簡易セッション: wizard 用にランダム ID
@@ -108,7 +113,57 @@ function handleRegenerate(keyword) {
     return
   }
   
-  handleCreatePlan(keyword)
+  // Update the last keyword and switch to loading state
+  lastKeyword.value = keyword
+  currentView.value = 'loading'
+  
+  // Call handleCreatePlan but modify flow to skip input validation
+  handleCreatePlanForRegeneration(keyword)
+}
+
+async function handleCreatePlanForRegeneration(keyword) {
+  try {
+    // 簡易セッション: wizard 用にランダム ID
+    const sessionId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const resp = await agentChat({ message: keyword, user_id: auth.user?.id || 'u_local', session_id: sessionId, authHeader: auth.authHeader() })
+    // suggestions -> travelPlans
+    let mapped = []
+    if (Array.isArray(resp.plans) && resp.plans.length) {
+      mapped = resp.plans.slice(0,3).map((p,i)=>({
+        id: i+1,
+        title: p.title || `プラン ${i+1}`,
+        tags: (p.tags||[]).map(t=>`#${t}`).join(' '),
+        brief: p.brief || '',
+        itinerary: p.itinerary || [],
+        places: p.places || [],
+        route_info: p.route_info || null,
+        text: p.text || '',
+        __raw: p,
+        __full: resp
+      }))
+    } else {
+      const sugg = Array.isArray(resp.suggestions) ? resp.suggestions : []
+      mapped = sugg.slice(0,3).map((s,i)=>({
+        id: i+1,
+        title: s.title || `プラン ${i+1}`,
+        tags: (s.tags||[]).map(t=>`#${t}`).join(' '),
+        brief: s.brief || '',
+        itinerary: (resp.itinerary||[]),
+        __raw: s,
+        __full: resp
+      }))
+      if (!mapped.length) {
+        mapped.push({ id:1, title: resp.summary || '旅行プラン', tags: '', brief: '', itinerary: resp.itinerary||[], __full: resp })
+      }
+    }
+    travelPlans.value = mapped
+    currentView.value = 'suggestions'
+  } catch(e){
+    console.error('wizard regenerate error', e)
+    // エラーメッセージを表示（モックデータは使用しない）
+    alert('旅行プランの再生成中にエラーが発生しました。時間をおいて再試行してください。')
+    currentView.value = 'suggestions'
+  }
 }
 
 async function handleConfirm(plan){
@@ -179,7 +234,7 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
       <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
       <LoadingScreen v-else-if="currentView==='loading'" />
 
-      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" @select-plan="handleSelectPlan" @regenerate="handleRegenerate" />
+      <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" :lastKeyword="lastKeyword" @select-plan="handleSelectPlan" @regenerate="handleRegenerate" />
 
   <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" @refine="handleRefine" />
     </div>
