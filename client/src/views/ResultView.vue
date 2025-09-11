@@ -156,12 +156,17 @@ function goMain() {
       </div>
 
             <div class="result-section chart-section">
-         <ResultChart
-           v-if="displayResult?.scoreDetails?.traitScores"
-           :traitScores="displayResult.scoreDetails.traitScores"
-           :traitDescriptions="traitDescriptions"
-           :traitsOrder="traitsOrder"
-         />
+         <h3>📊 あなたの旅行特性バランス</h3>
+         <div class="traits-grid">
+           <div v-for="trait in traitsOrder" :key="trait" class="trait-item">
+             <div class="trait-name">{{ trait }}</div>
+             <div class="trait-score-bar">
+               <div class="trait-score-fill" :style="{ width: (displayResult.scoreDetails.traitScores[trait] / 4) * 100 + '%' }"></div>
+               <span class="trait-score-value">{{ displayResult.scoreDetails.traitScores[trait] }}</span>
+             </div>
+             <div class="trait-description">{{ traitDescriptions[trait] }}</div>
+           </div>
+         </div>
       </div>
 
       <div class="result-section travel-plans" v-if="displayResult.plans && displayResult.plans.length > 0">
@@ -377,6 +382,66 @@ p {
 }
 .result-actions { display:flex; justify-content:center; margin-top: 12px; }
 button.primary { background: var(--color-primary); color:#fff; border:none; padding:10px 16px; border-radius:8px; }
+
+.traits-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.trait-item {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.trait-name {
+  font-weight: 600;
+  color: #1a237e;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.trait-score-bar {
+  position: relative;
+  background: #e0e7ff;
+  height: 32px;
+  border-radius: 16px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  border: 1px solid #c7d2fe;
+}
+
+.trait-score-fill {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  height: 100%;
+  border-radius: 16px;
+  transition: width 0.8s ease;
+  min-width: 30px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.trait-score-value {
+  position: absolute;
+  right: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.trait-description {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
 
 /* モバイル向け微調整 */
 @media (max-width: 600px) {
