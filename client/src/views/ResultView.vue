@@ -13,6 +13,11 @@ const showScoreDetails = ref(false)
 const personaData = ref(null)
 const loading = ref(false)
 
+// Check if quiz store has valid data
+function shouldLoadPersonaData() {
+  return !store.finalResult || !store.finalResult.scoreDetails || isNaN(parseFloat(store.finalResult.scoreDetails.average))
+}
+
 // Load persona data from API if quiz store doesn't have results
 async function loadPersonaData() {
   if (personaData.value) return // Already loaded
@@ -32,35 +37,38 @@ async function loadPersonaData() {
   }
 }
 
+// Memoized persona-based result calculation
+const personaBasedResult = computed(() => {
+  if (!personaData.value?.profile) return null
+  
+  const profile = personaData.value.profile
+  const traitScores = profile.traitScores || {}
+  
+  // Calculate average score
+  const scores = Object.values(traitScores).filter(score => !isNaN(score))
+  const average = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0
+  
+  return {
+    title: profile.title || '診断結果',
+    description: profile.description || '',
+    plans: [], // No plans from persona data
+    scoreDetails: {
+      average: average.toFixed(2),
+      traitScores: traitScores,
+      answers: [] // No individual answers from persona data
+    }
+  }
+})
+
 // Combined result data - use quiz store if available, otherwise use persona API data
 const displayResult = computed(() => {
   // If quiz store has fresh results and average is valid, use those
-  if (store.finalResult && store.finalResult.scoreDetails && !isNaN(parseFloat(store.finalResult.scoreDetails.average))) {
+  if (!shouldLoadPersonaData()) {
     return store.finalResult
   }
   
-  // Otherwise, construct from persona data
-  if (personaData.value?.profile) {
-    const profile = personaData.value.profile
-    const traitScores = profile.traitScores || {}
-    
-    // Calculate average score
-    const scores = Object.values(traitScores).filter(score => !isNaN(score))
-    const average = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0
-    
-    return {
-      title: profile.title || '診断結果',
-      description: profile.description || '',
-      plans: [], // No plans from persona data
-      scoreDetails: {
-        average: average.toFixed(2),
-        traitScores: traitScores,
-        answers: [] // No individual answers from persona data
-      }
-    }
-  }
-  
-  return null
+  // Otherwise, use the memoized persona-based result
+  return personaBasedResult.value
 })
 
 const traitsOrder = computed(() => {
@@ -113,8 +121,8 @@ const traitDescriptions = computed(() => {
 })
 
 onMounted(async () => {
-  // Load persona data if quiz store doesn't have valid results (missing data or NaN average)
-  if (!store.finalResult || !store.finalResult.scoreDetails || isNaN(parseFloat(store.finalResult.scoreDetails.average))) {
+  // Load persona data if quiz store doesn't have valid results
+  if (shouldLoadPersonaData()) {
     await loadPersonaData()
   }
 })
