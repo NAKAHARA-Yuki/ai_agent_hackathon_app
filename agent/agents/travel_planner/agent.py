@@ -118,3 +118,16 @@ try:
 except Exception as e:
 	log.error(f"Failed to initialize Travel Planner Agent: {e}")
 	raise
+
+# Also expose the root_agent from root_coordinator for ADK agent loader
+# This ensures all possible import paths work: travel_planner.agent.root_agent and travel_planner.root_agent
+try:
+	# Import after travel_planner_agent is created to avoid circular imports
+	import sys
+	import os
+	sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+	from root_coordinator.agent import root_agent
+	log.info("root_agent exposed in travel_planner.agent module")
+except ImportError as e:
+	log.warning(f"Could not expose root_agent in agent module: {e}")
+	root_agent = None
