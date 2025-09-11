@@ -196,20 +196,52 @@ onMounted(fetchPlans)
   }
 }
 
-/* Active Plan Banner */
+/* Active Plan Banner - More prominent design */
 .active-plan-banner {
   background: linear-gradient(135deg, #10b981, #059669);
   color: white;
   border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
-  margin-bottom: 8px;
+  padding: 20px;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+  margin-bottom: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.active-plan-banner::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Performance optimization and accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .active-plan-banner::before {
+    animation-play-state: paused !important;
+  }
+}
+
+.active-plan-banner:hover::before {
+  animation-play-state: paused;
 }
 
 .banner-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
+  z-index: 1;
 }
 
 .banner-info {
@@ -217,47 +249,70 @@ onMounted(fetchPlans)
 }
 
 .banner-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .banner-subtitle {
-  font-size: 12px;
+  font-size: 14px;
   opacity: 0.9;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.banner-subtitle::before {
+  content: "🗓️";
+  font-size: 16px;
 }
 
 .chat-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.2);
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.25);
   color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  min-height: 48px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .chat-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.chat-btn:active {
+  transform: translateY(0);
 }
 
 .chat-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
 }
 
 .state { padding:20px; text-align:center; color:#374151; }
 .state.error { color:#b91c1c; }
 .cards { 
-  display:grid; 
+  display: grid; 
   grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); 
-  gap:12px; 
+  gap: 12px; 
+  justify-content: center; /* Center the grid items */
+  max-width: 100%; /* Prevent horizontal scrolling */
+  margin: 0 auto; /* Center the grid container */
 }
 
 /* モバイル対応: グリッドレイアウトの最適化 */
@@ -265,6 +320,8 @@ onMounted(fetchPlans)
   .cards { 
     grid-template-columns: 1fr; /* 1列レイアウトでより使いやすく */
     gap: 10px;
+    max-width: 100%; /* 横スクロール防止 */
+    justify-items: center; /* モバイルでアイテムを中央寄せ */
   }
 }
 
@@ -404,17 +461,41 @@ onMounted(fetchPlans)
 .card .meta { font-size:11px; color:#6b7280; }
 
 .active-badge {
-  background: #10b981;
+  background: linear-gradient(135deg, #10b981, #059669);
   color: white;
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 8px;
-  font-weight: 500;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-weight: 600;
   align-self: flex-start;
-  margin-top: 4px;
+  margin-top: 6px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: pulse 2s infinite;
 }
 
-.empty { text-align:center; padding:30px 10px; color:#6b7280; grid-column:1/-1; }
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Accessibility: Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .active-badge {
+    animation-play-state: paused !important;
+  }
+}
+
+.empty { 
+  text-align: center; 
+  padding: 30px 10px; 
+  color: #6b7280; 
+  grid-column: 1/-1; 
+  justify-self: center; /* Center the empty message */
+  max-width: 300px; /* Limit width for better readability */
+}
 
 @media (max-width: 600px){ 
   .cards { 

@@ -35,7 +35,32 @@ onUnmounted(() => { clearTimeout(timer) })
 </script>
 
 <style scoped>
-.toast { position:fixed; left:50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%); background: var(--color-text); color:#fff; padding:12px 16px; border-radius:16px; font-size:14px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,0.25); max-width:calc(100vw - 32px); text-align:center; }
+.toast { 
+  position: fixed; 
+  left: 50%; 
+  bottom: calc(80px + env(safe-area-inset-bottom)); /* Increased to clear footer */
+  transform: translateX(-50%); 
+  background: var(--color-text); 
+  color: #fff; 
+  padding: 12px 16px; 
+  border-radius: 16px; 
+  font-size: 14px; 
+  font-weight: 600; 
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25); 
+  max-width: calc(100vw - 32px); 
+  text-align: center; 
+  z-index: 200; /* Ensure it's above footer (z-index: 100) */
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .toast {
+    bottom: calc(100px + env(safe-area-inset-bottom)); /* Extra clearance on mobile */
+    font-size: 15px;
+    padding: 14px 18px;
+  }
+}
+
 .toast.success { background: var(--color-success); }
 .toast.error { background: var(--color-danger); }
 .toast.info { background: var(--color-primary); }
