@@ -14,6 +14,7 @@ const error = ref('')
 const toast = ref('')
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
+const imageLoadError = ref(false)
 
 async function load(){
   loading.value = true
@@ -73,9 +74,9 @@ async function executeDelete() {
   }
 }
 
-function handleImageError(event) {
-  // Hide the hero image section if image fails to load
-  event.target.parentElement.style.display = 'none'
+function handleImageError() {
+  // Use reactive pattern instead of direct DOM manipulation
+  imageLoadError.value = true
 }
 </script>
 
@@ -86,7 +87,7 @@ function handleImageError(event) {
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="plan" class="content">
       <!-- Hero Image Section -->
-      <div v-if="plan.image_url || plan.hero_image" class="hero-image">
+      <div v-if="(plan.image_url || plan.hero_image) && !imageLoadError" class="hero-image">
         <img 
           :src="plan.image_url || plan.hero_image" 
           :alt="plan.title || '旅行プラン画像'"

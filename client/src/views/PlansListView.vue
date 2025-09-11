@@ -225,6 +225,17 @@ onMounted(fetchPlans)
   100% { transform: translateX(100%); }
 }
 
+/* Performance optimization and accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .active-plan-banner::before {
+    animation-play-state: paused !important;
+  }
+}
+
+.active-plan-banner:hover::before {
+  animation-play-state: paused;
+}
+
 .banner-content {
   display: flex;
   align-items: center;
@@ -468,6 +479,13 @@ onMounted(fetchPlans)
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
+}
+
+/* Accessibility: Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .active-badge {
+    animation-play-state: paused !important;
+  }
 }
 
 .empty { 
