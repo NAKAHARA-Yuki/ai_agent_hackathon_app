@@ -62,8 +62,8 @@ Frontend (Vue.js) ──→ Backend (Flask) ──→ AI Agent (ADK)
 ai_agent_hackathon_app/
 ├── client/                 # Vue.js フロントエンド
 │   ├── src/
-│   │   ├── views/         # ページコンポーネント（20個）
-│   │   ├── components/    # 再利用可能なUIコンポーネント（12個）
+│   │   ├── views/         # ページコンポーネント（15個）
+│   │   ├── components/    # 再利用可能なUIコンポーネント（10個）
 │   │   ├── services/      # API通信サービス
 │   │   ├── stores/        # Pinia状態管理ストア
 │   │   ├── router/        # Vue Routerルーティング設定
@@ -72,10 +72,14 @@ ai_agent_hackathon_app/
 │   ├── public/            # パブリックアセット
 │   ├── index.html         # メインHTMLファイル
 │   ├── package.json       # Node.js依存関係
+│   ├── jest.config.js     # Jestテスト設定
 │   └── vite.config.js     # Viteビルド設定
 ├── server/                # Flask バックエンド
 │   ├── app.py            # メインFlaskアプリケーション
 │   ├── requirements.txt  # Python依存関係
+│   ├── pytest.ini       # pytestテスト設定
+│   ├── conftest.py       # pytestフィクスチャ定義
+│   ├── tests/            # テストスイート
 │   └── .env              # 環境変数（要作成）
 ├── agent/                # AI エージェントサービス
 │   ├── agents/
@@ -99,31 +103,23 @@ ai_agent_hackathon_app/
 
 #### フロントエンド（client/src/）
 
-**ビューコンポーネント（views/）**
-- `HomeView.vue` - ホーム画面
-- `StartView.vue` - 診断開始画面
+**ビューコンポーネント（views/）** - 15画面
+- `StartView.vue` - 診断開始画面（ホーム）
+- `InterestsView.vue` - 趣味・興味設定
+- `MainView.vue` - メイン画面（診断完了後）
 - `QuestionView.vue` - 診断質問画面
 - `ResultView.vue` - 診断結果表示
-- `PlanChatView.vue` - AIチャット旅行プランニング
+- `MyPageView.vue` - ユーザーマイページ
+- `LoginView.vue`、`SignupView.vue` - 認証関連
+- `ProcessingView.vue` - 処理中画面
+- `TravelPlanWizardView.vue` - 旅行プランウィザード
+- `TasksView.vue` - タスク管理
 - `PlansListView.vue` - 旅行プラン一覧
 - `PlanDetailView.vue` - プラン詳細表示
-- `MyPageView.vue` - ユーザーマイページ
-- `AuthView.vue`、`LoginView.vue`、`SignupView.vue` - 認証関連
-- `PlannerView.vue` - 旅行プランナー機能
-- `InterestsView.vue` - 趣味・興味設定
-- `HomeView.vue` - ホーム画面
-- `MainView.vue` - メイン画面
-- `PlanWizardView.vue` - プラン作成ウィザード
-- `ProcessingView.vue` - 処理中画面
-- `ScheduleView.vue` - スケジュール表示
-- `StartView.vue` - スタート画面
-- `TasksView.vue` - タスク管理
+- `PlanChatView.vue` - AIチャット旅行プランニング
 - `TravelDayChatView.vue` - 旅行日チャット
-- `TravelPlanWizardView.vue` - 旅行プランウィザード
 
-**UIコンポーネント（components/）**
-- `ChatPanel.vue` - AIチャット表示パネル
-- `MapPanel.vue` - Google Maps統合マップ表示
+**UIコンポーネント（components/）** - 10個
 - `ResultChart.vue` - 診断結果レーダーチャート（Chart.js使用）
 - `LoadingScreen.vue` - ローディング画面
 - `ProgressBar.vue` - 進捗バー
@@ -303,23 +299,20 @@ def retry_on_503(func, max_retries=3)
 
 #### 主要UIコンポーネント
 
-**ChatPanel.vue**
-- AIとのリアルタイムチャット
-- メッセージ履歴表示
-- タイピングインジケーター
-- ファイル添付サポート
-
-**MapPanel.vue**
-- Google Maps JavaScript API統合
-- Advanced Marker サポート
-- ルート表示・ナビゲーション
-- 場所マーカー・情報ウィンドウ
-
 **ResultChart.vue**
 - Chart.js レーダーチャート
 - 8次元診断結果視覚化
 - アニメーション効果
 - レスポンシブデザイン
+
+**その他UIコンポーネント**
+- `LoadingScreen.vue` - アプリケーション全体のローディング表示
+- `ProgressBar.vue` - 診断進捗表示
+- `FooterNav.vue` - ボトムナビゲーション
+- `Toast.vue` - 通知メッセージ表示
+- `SessionTimeoutWarning.vue` - セッション期限警告
+- `BackButton.vue` - 共通戻るボタン
+- `DetailScreen.vue`、`InputScreen.vue`、`SuggestionScreen.vue` - 各種画面コンポーネント
 
 ### AIエージェント機能（agent/agents/travel_planner/agent.py）
 
@@ -416,7 +409,6 @@ cd server
 pip install -r requirements.txt
 python app.py  # http://localhost:8080
 
-
 # 3. AIエージェント
 cd agent
 pip install -r requirements.txt
@@ -426,6 +418,22 @@ adk api_server --host 0.0.0.0 --port 8080 ./agents
 cd mcp
 npm install
 npx @googlemaps/code-assist-mcp --port 3000
+```
+
+### テスト実行
+
+```bash
+# フロントエンドテスト
+cd client
+npm test                    # 全テスト実行
+npm run test:coverage      # カバレッジ付き実行
+npm test -- --watch        # 監視モード
+
+# バックエンドテスト
+cd server
+pytest                     # 全テスト実行
+pytest --cov=app          # カバレッジ付き実行
+pytest -v                 # 詳細出力
 ```
 
 ## 📱 使用方法
@@ -449,23 +457,27 @@ npx @googlemaps/code-assist-mcp --port 3000
 ## 🔧 技術仕様
 
 ### Frontend (Vue.js)
-- **フレームワーク**: Vue 3 + Composition API
-- **ビルドツール**: Vite
+- **フレームワーク**: Vue 3.4.21 + Composition API
+- **ビルドツール**: Vite 5.2.8
 - **状態管理**: Pinia
 - **ルーティング**: Vue Router
 - **スタイリング**: CSS Modules
-- **チャート**: Chart.js
+- **チャート**: Chart.js 4.5.0
+- **テスト**: Jest 29.7.0
 
 ### Backend (Python Flask)
-- **フレームワーク**: Flask
-- **認証**: JWT
-- **データベースORM**: Google Cloud Firestore SDK
+- **フレームワーク**: Flask 3.0.3
+- **認証**: JWT (PyJWT 2.8.0)
+- **データベースORM**: Google Cloud Firestore SDK 2.16.0
+- **AI**: Google Generative AI 0.7.1
 - **API**: RESTful API
 - **ログ**: Python logging
+- **デプロイ**: Gunicorn 22.0.0
+- **テスト**: pytest 7.4.4
 
 ### AI Agent (ADK)
 - **フレームワーク**: Google Agent Development Kit (ADK)
-- **AI Model**: Gemini 2.5 Flash
+- **AI Model**: Gemini 2.5 Pro
 - **Tools**: Google Search, Maps Platform Code Assist
 
 ### インフラ
@@ -473,6 +485,34 @@ npx @googlemaps/code-assist-mcp --port 3000
 - **デプロイ**: Google Cloud Run
 - **データベース**: Google Firestore
 - **外部API**: Google Maps API, Gemini API
+
+### テスト・品質保証
+- **Frontend**: Jest 29.7.0 + @vue/test-utils
+- **Backend**: pytest 7.4.4 + pytest-flask
+- **カバレッジ**: C1カバレッジ100%目標
+- **テスト項目**: 130+ 包括的テストケース
+- **CI/CD**: GitHub Actions 自動テスト実行
+
+## 📚 ドキュメント
+
+本プロジェクトは包括的なドキュメントを提供しています：
+
+### 主要ドキュメント
+- **README.md** (本ファイル) - プロジェクト全体の概要・セットアップ・使用方法
+- **[docs/](docs/)** - 詳細ドキュメント集
+
+### 詳細ドキュメント (`docs/` ディレクトリ)
+- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書
+- **[保守関連](docs/maintenance/)** - 未使用ファイル整理レポート等
+- **[コンポーネント関連](docs/components/)** - 各コンポーネントの詳細説明
+
+### コンポーネント別ドキュメント
+- **agent/README.md** - ADKエージェントサービスの詳細
+- **agent/AGENT_FIX_NOTES.md** - エージェント設定修正履歴
+- **agent/tools/README.md** - エージェントツール説明
+
+### 開発・保守用ドキュメント
+- **.github/copilot-instructions.md** - 開発者向け詳細手順書・トラブルシューティング
 
 ## 🔍 API エンドポイント
 
