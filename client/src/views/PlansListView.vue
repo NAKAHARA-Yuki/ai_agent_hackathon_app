@@ -346,11 +346,16 @@ onMounted(fetchPlans)
   box-shadow: 0 6px 14px rgba(0,0,0,0.05); 
   display: flex; 
   flex-direction: column; 
-  gap: 6px; 
+  gap: 8px; 
   cursor: pointer; 
   position: relative;
   transition: all 0.2s ease;
   min-height: 100px;
+}
+
+.card.active {
+  /* Increase min-height for active cards with badges to prevent crushing */
+  min-height: 130px;
 }
 
 .card:active { transform: translateY(1px); }
@@ -402,6 +407,11 @@ onMounted(fetchPlans)
     touch-action: manipulation;
   }
   
+  .card.active {
+    /* Increase min-height for active cards with badges to prevent crushing */
+    min-height: 160px;
+  }
+  
   .card .title {
     font-size: 15px;
     line-height: 1.4;
@@ -423,6 +433,11 @@ onMounted(fetchPlans)
   .card {
     padding: 14px 16px;
     min-height: 110px;
+  }
+  
+  .card.active {
+    /* Increase min-height for active cards with badges to prevent crushing */
+    min-height: 150px;
   }
   
   .card .title {
@@ -468,12 +483,13 @@ onMounted(fetchPlans)
   border-radius: 10px;
   font-weight: 600;
   align-self: flex-start;
-  margin-top: 6px;
+  margin-top: 8px;
   box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.2);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   animation: pulse 2s infinite;
+  flex-shrink: 0; /* Prevent the badge from shrinking */
 }
 
 @keyframes pulse {
