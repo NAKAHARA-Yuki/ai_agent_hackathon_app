@@ -353,14 +353,11 @@ onMounted(fetchPlans)
   min-height: 100px;
 }
 
-.card.active {
-  /* Increase min-height for active cards with badges to prevent crushing */
-  min-height: 130px;
-}
-
 .card:active { transform: translateY(1px); }
 
 .card.active {
+  /* Increase min-height for active cards with badges to prevent crushing */
+  min-height: 130px;
   border-color: #10b981;
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
 }
