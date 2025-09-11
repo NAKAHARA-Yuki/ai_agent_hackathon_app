@@ -126,22 +126,32 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-#app-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+#app-container { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100vh; 
+  height: 100dvh; /* 動的ビューポート高さを使用 */
+  overflow: hidden; 
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+}
 
 .site-header { 
-  width:100%; 
-  display:flex; 
-  align-items:center; 
-  justify-content:space-between; 
-  padding:8px calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left)); 
+  width: 100%; 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 8px calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left)); 
   background: rgba(255,255,255,0.7); 
   backdrop-filter: blur(6px); 
   box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
-  position:relative; 
+  position: sticky; 
+  top: 0; 
   z-index: 100; 
   box-sizing: border-box; 
   border-bottom: 1px solid rgba(0,0,0,0.04); 
-  min-height: 56px; /* 最小高さを確保 */
+  min-height: 56px; 
+  flex-shrink: 0; /* ヘッダーの収縮を防ぐ */
 }
 
 /* モバイル対応: ヘッダーの調整 */
@@ -267,7 +277,25 @@ onUnmounted(() => {
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .divider { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 8px 0; }
 
-.content { flex:1 1 auto; display:flex; align-items:stretch; justify-content:flex-start; padding:16px; overflow:auto; min-height:0; }
+.content { 
+  flex: 1 1 auto; 
+  display: flex; 
+  align-items: stretch; 
+  justify-content: flex-start; 
+  padding: 16px; 
+  overflow: auto; 
+  min-height: 0; 
+  -webkit-overflow-scrolling: touch; /* スムーズなスクロール */
+  overscroll-behavior: contain; /* バウンス防止 */
+}
+
+/* FooterNavのスタイル調整 */
+:deep(.footer-nav) {
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0; /* フッターの収縮を防ぐ */
+  z-index: 100;
+}
 /* travel-wizard では全面表示のため padding を除去 */
 :deep(.route-travel-wizard) .content, :deep(.content:has(> .wizard-wrap)) { padding:0; }
 /* travel-wizard では外側スクロールも抑止 */

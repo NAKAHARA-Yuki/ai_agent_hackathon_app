@@ -124,39 +124,68 @@ onMounted(fetchPlans)
 
 <style scoped>
 .plans-list { 
-  display:flex; 
-  flex-direction:column; 
-  gap:12px; 
-  width:100%; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px; 
+  width: 100%; 
   padding: 0 16px 20px;
   box-sizing: border-box;
+  min-height: 100%;
+  height: 100%;
+  overflow-y: auto;
 }
 
-/* モバイル対応: より適切なパディング */
+/* モバイル対応: より適切なパディングとスクロール */
 @media (max-width: 768px) {
   .plans-list {
-    padding: 0 8px 24px;
+    padding: 0 12px 24px;
+    gap: 12px;
+    /* スクロール領域の最適化 */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (max-width: 480px) {
+  .plans-list {
+    padding: 0 8px 20px;
     gap: 10px;
   }
 }
 
 .header { 
-  display:flex; 
-  align-items:center; 
-  gap:12px; 
-  background:rgba(255,255,255,0.9); 
-  padding:8px 10px; 
-  border-radius:12px; 
-  box-shadow:0 4px 10px rgba(0,0,0,0.05); 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  background: rgba(255,255,255,0.9); 
+  padding: 8px 10px; 
+  border-radius: 12px; 
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
+  margin-bottom: 8px;
+  flex-shrink: 0; /* ヘッダーの収縮を防ぐ */
 }
+
 .header h1 { 
-  font-size:18px; 
-  margin:0; 
-  flex:1; 
+  font-size: 18px; 
+  margin: 0; 
+  flex: 1; 
 }
 
 /* モバイル対応: ヘッダーサイズ調整 */
 @media (max-width: 768px) {
+  .header {
+    padding: 12px 14px;
+    gap: 12px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  
+  .header h1 {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 480px) {
   .header {
     padding: 10px 12px;
     gap: 10px;
@@ -254,17 +283,17 @@ onMounted(fetchPlans)
 
 .card { 
   background: var(--color-surface); 
-  border:1px solid var(--color-border); 
-  border-radius:14px; 
-  padding:14px 16px; 
-  box-shadow:0 6px 14px rgba(0,0,0,0.05); 
-  display:flex; 
-  flex-direction:column; 
-  gap:6px; 
-  cursor:pointer; 
+  border: 1px solid var(--color-border); 
+  border-radius: 14px; 
+  padding: 14px 16px; 
+  box-shadow: 0 6px 14px rgba(0,0,0,0.05); 
+  display: flex; 
+  flex-direction: column; 
+  gap: 6px; 
+  cursor: pointer; 
   position: relative;
   transition: all 0.2s ease;
-  min-height: 100px; /* 最小高さを確保 */
+  min-height: 100px;
 }
 
 .card:active { transform: translateY(1px); }
@@ -282,12 +311,12 @@ onMounted(fetchPlans)
 }
 
 .card .title { 
-  font-weight:600; 
-  font-size:14px; 
+  font-weight: 600; 
+  font-size: 14px; 
   color: var(--color-text); 
-  line-height:1.3; 
+  line-height: 1.3; 
   flex: 1;
-  word-break: break-word; /* 長いタイトルの改行対応 */
+  word-break: break-word;
 }
 
 .toggle-btn {
@@ -303,15 +332,17 @@ onMounted(fetchPlans)
   color: #9ca3af;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  min-width: 24px; /* タッチターゲットの確保 */
+  min-width: 24px;
 }
 
-/* モバイル対応: カードとボタンの調整 */
+/* モバイル対応: カードとボタンの改善 */
 @media (max-width: 768px) {
   .card {
-    padding: 16px;
+    padding: 16px 18px;
     border-radius: 12px;
-    min-height: 110px;
+    min-height: 120px;
+    /* タッチスクロール改善 */
+    touch-action: manipulation;
   }
   
   .card .title {
@@ -320,9 +351,31 @@ onMounted(fetchPlans)
   }
   
   .toggle-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    /* より大きなタッチターゲット */
+  }
+  
+  .card-header {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 14px 16px;
+    min-height: 110px;
+  }
+  
+  .card .title {
+    font-size: 14px;
+  }
+  
+  .toggle-btn {
     width: 32px;
     height: 32px;
-    min-width: 32px; /* より大きなタッチターゲット */
+    min-width: 32px;
   }
   
   .card-header {
