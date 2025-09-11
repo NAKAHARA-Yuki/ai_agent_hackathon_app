@@ -1422,7 +1422,7 @@ def agent_chat():
         logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} timeout={AGENT_HTTP_TIMEOUT}s trace={tid}")
 
         claims = require_auth(request)
-        user_info, last_persona = None, None
+        user_info, last_persona, active_plan_context = None, None, ""
         if claims and db:
             try:
                 udoc = db.collection('users').document(claims['sub']).get(timeout=3)
@@ -1434,13 +1434,59 @@ def agent_chat():
                         pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=3)
                         if pdoc.exists:
                             last_persona = (pdoc.to_dict() or {}).get('profile')
+                    
+                    # Check for active travel plan
+                    active_plan_id = u.get('active_plan_id')
+                    if active_plan_id:
+                        try:
+                            plan_doc = db.collection('users').document(claims['sub']).collection('plans').document(active_plan_id).get(timeout=3)
+                            if plan_doc and plan_doc.exists:
+                                plan_data = plan_doc.to_dict() or {}
+                                # Format active plan context for the agent
+                                plan_title = plan_data.get('title', '旅行プラン')
+                                plan_summary = plan_data.get('summary', '')
+                                itinerary = plan_data.get('itinerary', [])
+                                places = plan_data.get('places', [])
+                                
+                                active_plan_context = f"[アクティブな旅行プラン]\nタイトル: {plan_title}\n"
+                                if plan_summary:
+                                    active_plan_context += f"概要: {plan_summary}\n"
+                                
+                                if itinerary:
+                                    active_plan_context += "日程:\n"
+                                    for day in itinerary[:3]:  # Limit to avoid token limits
+                                        day_num = day.get('day', 1)
+                                        active_plan_context += f"Day {day_num}:\n"
+                                        items = day.get('items', [])
+                                        for item in items[:4]:  # Limit items per day
+                                            time_str = item.get('time', '')
+                                            title = item.get('title', '')
+                                            active_plan_context += f"  {time_str} {title}\n"
+                                
+                                if places:
+                                    place_names = [p.get('name', '') for p in places[:6] if p.get('name')]
+                                    if place_names:
+                                        active_plan_context += f"関連スポット: {', '.join(place_names)}\n"
+                                
+                                active_plan_context += "\nこのプランを参考に、旅行当日の相談や質問に対して具体的で実用的なアドバイスを提供してください。\n"
+                                
+                        except Exception as e:
+                            logger.warning(f"Failed to retrieve active plan: {e}")
+                            
             except Exception as e:
                 logger.warning(f"Error fetching user/persona info: {e}")
 
         message_to_send = message
         if not is_session_initialized(req_user_id, req_session_id):
             context = {'user': user_info, 'persona': last_persona}
-            message_to_send = "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) + "\n\n[ユーザーからの依頼]\n" + message
+            context_str = "[ユーザー情報]\n" + json.dumps(context, ensure_ascii=False) + "\n\n"
+            if active_plan_context:
+                context_str += active_plan_context + "\n"
+            message_to_send = context_str + "[ユーザーからの依頼]\n" + message
+        else:
+            # For ongoing sessions, still include active plan context if available
+            if active_plan_context:
+                message_to_send = active_plan_context + "\n[ユーザーからの依頼]\n" + message
     # 保存はフロントエンドの明示ボタンでのみ実行（エージェント経由トークン付与は廃止）
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
@@ -2393,6 +2439,78 @@ def profile():
                 logger.exception("/api/profile POST error")
                 return jsonify({"error": "database unavailable"}), 503
         return jsonify({"profile": base if base else sanitized})
+
+# ==== Active Plan Management ====
+@app.route('/api/active-plan', methods=['GET', 'POST'])
+def active_plan():
+    claims = _claims_or_dev()
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    user_id = claims['sub']
+    user_ref = db.collection('users').document(user_id)
+    
+    if request.method == 'GET':
+        # Get the currently active plan
+        try:
+            snap = user_ref.get(timeout=5)
+            if snap and snap.exists:
+                data = snap.to_dict() or {}
+                active_plan_id = data.get('active_plan_id')
+                if active_plan_id:
+                    # Fetch the full plan details
+                    plan_ref = user_ref.collection('plans').document(active_plan_id)
+                    plan_snap = plan_ref.get(timeout=5)
+                    if plan_snap and plan_snap.exists:
+                        plan_data = plan_snap.to_dict() or {}
+                        plan_data['id'] = active_plan_id
+                        return jsonify({'active_plan': plan_data})
+            return jsonify({'active_plan': None})
+        except Exception as e:
+            logger.exception("/api/active-plan GET error")
+            return jsonify({'active_plan': None})
+    
+    # POST: Set active plan
+    payload = request.get_json() or {}
+    plan_id = payload.get('plan_id')
+    
+    if not plan_id:
+        # Deactivate current plan
+        try:
+            user_ref.update({
+                'active_plan_id': None,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            }, timeout=5)
+        except Exception:
+            try:
+                user_ref.set({
+                    'active_plan_id': None,
+                    'updated_at': firestore.SERVER_TIMESTAMP
+                }, merge=True, timeout=5)
+            except Exception as e:
+                logger.exception("/api/active-plan POST (deactivate) error")
+                return jsonify({"error": "database_unavailable"}), 503
+        return jsonify({'status': 'deactivated'})
+    
+    # Validate plan exists and belongs to user
+    try:
+        plan_ref = user_ref.collection('plans').document(plan_id)
+        plan_snap = plan_ref.get(timeout=5)
+        if not plan_snap or not plan_snap.exists:
+            return jsonify({"error": "plan_not_found"}), 404
+        
+        # Set as active plan
+        user_ref.update({
+            'active_plan_id': plan_id,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }, timeout=5)
+        
+        # Return the activated plan
+        plan_data = plan_snap.to_dict() or {}
+        plan_data['id'] = plan_id
+        return jsonify({'active_plan': plan_data, 'status': 'activated'})
+    except Exception as e:
+        logger.exception("/api/active-plan POST (activate) error")
+        return jsonify({"error": "database_unavailable"}), 503
 
 # ==== Travel Plans (save to Firestore) ====
 def _sanitize_title(s: str) -> str:

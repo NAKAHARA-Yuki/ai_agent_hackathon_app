@@ -119,4 +119,39 @@ export async function mapsKey(){
   return { key:'', advanced:false, mapId:'' }
 }
 
+export async function getActivePlan(authHeader){
+  if (!useMock) {
+    try { 
+      return await realFetch('/api/active-plan', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } })
+    } catch(e) { 
+      throw e 
+    }
+  }
+  const active = lsGet('mockActivePlan', null)
+  return { active_plan: active }
+}
+
+export async function setActivePlan(planId, authHeader){
+  if (!useMock) {
+    const resp = await fetch('/api/active-plan', { 
+      method:'POST', 
+      headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, 
+      body: JSON.stringify({ plan_id: planId }) 
+    })
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    return resp.json()
+  }
+  const plans = lsGet('mockPlans', [])
+  const plan = plans.find(p => p.id === planId)
+  if (plan) {
+    lsSet('mockActivePlan', plan)
+    return { active_plan: plan, status: 'activated' }
+  } else if (planId === null) {
+    lsSet('mockActivePlan', null)
+    return { active_plan: null, status: 'deactivated' }
+  } else {
+    throw new Error('Plan not found')
+  }
+}
+
 export function isMock(){ return useMock }
