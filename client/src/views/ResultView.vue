@@ -34,8 +34,8 @@ async function loadPersonaData() {
 
 // Combined result data - use quiz store if available, otherwise use persona API data
 const displayResult = computed(() => {
-  // If quiz store has fresh results, use those
-  if (store.finalResult && store.finalResult.scoreDetails) {
+  // If quiz store has fresh results and average is valid, use those
+  if (store.finalResult && store.finalResult.scoreDetails && !isNaN(parseFloat(store.finalResult.scoreDetails.average))) {
     return store.finalResult
   }
   
@@ -64,7 +64,11 @@ const displayResult = computed(() => {
 })
 
 const traitsOrder = computed(() => {
-  // 設問定義順に trait を列挙（重複除去）
+  // If we have persona data, use the trait keys from there
+  if (personaData.value?.profile?.traitScores) {
+    return Object.keys(personaData.value.profile.traitScores)
+  }
+  // Otherwise use questions data (for fresh quiz results)
   const order = []
   const seen = new Set()
   for (const q of store.questions || []) {
@@ -77,6 +81,27 @@ const traitsOrder = computed(() => {
 })
 
 const traitDescriptions = computed(() => {
+  // For persona data, provide fallback descriptions since we don't have questions
+  if (personaData.value?.profile?.traitScores) {
+    const fallbackDescriptions = {
+      '新規性追求': '未知や型にはまらない体験をどれだけ求めるか（冒険型〜安定志向の連続）。',
+      '旅程密度': '1日の予定をどれだけ詰め込むか（行動満載〜余白重視）。',
+      '予算哲学': '価格・コスパ重視か、体験の質を優先するか。',
+      '社会的志向性': '現地の人／他の旅行者との交流をどれだけ望むか。',
+      '主な興味関心': '旅行の中心テーマ（例：グルメ、自然、文化・歴史、リラクゼーション）。',
+      '計画志向性': '事前に緻密に計画するか、現地で柔軟に決めるか。',
+      '快適性水準': '宿・移動における快適さ・アメニティの重視度。',
+      '活動レベル': '旅行中の身体的アクティビティの強度。',
+      '安全性の閾値': '治安・医療など安全面をどの程度重視するか。',
+      'デジタル統合度': '計画から共有までテクノロジーをどれだけ活用するか。'
+    }
+    const map = {}
+    Object.keys(personaData.value.profile.traitScores).forEach(trait => {
+      map[trait] = fallbackDescriptions[trait] || `${trait}に関する特性スコア`
+    })
+    return map
+  }
+  // Otherwise use questions data (for fresh quiz results)
   if (!store.questions?.length) return {}
   const map = {}
   for (const q of store.questions) {
@@ -88,8 +113,8 @@ const traitDescriptions = computed(() => {
 })
 
 onMounted(async () => {
-  // Load persona data if quiz store doesn't have results
-  if (!store.finalResult || !store.finalResult.scoreDetails) {
+  // Load persona data if quiz store doesn't have valid results (missing data or NaN average)
+  if (!store.finalResult || !store.finalResult.scoreDetails || isNaN(parseFloat(store.finalResult.scoreDetails.average))) {
     await loadPersonaData()
   }
 })
