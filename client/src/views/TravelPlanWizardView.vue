@@ -218,8 +218,7 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
 /* モバイルでの適切な表示 - カード伸縮の防止 */
 @media (max-width: 768px) {
   .wizard-wrap { 
-    height: 100vh; 
-    height: 100dvh; /* 動的ビューポート高さを使用 */
+    height: 100dvh; /* 動的ビューポート高さを使用、100vhにフォールバック */
     min-height: 100vh;
     padding-top: calc(env(safe-area-inset-top) + 60px); /* ヘッダー分の余白を確保 */
   }

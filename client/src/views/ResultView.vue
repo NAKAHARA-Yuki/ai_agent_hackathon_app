@@ -156,7 +156,7 @@ function goMain() {
 .result-view { 
   display:grid; 
   place-items:center; 
-  min-height:100%; 
+  min-height:100vh; 
   padding: calc(80px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 20px); 
   overflow:auto; 
   width: 100%; 

@@ -410,7 +410,7 @@ onMounted(loadPlan)
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 100;
 }
 
 .back-btn {
