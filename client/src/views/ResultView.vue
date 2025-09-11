@@ -153,7 +153,15 @@ function goMain() {
 </template>
 
 <style scoped>
-.result-view { display:grid; place-items:center; height:100%; padding:16px; overflow:auto; width: 100%; }
+.result-view { 
+  display:grid; 
+  place-items:center; 
+  min-height:100vh; 
+  padding: calc(80px + env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom) + 20px); 
+  overflow:auto; 
+  width: 100%; 
+  box-sizing: border-box;
+}
 .result-card {
   width: min(960px, 100%);
   box-sizing: border-box;

@@ -190,7 +190,17 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
 
 <style scoped>
 /* ルートラッパ: 親 flex 領域にフィット / 余白除去 */
-.wizard-wrap { flex:1 1 auto; width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; position:relative; margin:0; }
+.wizard-wrap { 
+  flex:1 1 auto; 
+  width:100%; 
+  height:100%; 
+  display:flex; 
+  flex-direction:column; 
+  overflow:hidden; 
+  position:relative; 
+  margin:0; 
+  padding-top: env(safe-area-inset-top); 
+}
 /* 中央固定幅コンテナ (幅 >600px でセンター) */
 .wizard-inner { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; width:100%; margin:0 auto; }
 @media (min-width:600px){
@@ -208,18 +218,23 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
 /* モバイルでの適切な表示 - カード伸縮の防止 */
 @media (max-width: 768px) {
   .wizard-wrap { 
-    height: auto; /* 固定高さを解除 */
-    min-height: 100vh; /* 最小高さのみ設定 */
+    height: 100dvh; /* 動的ビューポート高さを使用、100vhにフォールバック */
+    min-height: 100vh;
+    padding-top: calc(env(safe-area-inset-top) + 60px); /* ヘッダー分の余白を確保 */
   }
   
   .wizard-inner { 
-    flex: none; /* flex伸長を無効化 */
-    min-height: auto; 
+    flex: 1; 
+    min-height: 0; 
+    overflow: hidden;
   }
   
   .wizard-screen { 
-    flex: none; /* flex伸長を無効化してコンテンツサイズに合わせる */
-    padding-bottom: env(safe-area-inset-bottom); 
+    flex: 1; 
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 20px); 
   }
 }
 </style>

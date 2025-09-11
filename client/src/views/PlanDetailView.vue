@@ -97,7 +97,18 @@ function startRefinement() {
 <style scoped>
 /* 全体: 余白 + 中央寄せカラム。height/overflow排除で二重スクロール崩れ防止 */
 /* ヘッダー固定による見切れ防止として top-padding を十分に確保 */
-.plan-detail-screen{ padding:120px 16px 120px; box-sizing:border-box; display:flex; flex-direction:column; gap:20px; max-width:920px; margin:0 auto; width:100%; scroll-margin-top:120px; }
+.plan-detail-screen{ 
+  padding: calc(80px + env(safe-area-inset-top)) 16px calc(120px + env(safe-area-inset-bottom)); 
+  box-sizing:border-box; 
+  display:flex; 
+  flex-direction:column; 
+  gap:20px; 
+  max-width:920px; 
+  margin:0 auto; 
+  width:100%; 
+  min-height: 100vh;
+  scroll-margin-top: calc(80px + env(safe-area-inset-top));
+}
 .back{ align-self:flex-start; background:#fff; border:1px solid #e2e8f0; padding:6px 14px; border-radius:12px; cursor:pointer; font-size:12px; line-height:1; box-shadow:0 2px 5px rgba(0,0,0,0.05); transition:background .2s,border-color .2s; }
 .back:hover{ background:#f1f5f9; }
 .title{ font-size:22px; font-weight:700; margin:0; letter-spacing:-.5px; line-height:1.25; word-break:break-word; }

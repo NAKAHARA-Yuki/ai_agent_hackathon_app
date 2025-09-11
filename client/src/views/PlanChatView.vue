@@ -404,10 +404,13 @@ onMounted(loadPlan)
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px 16px;
   background: white;
   border-bottom: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .back-btn {
@@ -836,7 +839,7 @@ onMounted(loadPlan)
   background: white;
   border-radius: 20px;
   max-width: 90vw;
-  max-height: 85vh;
+  max-height: 90vh;
   width: 100%;
   box-shadow: 0 20px 40px rgba(0,0,0,0.15);
   display: flex;
@@ -910,6 +913,8 @@ onMounted(loadPlan)
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .update-notice {
