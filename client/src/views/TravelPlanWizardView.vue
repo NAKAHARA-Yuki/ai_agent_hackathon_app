@@ -58,11 +58,9 @@ async function handleCreatePlan(keyword) {
     currentView.value = 'suggestions'
   } catch(e){
     console.error('wizard agent error', e)
-    // フォールバック静的案
-    travelPlans.value = [
-      { id:1, title:'サンプル温泉旅', tags:'#温泉 #リラックス', brief:'フォールバック案', itinerary:[] }
-    ]
-    currentView.value = 'suggestions'
+    // エラーメッセージを表示（モックデータは使用しない）
+    alert('旅行プランの生成中にエラーが発生しました。時間をおいて再試行してください。')
+    currentView.value = 'input'
   }
 }
 function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'detail' }

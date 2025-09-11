@@ -27,9 +27,8 @@ function mockAgentReply(message){
   if (kw.includes('温泉')) selected = [{ name:'草津温泉', note:'名湯' }, { name:'四万温泉', note:'静かな雰囲気' }]
   else if (kw.includes('京都')) selected = [{ name:'清水寺', note:'有名寺院' }, { name:'伏見稲荷大社', note:'千本鳥居' }, { name:'祇園', note:'伝統的街並み' }]
 
-  const reply = `以下は入力「${message}」に基づく簡易モックプランです。\n\n`+
-    selected.map((p,i)=>`${i+1}. ${p.name} - ${p.note||''}`).join('\n')+
-    `\n\n※ モックモード (VITE_USE_MOCK=true) で生成されています。`
+  const reply = `以下は入力「${message}」に基づく簡易プランです。\n\n`+
+    selected.map((p,i)=>`${i+1}. ${p.name} - ${p.note||''}`).join('\n')
 
   return { reply, places: selected, route_info: null, citations: [] }
 }
@@ -152,6 +151,20 @@ export async function setActivePlan(planId, authHeader){
   } else {
     throw new Error('Plan not found')
   }
+}
+
+export async function planDetail(planId, authHeader) {
+  if (!useMock) {
+    const data = await realFetch(`/api/plans/${planId}`, { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } })
+    return data
+  }
+  // Mock mode - find plan in localStorage
+  const plans = lsGet('mockPlans', [])
+  const plan = plans.find(p => p.id === planId)
+  if (!plan) {
+    throw new Error('Plan not found')
+  }
+  return plan
 }
 
 export function isMock(){ return useMock }

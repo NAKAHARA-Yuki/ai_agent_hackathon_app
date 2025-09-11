@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { planDetail } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,10 +16,17 @@ async function load(){
   error.value = ''
   try {
     const id = route.params.id
-    const resp = await fetch(`/api/plans/${id}`, { headers:{ 'Content-Type':'application/json', ...(auth.authHeader()||{}) } })
-    if(!resp.ok){ throw new Error('HTTP '+resp.status) }
-    plan.value = await resp.json()
-  } catch(e){ error.value = '読込に失敗しました'; console.error(e) } finally { loading.value=false }
+    plan.value = await planDetail(id, auth.authHeader())
+  } catch(e){ 
+    if (e.message && e.message.includes('HTTP 503')) {
+      error.value = 'サーバーが混雑しています。時間をおいて再試行してください。'
+    } else {
+      error.value = '読込に失敗しました'
+    }
+    console.error(e) 
+  } finally { 
+    loading.value=false 
+  }
 }
 
 onMounted(load)
