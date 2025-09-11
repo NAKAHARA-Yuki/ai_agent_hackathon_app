@@ -72,6 +72,11 @@ async function executeDelete() {
     deleting.value = false
   }
 }
+
+function handleImageError(event) {
+  // Hide the hero image section if image fails to load
+  event.target.parentElement.style.display = 'none'
+}
 </script>
 
 <template>
@@ -80,7 +85,22 @@ async function executeDelete() {
     <div v-if="loading" class="loading">読み込み中...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="plan" class="content">
-      <h1 class="title">{{ plan.title }}</h1>
+      <!-- Hero Image Section -->
+      <div v-if="plan.image_url || plan.hero_image" class="hero-image">
+        <img 
+          :src="plan.image_url || plan.hero_image" 
+          :alt="plan.title || '旅行プラン画像'"
+          @error="handleImageError"
+          class="hero-img"
+        />
+        <div class="hero-overlay">
+          <h1 class="hero-title">{{ plan.title }}</h1>
+        </div>
+      </div>
+      
+      <!-- Title for plans without image -->
+      <h1 v-else class="title">{{ plan.title }}</h1>
+      
       <p v-if="plan.summary" class="summary">{{ plan.summary }}</p>
       <div v-if="plan.suggestions && plan.suggestions.length" class="suggestions">
         <h2>候補</h2>
@@ -174,6 +194,63 @@ async function executeDelete() {
 </template>
 
 <style scoped>
+/* Hero Image Section */
+.hero-image {
+  position: relative;
+  width: 100%;
+  max-height: 300px;
+  margin: -20px -16px 24px; /* Extend to edges, add bottom margin */
+  border-radius: 0 0 20px 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.hero-img {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.hero-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  padding: 40px 20px 20px;
+  color: white;
+}
+
+.hero-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  line-height: 1.2;
+}
+
+/* Mobile responsive adjustments for hero image */
+@media (max-width: 768px) {
+  .hero-image {
+    margin: -8px -8px 20px;
+    border-radius: 0 0 16px 16px;
+  }
+  
+  .hero-img {
+    height: 200px;
+  }
+  
+  .hero-overlay {
+    padding: 30px 16px 16px;
+  }
+  
+  .hero-title {
+    font-size: 20px;
+  }
+}
+
 /* 全体: 余白 + 中央寄せカラム。height/overflow排除で二重スクロール崩れ防止 */
 /* ヘッダー固定による見切れ防止として top-padding を十分に確保 */
 /* フッター固定による見切れ防止として bottom-padding を十分に確保 */
@@ -200,20 +277,22 @@ async function executeDelete() {
   }
 }
 .back{ 
-  align-self:flex-start; 
-  background:#fff; 
-  border:1px solid #e2e8f0; 
-  padding:8px 16px; 
-  border-radius:12px; 
-  cursor:pointer; 
-  font-size:12px; 
-  line-height:1; 
-  box-shadow:0 2px 5px rgba(0,0,0,0.05); 
-  transition:background .2s,border-color .2s;
-  min-height: 44px; /* Touch-friendly minimum size */
+  align-self: flex-start; 
+  background: #fff; 
+  border: 1px solid #e2e8f0; 
+  padding: 6px 12px; /* Reduced padding to make smaller */
+  border-radius: 10px; /* Slightly smaller radius */
+  cursor: pointer; 
+  font-size: 12px; 
+  line-height: 1; 
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+  transition: background .2s, border-color .2s;
+  min-height: 36px; /* Smaller minimum height */
+  max-width: 120px; /* Limit maximum width */
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap; /* Prevent text wrapping */
 }
 .back:hover{ background:#f1f5f9; }
 .back:active{ transform: translateY(1px); }
@@ -239,9 +318,10 @@ async function executeDelete() {
 /* モバイル対応: タイトルとサマリーのサイズ調整 */
 @media (max-width: 768px) {
   .back {
-    padding: 10px 18px;
+    padding: 8px 14px; /* Slightly larger on mobile for touch */
     font-size: 13px;
-    min-height: 48px; /* より大きなタッチターゲット */
+    min-height: 40px; /* Still smaller than before */
+    max-width: 100px; /* Smaller max width on mobile */
   }
   
   .title {
