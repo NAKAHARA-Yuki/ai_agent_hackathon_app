@@ -4,6 +4,9 @@ import sys
 from typing import Any
 from google.adk.agents import LlmAgent
 import httpx
+
+# Add the root agent directory to path for tools import
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from tools.maps_mcp import register_maps_mcp_tool
 from google.adk.tools import google_search
 

@@ -4,8 +4,11 @@ import sys
 import json
 from typing import Any
 from google.adk.agents import LlmAgent
-from ..travel_planner import travel_planner_agent
-from ..travel_advisor import travel_advisor_agent
+
+# Import sub-agents using absolute imports
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from travel_planner.agent import travel_planner_agent
+from travel_advisor.agent import travel_advisor_agent
 
 # 共有モジュール(shared/logging_config.py)は本コンテナにコピーしない方針のため
 # インポートに失敗した場合は最小限のフォールバックを内蔵定義する。
