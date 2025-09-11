@@ -289,13 +289,7 @@ onUnmounted(() => {
   overscroll-behavior: contain; /* バウンス防止 */
 }
 
-/* FooterNavのスタイル調整 */
-:deep(.footer-nav) {
-  position: sticky;
-  bottom: 0;
-  flex-shrink: 0; /* フッターの収縮を防ぐ */
-  z-index: 100;
-}
+
 /* travel-wizard では全面表示のため padding を除去 */
 :deep(.route-travel-wizard) .content, :deep(.content:has(> .wizard-wrap)) { padding:0; }
 /* travel-wizard では外側スクロールも抑止 */

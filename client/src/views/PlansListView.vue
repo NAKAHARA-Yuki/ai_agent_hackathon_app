@@ -351,10 +351,10 @@ onMounted(fetchPlans)
   }
   
   .toggle-btn {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    /* より大きなタッチターゲット */
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    /* WCAG AA準拠の44px最小タッチターゲット */
   }
   
   .card-header {
