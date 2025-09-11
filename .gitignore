@@ -229,3 +229,12 @@ marimo/_lsp/
 __marimo__/
 
 .env.local
+
+# Temporary files and reports
+*.txt
+!requirements.txt
+!Dockerfile*
+!LICENSE*
+
+# Documentation build outputs
+docs/_build/
