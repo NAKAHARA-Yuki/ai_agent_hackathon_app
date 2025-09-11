@@ -54,6 +54,273 @@ Frontend (Vue.js) ──→ Backend (Flask) ──→ AI Agent (ADK)
 
 各環境は独立したGoogle Cloud Runサービスとデータベースを使用し、完全に分離されています。
 
+## 📁 ファイル構成
+
+### ディレクトリ構造
+
+```
+ai_agent_hackathon_app/
+├── client/                 # Vue.js フロントエンド
+│   ├── src/
+│   │   ├── views/         # ページコンポーネント（20個）
+│   │   ├── components/    # 再利用可能なUIコンポーネント（12個）
+│   │   ├── services/      # API通信サービス
+│   │   ├── stores/        # Pinia状態管理ストア
+│   │   ├── router/        # Vue Routerルーティング設定
+│   │   ├── assets/        # 静的アセット（画像、CSS等）
+│   │   └── constants/     # 定数定義
+│   ├── public/            # パブリックアセット
+│   ├── index.html         # メインHTMLファイル
+│   ├── package.json       # Node.js依存関係
+│   └── vite.config.js     # Viteビルド設定
+├── server/                # Flask バックエンド
+│   ├── app.py            # メインFlaskアプリケーション
+│   ├── requirements.txt  # Python依存関係
+│   └── .env              # 環境変数（要作成）
+├── agent/                # AI エージェントサービス
+│   ├── agents/
+│   │   └── travel_planner/
+│   │       ├── __init__.py
+│   │       └── agent.py  # メインADKエージェント実装
+│   ├── tools/            # エージェント用ツール
+│   ├── requirements.txt  # Python ADK依存関係
+│   └── Dockerfile        # エージェント用Docker設定
+├── mcp/                  # Maps Code Assist MCP サーバー
+│   └── Dockerfile        # MCP用Docker設定
+├── shared/               # 共有ユーティリティ
+│   ├── contracts/        # 型定義・インターフェース
+│   └── logging_config.py # ログ設定ユーティリティ
+├── Dockerfile            # メインアプリケーション用Docker設定
+├── docker-compose.dev.yml # 開発環境Docker Compose
+└── .github/workflows/    # CI/CDパイプライン
+```
+
+### 主要ファイル詳細
+
+#### フロントエンド（client/src/）
+
+**ビューコンポーネント（views/）**
+- `HomeView.vue` - ホーム画面
+- `StartView.vue` - 診断開始画面
+- `QuestionView.vue` - 診断質問画面
+- `ResultView.vue` - 診断結果表示
+- `PlanChatView.vue` - AIチャット旅行プランニング
+- `PlansListView.vue` - 旅行プラン一覧
+- `PlanDetailView.vue` - プラン詳細表示
+- `MyPageView.vue` - ユーザーマイページ
+- `AuthView.vue`、`LoginView.vue`、`SignupView.vue` - 認証関連
+- `PlannerView.vue` - 旅行プランナー機能
+- `InterestsView.vue` - 趣味・興味設定
+- その他10個のビューコンポーネント
+
+**UIコンポーネント（components/）**
+- `ChatPanel.vue` - AIチャット表示パネル
+- `MapPanel.vue` - Google Maps統合マップ表示
+- `ResultChart.vue` - 診断結果レーダーチャート（Chart.js使用）
+- `LoadingScreen.vue` - ローディング画面
+- `ProgressBar.vue` - 進捗バー
+- `FooterNav.vue` - ボトムナビゲーション
+- `Toast.vue` - 通知トースト
+- `SessionTimeoutWarning.vue` - セッションタイムアウト警告
+- その他4個のUIコンポーネント
+
+**サービス層（services/）**
+- `apiClient.js` - バックエンドAPI通信クライアント（axios使用）
+
+**状態管理（stores/）**
+- `authStore.js` - 認証状態管理（JWT、ユーザー情報）
+- `quizStore.js` - 診断・質問回答状態管理
+- `activePlanStore.js` - アクティブな旅行プラン状態管理
+
+#### バックエンド（server/）
+
+**app.py** - メインFlaskアプリケーション（2,700+行）
+主要な機能群：
+- 認証・ユーザー管理
+- 旅行診断・ペルソナ生成
+- AIエージェントとの統合
+- Google Maps API統合
+- 旅行プラン管理
+- データベース操作（Firestore）
+
+#### AIエージェント（agent/）
+
+**agents/travel_planner/agent.py** - ADK（Agent Development Kit）ベースの旅行計画AI
+- Gemini 2.5 Flashモデルを使用
+- Google Search、Maps Platform Code Assistツール統合
+- インテリジェントな旅行プラン生成
+
+#### 共有モジュール（shared/）
+
+**contracts/** - フロントエンド・バックエンド間のAPI契約定義
+**logging_config.py** - 統一ログ設定（Cloud Logging対応）
+
+## 🔧 主要関数・機能
+
+### バックエンドAPIエンドポイント（server/app.py）
+
+#### 認証・ユーザー管理
+```python
+@app.route('/api/auth/signup', methods=['POST'])
+def signup()
+    """新規ユーザー登録、パスワードハッシュ化、JWTトークン生成"""
+
+@app.route('/api/auth/login', methods=['POST']) 
+def login()
+    """ログイン認証、JWTトークン発行"""
+
+@app.route('/api/me', methods=['GET'])
+def get_me()
+    """認証済みユーザー情報取得"""
+
+@app.route('/api/profile', methods=['GET', 'POST'])
+def profile()
+    """ユーザープロフィール取得・更新"""
+```
+
+#### 旅行診断・ペルソナ
+```python
+@app.route('/api/questions')
+def get_questions()
+    """10個の旅行診断質問データ取得"""
+
+@app.route('/api/analyze', methods=['POST'])
+def analyze_responses()
+    """診断回答を分析し、8次元スコア算出"""
+
+@app.route('/api/persona', methods=['POST'])
+def create_persona()
+    """診断結果からAIペルソナ生成（Gemini API使用）"""
+
+@app.route('/api/persona/latest', methods=['GET'])
+def get_latest_persona()
+    """最新のペルソナ情報取得"""
+```
+
+#### AIチャット・旅行プランニング
+```python
+@app.post('/api/agent/chat')
+def chat_with_agent()
+    """AIエージェントとのチャット、旅行プラン提案"""
+
+@app.route('/api/generate_plan', methods=['POST'])
+def generate_travel_plan()
+    """旅行プラン生成（Gemini API直接呼び出し）"""
+```
+
+#### 旅行プラン管理
+```python
+@app.route('/api/plans', methods=['GET', 'POST'])
+def handle_plans()
+    """旅行プラン一覧取得・新規作成"""
+
+@app.route('/api/plans/<plan_id>', methods=['GET', 'DELETE'])
+def handle_plan(plan_id)
+    """特定プランの詳細取得・削除"""
+
+@app.route('/api/active-plan', methods=['GET', 'POST'])
+def handle_active_plan()
+    """アクティブプラン取得・設定"""
+```
+
+#### Google Maps統合
+```python
+@app.get('/api/maps-key')
+def get_maps_js_key()
+    """フロントエンド用Google Maps APIキー・設定提供"""
+
+@app.post('/api/geocode')
+def geocode_location()
+    """地名から緯度経度への変換（Geocoding API）"""
+
+@app.get('/api/maps/static')
+def generate_static_map()
+    """静的地図画像生成"""
+```
+
+#### ユーティリティ関数
+```python
+def _normalize_places_list(raw)
+    """AIレスポンスから場所リストを正規化"""
+
+def _normalize_route_info(obj)
+    """ルート情報の正規化"""
+
+def _extract_trailing_json(s)
+    """AIレスポンスからJSON構造データ抽出"""
+
+def retry_on_503(func, max_retries=3)
+    """503エラー時のリトライ機能"""
+```
+
+### フロントエンド主要機能
+
+#### API通信（services/apiClient.js）
+```javascript
+// 認証付きHTTPクライアント（axios使用）
+// 自動JWTヘッダー付与、レスポンス/エラーハンドリング
+// 全APIエンドポイントへの型安全アクセス
+```
+
+#### 状態管理ストア
+
+**authStore.js（Pinia）**
+```javascript
+// ユーザー認証状態管理
+// - login/logout機能
+// - JWTトークン管理
+// - セッション自動更新
+// - ページリロード時状態復元
+```
+
+**quizStore.js（Pinia）**
+```javascript  
+// 診断・質問回答管理
+// - 質問進捗追跡
+// - 回答データ保存
+// - スコア計算結果保持
+// - ペルソナ情報管理
+```
+
+**activePlanStore.js（Pinia）**
+```javascript
+// アクティブ旅行プラン管理
+// - 現在の計画状態
+// - チャット履歴
+// - マップ表示状態
+```
+
+#### 主要UIコンポーネント
+
+**ChatPanel.vue**
+- AIとのリアルタイムチャット
+- メッセージ履歴表示
+- タイピングインジケーター
+- ファイル添付サポート
+
+**MapPanel.vue**
+- Google Maps JavaScript API統合
+- Advanced Marker サポート
+- ルート表示・ナビゲーション
+- 場所マーカー・情報ウィンドウ
+
+**ResultChart.vue**
+- Chart.js レーダーチャート
+- 8次元診断結果視覚化
+- アニメーション効果
+- レスポンシブデザイン
+
+### AIエージェント機能（agent/agents/travel_planner/agent.py）
+
+```python
+# ADKベースの旅行計画エージェント
+# - Gemini 2.5 Flash モデル統合
+# - Google Search ツール
+# - Maps Platform Code Assist ツール
+# - コンテキスト保持チャット
+# - 構造化旅行プラン生成
+```
+
 ## 🚀 セットアップ・開発環境構築
 
 ### 前提条件
