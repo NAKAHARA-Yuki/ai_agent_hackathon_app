@@ -671,6 +671,7 @@ if db is None and (os.getenv("FLASK_ENV", "").lower() == "development" or os.get
     class _DevDocSnapshot:
         def __init__(self, data):
             self._data = deepcopy(data) if data is not None else None
+            self.id = None  # Will be set by the collection stream method
 
         @property
         def exists(self):
@@ -733,6 +734,24 @@ if db is None and (os.getenv("FLASK_ENV", "").lower() == "development" or os.get
             # create doc node
             cur.setdefault(doc_id, {})
             return _DevDocumentRef(self._store, self._path + (doc_id,))
+
+        def stream(self):
+            """Stream all documents in the collection for DevDB compatibility with Firestore"""
+            # Navigate to the collection in the store
+            cur = self._store
+            for seg in self._path:
+                cur = cur.get(seg, {})
+                if not isinstance(cur, dict):
+                    return  # Collection doesn't exist
+            
+            # Yield document snapshots for each document in the collection
+            for doc_id, doc_data in cur.items():
+                if isinstance(doc_data, dict) and "__doc__" in doc_data:
+                    doc_ref = _DevDocumentRef(self._store, self._path + (doc_id,))
+                    doc_snapshot = _DevDocSnapshot(doc_data["__doc__"])
+                    # Set the document ID on the snapshot to match Firestore behavior
+                    doc_snapshot.id = doc_id
+                    yield doc_snapshot
 
     class DevDB:
         def __init__(self):
