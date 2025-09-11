@@ -431,10 +431,13 @@ npm test -- --watch        # 監視モード
 
 # バックエンドテスト
 cd server
+pip install -r requirements.txt  # テスト依存関係のインストールが必要
 pytest                     # 全テスト実行
 pytest --cov=app          # カバレッジ付き実行
 pytest -v                 # 詳細出力
 ```
+
+> **注意**: テストを実行するには、依存関係のインストールと適切な環境設定が必要です。詳細は [テスト関連ドキュメント](docs/testing/) を参照してください。
 
 ## 📱 使用方法
 
@@ -504,7 +507,6 @@ pytest -v                 # 詳細出力
 ### 詳細ドキュメント (`docs/` ディレクトリ)
 - **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書
 - **[保守関連](docs/maintenance/)** - 未使用ファイル整理レポート等
-- **[コンポーネント関連](docs/components/)** - 各コンポーネントの詳細説明
 
 ### コンポーネント別ドキュメント
 - **agent/README.md** - ADKエージェントサービスの詳細
@@ -516,26 +518,35 @@ pytest -v                 # 詳細出力
 
 ## 🔍 API エンドポイント
 
+### システム・設定
+- `GET /api/health` - システムヘルスチェック
+- `GET /api/maps-key` - Maps API設定取得
+
 ### 認証
 - `POST /api/auth/signup` - ユーザー登録
 - `POST /api/auth/login` - ログイン
 - `GET /api/me` - ユーザー情報取得
+- `GET /api/profile` - プロフィール取得
+- `POST /api/profile` - プロフィール更新
 
 ### 診断・ペルソナ
 - `GET /api/questions` - 診断質問の取得
+- `GET /api/hobbies` - 趣味マスターデータ取得
 - `POST /api/analyze` - 回答の分析
 - `POST /api/persona` - ペルソナ作成
 - `GET /api/persona/latest` - 最新ペルソナ取得
 
-### 旅行プラン
-- `POST /api/agent/chat` - AIチャット
+### 旅行プラン・AI機能
+- `POST /api/agent/chat` - AIエージェントチャット
+- `POST /api/generate_plan` - 旅行プラン生成
 - `GET /api/plans` - プラン一覧
 - `POST /api/plans` - プラン保存
 - `GET /api/plans/:id` - プラン詳細
 - `DELETE /api/plans/:id` - プラン削除
+- `GET /api/active-plan` - アクティブプラン取得
+- `POST /api/active-plan` - アクティブプラン設定
 
 ### 地図・ジオコーディング
-- `GET /api/maps-key` - Maps APIキー取得
 - `POST /api/geocode` - 地名→座標変換
 - `GET /api/maps/static` - 静的地図画像生成
 
@@ -605,4 +616,22 @@ GitHub Actions ワークフローにより自動デプロイ：
 このソフトウェアの使用、複製、配布、修正、またはその他の利用には、著作権者の事前の書面による許可が必要です。詳細については、[LICENSE](LICENSE) ファイルをご確認ください。
 
 ライセンスに関するお問い合わせは、プロジェクト所有者までご連絡ください。
+
+---
+
+## 📝 更新履歴
+
+### 最新更新 (2024年12月)
+- ✅ ドキュメント構造の整理・統合
+- ✅ コンポーネント情報の正確性向上
+- ✅ API エンドポイント一覧の完全化
+- ✅ テスト関連ドキュメントの体系化
+- ✅ 未使用ファイルの削除・整理
+
+### 主要機能実装完了
+- ✅ Vue.js 3.4.21 フロントエンド
+- ✅ Flask 3.0.3 バックエンド  
+- ✅ Google ADK エージェント統合
+- ✅ 包括的テストスイート (130+ テストケース)
+- ✅ Google Cloud Run デプロイメント対応
 

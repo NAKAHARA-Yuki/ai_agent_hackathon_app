@@ -11,7 +11,9 @@
 ### 🔧 保守・メンテナンス (`maintenance/`)
 - **[cleanup_report.md](maintenance/cleanup_report.md)** - 未使用ファイル整理レポート
 
-### 🏗️ コンポーネント情報 (`components/`)
+### 🏗️ コンポーネント情報
+コンポーネントの詳細情報は以下に記載されています：
+- **[メイン README](../README.md)** - 全コンポーネントの概要（15個のビュー、10個のUIコンポーネント）
 - **agent/** - エージェント関連ドキュメント（`../agent/` 内に配置）
   - `agent/README.md` - ADKエージェントサービスの詳細
   - `agent/AGENT_FIX_NOTES.md` - エージェント設定修正履歴
