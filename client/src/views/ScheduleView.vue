@@ -70,13 +70,77 @@ onMounted(load)
 </template>
 
 <style scoped>
-.schedule-screen { padding:20px 16px 90px; display:flex; flex-direction:column; gap:12px; width:100%; height:100%; box-sizing:border-box; overflow:auto; }
-.schedule-screen h1 { font-size:20px; font-weight:700; margin:4px 0 0; letter-spacing:-.5px; }
-.subtitle { margin:0; font-size:12px; color:var(--color-text-subtle); }
-.list { display:flex; flex-direction:column; gap:10px; }
-.item { position:relative; background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:14px 14px 12px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(0,0,0,0.05); cursor:pointer; }
+.schedule-screen { 
+  padding:20px 16px 90px; 
+  display:flex; 
+  flex-direction:column; 
+  gap:12px; 
+  width:100%; 
+  height:100%; 
+  box-sizing:border-box; 
+  overflow:auto; 
+}
+
+/* モバイル対応: パディングとレイアウトの調整 */
+@media (max-width: 768px) {
+  .schedule-screen {
+    padding: 16px 8px calc(100px + env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+}
+.schedule-screen h1 { 
+  font-size:20px; 
+  font-weight:700; 
+  margin:4px 0 0; 
+  letter-spacing:-.5px; 
+}
+.subtitle { 
+  margin:0; 
+  font-size:12px; 
+  color:var(--color-text-subtle); 
+}
+.list { 
+  display:flex; 
+  flex-direction:column; 
+  gap:10px; 
+}
+.item { 
+  position:relative; 
+  background:#fff; 
+  border:1px solid #e2e8f0; 
+  border-radius:16px; 
+  padding:14px 14px 12px; 
+  display:flex; 
+  align-items:center; 
+  gap:12px; 
+  box-shadow:0 2px 6px rgba(0,0,0,0.05); 
+  cursor:pointer;
+  min-height: 80px; /* 最小高さを確保 */
+}
 .item:active { transform:translateY(1px); }
 .item:focus-visible { outline:2px solid var(--color-focus); outline-offset:2px; }
+
+/* モバイル対応: アイテムサイズとフォントの調整 */
+@media (max-width: 768px) {
+  .schedule-screen h1 {
+    font-size: 18px;
+  }
+  
+  .subtitle {
+    font-size: 11px;
+  }
+  
+  .list {
+    gap: 8px;
+  }
+  
+  .item {
+    padding: 16px;
+    border-radius: 12px;
+    gap: 10px;
+    min-height: 90px;
+  }
+}
 .item-main { flex:1 1 auto; min-width:0; }
 .date { font-size:11px; font-weight:600; color:#64748b; letter-spacing:.5px; text-transform:uppercase; }
 .title { font-size:14px; font-weight:600; line-height:1.4; color:#1e293b; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -147,11 +211,42 @@ onMounted(load)
 .mini-title { 
   font-weight:500; 
   line-height:1.3; 
+  word-break: break-word; /* 長いテキストの改行対応 */
 }
 
 .more-items, .more-days { 
   font-size:10px; 
   color:#94a3b8; 
   font-style:italic; 
+}
+
+/* モバイル対応: 旅程プレビューの調整 */
+@media (max-width: 768px) {
+  .itinerary-preview {
+    padding: 10px 12px;
+    border-radius: 6px;
+  }
+  
+  .itinerary-header {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .mini-day {
+    font-size: 12px;
+  }
+  
+  .day-label {
+    min-width: 45px;
+  }
+  
+  .mini-time {
+    font-size: 11px;
+    min-width: 40px;
+  }
+  
+  .mini-title {
+    line-height: 1.4;
+  }
 }
 </style>

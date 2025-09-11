@@ -372,7 +372,7 @@ async function handleRegenerate() {
     flex: 1; 
     min-height: 0;
     overflow-y: auto;
-    padding: 16px; 
+    padding: 12px; 
     margin: 0;
     border-radius: 0;
     box-shadow: none;
@@ -380,14 +380,97 @@ async function handleRegenerate() {
     padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
   }
   
+  .header h1 {
+    font-size: 18px;
+  }
+  
+  .header .tagline {
+    font-size: 13px;
+  }
+  
   .cards {
     padding: 4px 0 20px; /* 左右のpaddingを削除 */
+    gap: 14px; /* カード間の間隔を少し広げる */
+  }
+  
+  .card {
+    height: 140px; /* モバイルでは少し低く */
+    border-radius: 14px;
+  }
+  
+  .card-content {
+    padding: 12px 14px;
+  }
+  
+  .title {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  
+  .tags {
+    font-size: 11px;
+    line-height: 1.3;
   }
   
   .regenerate-section {
-    margin: 16px 0 0;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.9);
+    margin: 12px 0 0;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+  }
+  
+  .regenerate-text {
+    font-size: 13px;
+  }
+  
+  .regenerate-button {
+    padding: 14px 20px;
+    font-size: 15px;
+    min-height: 48px; /* タッチフレンドリーなサイズ */
+  }
+  
+  .regenerate-form {
+    max-width: 100%; /* モバイルでは全幅使用 */
+  }
+  
+  .regenerate-input {
+    padding: 14px 16px;
+    font-size: 15px;
+    min-height: 48px;
+    box-sizing: border-box;
+  }
+  
+  .regenerate-buttons {
+    gap: 10px;
+  }
+  
+  .regenerate-submit,
+  .regenerate-cancel {
+    padding: 12px 20px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+}
+
+/* 非常に小さな画面用の追加調整 */
+@media (max-width: 480px) {
+  .suggestions-screen {
+    padding: 10px;
+  }
+  
+  .card {
+    height: 120px;
+  }
+  
+  .regenerate-buttons {
+    flex-direction: column; /* 縦並びでより使いやすく */
+    gap: 8px;
+  }
+  
+  .regenerate-submit,
+  .regenerate-cancel {
+    width: 100%;
+    min-height: 48px;
   }
 }
 
