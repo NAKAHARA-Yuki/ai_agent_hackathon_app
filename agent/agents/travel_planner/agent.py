@@ -4,8 +4,21 @@ import sys
 from typing import Any
 from google.adk.agents import LlmAgent
 import httpx
-from tools.maps_mcp import register_maps_mcp_tool
-from google.adk.tools import google_search
+
+# Import tools with better error handling
+try:
+    # Try relative import first
+    from ...tools.maps_mcp import register_maps_mcp_tool
+except ImportError:
+    # Fallback to adding parent directory to path
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+    from tools.maps_mcp import register_maps_mcp_tool
+
+try:
+    from google.adk.tools import google_search
+except ImportError as e:
+    log.warning(f"Failed to import google_search tool: {e}")
+    google_search = None
 
 # 共有モジュール(shared/logging_config.py)は本コンテナにコピーしない方針のため
 # インポートに失敗した場合は最小限のフォールバックを内蔵定義する。
@@ -54,7 +67,7 @@ except Exception:
 		enforce_single_line_all(_LEVEL)
 	except Exception:
 		pass
-log = logging.getLogger("agent.startup")
+log = logging.getLogger("agent.travel_planner")
 
 # Bridge GEMINI_API_KEY -> GOOGLE_API_KEY for google-genai used by ADK
 if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
@@ -62,10 +75,9 @@ if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
 	os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
-log.info(f"Agent model: {MODEL}")
-log.info(f"Maps MCP endpoint: {os.getenv('MAPS_MCP_ENDPOINT_URL')}")
+log.info(f"Travel Planner Agent model: {MODEL}")
 
-DEFAULT_INSTRUCTION = (
+TRAVEL_PLANNER_INSTRUCTION = (
 	"あなたは日本国内旅行のコンシェルジュです。必ず JSON オブジェクト 1 個【のみ】を出力します。3 つの完全な旅行計画を含め、JSON 以外の文字(挨拶/説明/コードフェンス/マークダウン)を前後に一切出さない。\n\n"
 	"入力構造：\n1) persona/profile 要約 JSON\n2) ユーザー依頼キーワード\n\n"
 	"目標：利用者の興味/制約を反映し、選択可能な 3 案 (各: タイトル/タグ/短い説明/日別行程/主要スポット/任意ルート) を提示。地理的合理性と季節感・移動時間を考慮。危険/非現実/閉鎖施設除外。\n\n"
@@ -78,23 +90,31 @@ DEFAULT_INSTRUCTION = (
 	"(EN Warning) Output exactly ONE raw JSON object only. No markdown headings/tables/fences. Any extra text may cause rejection."
 )
 
-INSTRUCTION = os.getenv("AGENT_INSTRUCTION_OVERRIDE") or DEFAULT_INSTRUCTION
-
 tools = []
-tools += register_maps_mcp_tool()  # GoogleMapMCP
-tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
-SERVER_BASE = os.getenv('APP_SERVER_BASE')  # e.g., http://server:8080 or public URL
+try:
+    tools += register_maps_mcp_tool()  # GoogleMapMCP
+    log.info("Maps MCP tool registered successfully")
+except Exception as e:
+    log.warning(f"Failed to register Maps MCP tool: {e}")
 
-log.info("Tools registered: maps_mcp, google_search (保存ツール無効化)")
+if google_search:
+    tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
+    log.info("Google search tool registered successfully")
+else:
+    log.warning("Google search tool not available")
 
-# Define the root agent under Agents tree
-root_agent = LlmAgent(
-	name="travel_planner",
-	model=MODEL,
-	description="Generate domestic travel plans in Japanese from persona/profile/constraints",
-	instruction=INSTRUCTION,
-	tools=tools,
-)
+log.info(f"Travel Planner Sub-Agent: {len(tools)} tools registered")
 
-# ADK api_server expects symbol `agent`
-agent = root_agent
+# Define the travel planner sub-agent
+try:
+	travel_planner_agent = LlmAgent(
+		name="travel_planner",
+		model=MODEL,
+		description="Generate domestic travel plans in Japanese from persona/profile/constraints",
+		instruction=TRAVEL_PLANNER_INSTRUCTION,
+		tools=tools,
+	)
+	log.info(f"Travel Planner Agent initialized with {len(tools)} tools")
+except Exception as e:
+	log.error(f"Failed to initialize Travel Planner Agent: {e}")
+	raise
