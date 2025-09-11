@@ -232,7 +232,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
     const finalResult = computed(() => {
-    if (isAnalyzing.value || Object.keys(userAnswers.value).length !== totalQuestions.value) {
+    if (isAnalyzing.value || Object.keys(userAnswers.value).length === 0 || totalQuestions.value === 0 || Object.keys(userAnswers.value).length !== totalQuestions.value) {
       return null;
     }
 

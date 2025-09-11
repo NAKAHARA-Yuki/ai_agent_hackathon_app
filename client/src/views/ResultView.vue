@@ -1,35 +1,66 @@
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
 import { useQuizStore } from '@/stores/quizStore'
+import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 import ResultChart from '@/components/ResultChart.vue'
 import BackButton from '@/components/BackButton.vue'
 
 const store = useQuizStore()
+const auth = useAuthStore()
 const router = useRouter()
 const showScoreDetails = ref(false)
+const personaData = ref(null)
+const loading = ref(false)
 
-const chartData = computed(() => {
-  if (!store.finalResult?.scoreDetails?.traitScores) {
-    return { labels: [], datasets: [] };
-  }
-  const labels = Object.keys(store.finalResult.scoreDetails.traitScores);
-  const data = Object.values(store.finalResult.scoreDetails.traitScores);
-  return {
-    labels,
-    datasets: [
-      {
-        label: 'あなたの特性スコア',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        borderColor: 'rgb(54, 162, 235)',
-        pointBackgroundColor: 'rgb(54, 162, 235)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgb(54, 162, 235)',
-        data,
+// Load persona data from API if quiz store doesn't have results
+async function loadPersonaData() {
+  if (personaData.value) return // Already loaded
+  try {
+    loading.value = true
+    const resp = await fetch('/api/persona/latest', { headers: { ...auth.authHeader() } })
+    if (resp.ok) {
+      const data = await resp.json()
+      if (data?.profile) {
+        personaData.value = data
       }
-    ]
+    }
+  } catch (e) {
+    console.error('Failed to load persona data:', e)
+  } finally {
+    loading.value = false
   }
+}
+
+// Combined result data - use quiz store if available, otherwise use persona API data
+const displayResult = computed(() => {
+  // If quiz store has fresh results, use those
+  if (store.finalResult && store.finalResult.scoreDetails) {
+    return store.finalResult
+  }
+  
+  // Otherwise, construct from persona data
+  if (personaData.value?.profile) {
+    const profile = personaData.value.profile
+    const traitScores = profile.traitScores || {}
+    
+    // Calculate average score
+    const scores = Object.values(traitScores).filter(score => !isNaN(score))
+    const average = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0
+    
+    return {
+      title: profile.title || '診断結果',
+      description: profile.description || '',
+      plans: [], // No plans from persona data
+      scoreDetails: {
+        average: average.toFixed(2),
+        traitScores: traitScores,
+        answers: [] // No individual answers from persona data
+      }
+    }
+  }
+  
+  return null
 })
 
 const traitsOrder = computed(() => {
@@ -56,8 +87,11 @@ const traitDescriptions = computed(() => {
   return map
 })
 
-onMounted(() => {
-  // 画面到達時点ではAI処理は完了済みの想定（ストア側で完了してから遷移）
+onMounted(async () => {
+  // Load persona data if quiz store doesn't have results
+  if (!store.finalResult || !store.finalResult.scoreDetails) {
+    await loadPersonaData()
+  }
 })
 
 function restartQuiz() {
@@ -78,39 +112,44 @@ function goMain() {
   <main class="result-view">
   <div class="card result-card">
   <BackButton />
-    <div v-if="store.isAnalyzing || store.isGeneratingPlans || store.isProcessing">
+    <div v-if="loading">
+      <h1>読み込み中...</h1>
+      <p>診断結果を読み込んでいます。</p>
+      <div class="spinner"></div>
+    </div>
+    <div v-else-if="store.isAnalyzing || store.isGeneratingPlans || store.isProcessing">
       <h1>診断中...</h1>
       <p>AIがあなたの回答全体を解析し、旅行タイプとおすすめプランを生成しています。少々お待ちください。</p>
       <div class="spinner"></div>
     </div>
-    <div v-else-if="store.finalResult && store.finalResult.scoreDetails">
+    <div v-else-if="displayResult && displayResult.scoreDetails">
       <div class="result-section result-summary">
         <h2>🎉 診断結果 🎉</h2>
-        <h3>あなたの旅行タイプは... <strong>{{ store.finalResult.title }}</strong> です！</h3>
-        <p>{{ store.finalResult.description }}</p>
-        <p><strong>総合平均スコア: {{ store.finalResult.scoreDetails.average }}</strong></p>
+        <h3>あなたの旅行タイプは... <strong>{{ displayResult.title }}</strong> です！</h3>
+        <p>{{ displayResult.description }}</p>
+        <p><strong>総合平均スコア: {{ displayResult.scoreDetails.average }}</strong></p>
       </div>
 
             <div class="result-section chart-section">
          <ResultChart
-           v-if="store.finalResult?.scoreDetails?.traitScores"
-           :traitScores="store.finalResult.scoreDetails.traitScores"
+           v-if="displayResult?.scoreDetails?.traitScores"
+           :traitScores="displayResult.scoreDetails.traitScores"
            :traitDescriptions="traitDescriptions"
            :traitsOrder="traitsOrder"
          />
       </div>
 
-      <div class="result-section travel-plans">
+      <div class="result-section travel-plans" v-if="displayResult.plans && displayResult.plans.length > 0">
         <h3>✈️ おすすめの旅行プラン</h3>
         <div v-if="store.isGeneratingPlans">AIがあなた向けの国内プランを作成中です…</div>
         <ul v-else>
-          <li v-for="(plan, index) in store.finalResult.plans" :key="index">
+          <li v-for="(plan, index) in displayResult.plans" :key="index">
             <strong>{{ plan.title }}</strong>: {{ plan.description }}
           </li>
         </ul>
       </div>
 
-      <div class="result-section score-details">
+      <div class="result-section score-details" v-if="displayResult.scoreDetails.answers && displayResult.scoreDetails.answers.length > 0">
         <h3 @click="toggleScoreDetails" class="collapsible-header">
           📝 回答ごとのスコア詳細
           <span class="toggle-icon">{{ showScoreDetails ? '▲' : '▼' }}</span>
@@ -128,7 +167,7 @@ function goMain() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(answer, index) in store.finalResult.scoreDetails.answers" :key="index">
+                  <tr v-for="(answer, index) in displayResult.scoreDetails.answers" :key="index">
                     <td>{{ answer.question }}</td>
                     <td>{{ answer.finalScore.toFixed(2) }}</td>
                     <td>{{ answer.explanation }}</td>
@@ -145,7 +184,10 @@ function goMain() {
     </div>
     <div v-else>
       <h1>結果</h1>
-      <p>結果を計算中です...</p>
+      <p>診断結果が見つかりません。診断を開始してください。</p>
+      <div class="result-actions">
+        <button class="primary" @click="restartQuiz">診断を開始する</button>
+      </div>
     </div>
       <button @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
     </div>
