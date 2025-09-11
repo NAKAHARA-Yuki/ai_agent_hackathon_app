@@ -111,7 +111,15 @@ ai_agent_hackathon_app/
 - `AuthView.vue`、`LoginView.vue`、`SignupView.vue` - 認証関連
 - `PlannerView.vue` - 旅行プランナー機能
 - `InterestsView.vue` - 趣味・興味設定
-- その他10個のビューコンポーネント
+- `HomeView.vue` - ホーム画面
+- `MainView.vue` - メイン画面
+- `PlanWizardView.vue` - プラン作成ウィザード
+- `ProcessingView.vue` - 処理中画面
+- `ScheduleView.vue` - スケジュール表示
+- `StartView.vue` - スタート画面
+- `TasksView.vue` - タスク管理
+- `TravelDayChatView.vue` - 旅行日チャット
+- `TravelPlanWizardView.vue` - 旅行プランウィザード
 
 **UIコンポーネント（components/）**
 - `ChatPanel.vue` - AIチャット表示パネル
@@ -122,7 +130,10 @@ ai_agent_hackathon_app/
 - `FooterNav.vue` - ボトムナビゲーション
 - `Toast.vue` - 通知トースト
 - `SessionTimeoutWarning.vue` - セッションタイムアウト警告
-- その他4個のUIコンポーネント
+- `BackButton.vue` - 戻るボタン
+- `DetailScreen.vue` - 詳細画面
+- `InputScreen.vue` - 入力画面
+- `SuggestionScreen.vue` - 提案画面
 
 **サービス層（services/）**
 - `apiClient.js` - バックエンドAPI通信クライアント（axios使用）
