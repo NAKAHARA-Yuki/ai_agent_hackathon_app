@@ -16,6 +16,7 @@ import TasksView from '../views/TasksView.vue'
 import ScheduleView from '../views/ScheduleView.vue'
 import PlanDetailView from '../views/PlanDetailView.vue'
 import PlanChatView from '../views/PlanChatView.vue'
+import TravelDayChatView from '../views/TravelDayChatView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -61,6 +62,7 @@ const router = createRouter({
   ,{ path: '/schedule', name: 'schedule', component: ScheduleView }
   ,{ path: '/plans/:id', name: 'plan-detail', component: PlanDetailView }
   ,{ path: '/plans/:id/chat', name: 'plan-chat', component: PlanChatView }
+  ,{ path: '/travel-day/:id', name: 'travel-day-chat', component: TravelDayChatView }
   ]
 })
 

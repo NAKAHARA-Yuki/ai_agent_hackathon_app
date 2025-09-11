@@ -1,12 +1,14 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { useActivePlanStore } from '@/stores/activePlanStore'
 import { listPlans } from '@/services/apiClient'
 import BackButton from '@/components/BackButton.vue'
 import Toast from '@/components/Toast.vue'
 
 const auth = useAuthStore()
+const activePlanStore = useActivePlanStore()
 const router = useRouter()
 const loading = ref(false)
 const items = ref([])
@@ -19,6 +21,9 @@ async function fetchPlans() {
   try {
   const j = await listPlans(auth.authHeader())
     items.value = Array.isArray(j.items) ? j.items.sort((a,b) => (b.created_at||'') > (a.created_at||'') ? 1 : -1) : []
+    
+    // Fetch active plan status
+    await activePlanStore.fetchActivePlan()
   } catch (e) {
     error.value = '読み込みに失敗しました'
   } finally { loading.value = false }
@@ -29,6 +34,31 @@ function openDetail(it){
   router.push({ name: 'plan-detail', params: { id: it.id } })
 }
 
+async function toggleActivePlan(event, plan) {
+  event.stopPropagation() // Prevent opening detail view
+  try {
+    if (activePlanStore.activePlanId === plan.id) {
+      await activePlanStore.deactivatePlan()
+      toast.value = 'プランを無効化しました'
+    } else {
+      await activePlanStore.activatePlan(plan.id)
+      toast.value = 'プランを有効化しました'
+    }
+  } catch (e) {
+    toast.value = 'エラーが発生しました: ' + (e.message || '不明なエラー')
+  }
+}
+
+function openTravelDayChat() {
+  if (activePlanStore.activePlanId) {
+    router.push({ name: 'travel-day-chat', params: { id: activePlanStore.activePlanId } })
+  }
+}
+
+const isActivePlan = computed(() => (planId) => {
+  return activePlanStore.activePlanId === planId
+})
+
 onMounted(fetchPlans)
 </script>
 
@@ -38,12 +68,53 @@ onMounted(fetchPlans)
       <BackButton :icon-only="true" icon="chevron-left" label="戻る" :fallback-name="'main'" />
       <h1>保存したプラン</h1>
     </header>
+    
+    <!-- Active Plan Quick Access -->
+    <div v-if="activePlanStore.isActive" class="active-plan-banner">
+      <div class="banner-content">
+        <div class="banner-info">
+          <div class="banner-title">{{ activePlanStore.activePlanTitle }}</div>
+          <div class="banner-subtitle">旅行当日モード中</div>
+        </div>
+        <button @click="openTravelDayChat" class="chat-btn" aria-label="旅行当日チャット">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+          チャット
+        </button>
+      </div>
+    </div>
+    
     <div v-if="loading" class="state">読み込み中...</div>
     <div v-else-if="error" class="state error">{{ error }}</div>
     <div v-else class="cards" v-auto-animate>
-      <div v-for="p in items" :key="p.id" class="card" @click="openDetail(p)" role="button" :aria-label="p.title">
-        <div class="title">{{ p.title || '無題プラン' }}</div>
+      <div 
+        v-for="p in items" 
+        :key="p.id" 
+        class="card" 
+        :class="{ active: isActivePlan(p.id) }" 
+        @click="openDetail(p)" 
+        role="button" 
+        :aria-label="p.title"
+      >
+        <div class="card-header">
+          <div class="title">{{ p.title || '無題プラン' }}</div>
+          <button 
+            @click="toggleActivePlan($event, p)" 
+            class="toggle-btn" 
+            :class="{ active: isActivePlan(p.id) }"
+            :aria-label="isActivePlan(p.id) ? 'プランを無効化' : 'プランを有効化'"
+          >
+            <svg v-if="isActivePlan(p.id)" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+          </button>
+        </div>
         <div class="meta">{{ p.created_at || '' }}</div>
+        <div v-if="isActivePlan(p.id)" class="active-badge">旅行当日モード</div>
       </div>
       <p v-if="!items.length" class="empty">まだ保存されたプランはありません。</p>
     </div>
@@ -55,13 +126,163 @@ onMounted(fetchPlans)
 .plans-list { display:flex; flex-direction:column; gap:12px; width:100%; }
 .header { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.9); padding:8px 10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
 .header h1 { font-size:18px; margin:0; flex:1; }
+
+/* Active Plan Banner */
+.active-plan-banner {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  margin-bottom: 8px;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.banner-info {
+  flex: 1;
+}
+
+.banner-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.banner-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.chat-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .state { padding:20px; text-align:center; color:#374151; }
 .state.error { color:#b91c1c; }
 .cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:12px; }
-.card { background: var(--color-surface); border:1px solid var(--color-border); border-radius:14px; padding:14px 16px; box-shadow:0 6px 14px rgba(0,0,0,0.05); display:flex; flex-direction:column; gap:6px; cursor:pointer; }
+
+.card { 
+  background: var(--color-surface); 
+  border:1px solid var(--color-border); 
+  border-radius:14px; 
+  padding:14px 16px; 
+  box-shadow:0 6px 14px rgba(0,0,0,0.05); 
+  display:flex; 
+  flex-direction:column; 
+  gap:6px; 
+  cursor:pointer; 
+  position: relative;
+  transition: all 0.2s ease;
+}
+
 .card:active { transform: translateY(1px); }
-.card .title { font-weight:600; font-size:14px; color: var(--color-text); line-height:1.3; }
+
+.card.active {
+  border-color: #10b981;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card .title { 
+  font-weight:600; 
+  font-size:14px; 
+  color: var(--color-text); 
+  line-height:1.3; 
+  flex: 1;
+}
+
+.toggle-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9ca3af;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle-btn:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.toggle-btn.active {
+  color: #10b981;
+}
+
+.toggle-btn.active:hover {
+  background: #ecfdf5;
+}
+
+.toggle-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .card .meta { font-size:11px; color:#6b7280; }
+
+.active-badge {
+  background: #10b981;
+  color: white;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 500;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 .empty { text-align:center; padding:30px 10px; color:#6b7280; grid-column:1/-1; }
-@media (max-width: 600px){ .cards { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); } }
+
+@media (max-width: 600px){ 
+  .cards { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); } 
+  
+  .banner-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .chat-btn {
+    align-self: stretch;
+    justify-content: center;
+  }
+}
 </style>
