@@ -4,7 +4,7 @@ import logging
 from google.adk.agents import LlmAgent
 # Tools
 from google.adk.tools import google_search  # type: ignore
-from googlemapmcp.agent import googlemapmcp_agent  # type: ignore
+from ..googlemapmcp.agent import googlemapmcp_agent  # type: ignore
 
 # Ensure agent/ is importable so we can access tools/maps_mcp
 _here = os.path.dirname(__file__)

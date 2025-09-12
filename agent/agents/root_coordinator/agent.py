@@ -1,8 +1,8 @@
 import os
 import logging
 from google.adk.agents import LlmAgent
-from travel_planner.agent import travel_planner_agent  # type: ignore
-from travel_advisor.agent import travel_advisor_agent  # type: ignore
+from .travel_planner.agent import travel_planner_agent  # type: ignore
+from .travel_advisor.agent import travel_advisor_agent  # type: ignore
 
 # Minimal logging setup
 _LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
