@@ -2,7 +2,6 @@ import os
 import sys
 import logging
 from google.adk.agents import LlmAgent
-from google.adk.tools import google_search
 from ..googlemapmcp.agent import googlemapmcp_agent  # type: ignore
 log = logging.getLogger("agent.travel_planner")
 
@@ -32,7 +31,6 @@ try:
 		description="Generate domestic travel plans in Japanese from persona/profile/constraints",
 		instruction=TRAVEL_PLANNER_INSTRUCTION,
   		sub_agents=[googlemapmcp_agent],	
-		# tools=[google_search],
   		tools=[],
 	)
 	log.info(f"Travel Planner Agent initialized with tools")
