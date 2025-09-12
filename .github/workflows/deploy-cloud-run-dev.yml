@@ -73,7 +73,7 @@ jobs:
             echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
           fi
 
-      - name: Build and push images (Agent + MCP dev)
+      - name: Build and push images (Agent)
         env:
           REGION: ${{ env.REGION }}
           REPO_PATH: ${{ env.REPO_AGENT }}

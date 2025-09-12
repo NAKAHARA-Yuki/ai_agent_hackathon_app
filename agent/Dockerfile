@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # ADK api_server will load agents from ./agents
 COPY agents ./agents
-COPY tools ./tools
 # shared（リポジトリ上位）に依存しない設計へ戻す
 ENV PYTHONPATH=/app
 
