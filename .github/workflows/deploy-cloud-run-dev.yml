@@ -86,47 +86,18 @@ jobs:
           docker push ${AGENT_IMAGE}
           docker push ${MCP_IMAGE}
 
-      - name: Deploy MCP (dev)
-        env:
-          REGION: ${{ env.REGION }}
-        run: |
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/maps-mcp-service-dev:${GITHUB_SHA}
-          gcloud run deploy maps-mcp-service-dev \
-            --image ${MCP_IMAGE} \
-            --region ${REGION} \
-            --platform managed \
-            --port 3000 \
-            --set-env-vars=APP_ENV=development
-
       - name: Deploy Agent (dev)
         env:
           REGION: ${{ env.REGION }}
         run: |
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service-dev:${GITHUB_SHA}
-          MCP_URL=$(gcloud run services describe maps-mcp-service-dev --region ${REGION} --format 'value(status.url)')
-          MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
           gcloud run deploy travel-agent-service-dev \
             --image ${AGENT_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
-
-      - name: Grant Agent SA invoker on MCP service (dev)
-        env:
-          REGION: ${{ env.REGION }}
-          PROJECT_ID: ${{ env.PROJECT_ID }}
-        run: |
-          AGENT_SA=$(gcloud run services describe travel-agent-service-dev --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
-          if [ -z "$AGENT_SA" ]; then
-            PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
-            AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
-          fi
-          gcloud run services add-iam-policy-binding maps-mcp-service-dev \
-            --region ${REGION} \
-            --member serviceAccount:${AGENT_SA} \
-            --role roles/run.invoker
+            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro
 
       - name: Resolve Agent URL (dev)
         id: resolve_agent_url

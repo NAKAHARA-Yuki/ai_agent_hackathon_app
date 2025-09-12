@@ -68,60 +68,30 @@ jobs:
             echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
           fi
 
-      - name: Build and push images (Agent + MCP)
+      - name: Build and push agent image
         env:
           REGION: ${{ env.REGION }}
           REPO_PATH: ${{ env.REPO_AGENT }}
         run: |
           set -e
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service:${GITHUB_SHA}
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service:${GITHUB_SHA}
           docker build -t ${AGENT_IMAGE} agent
-          docker build -t ${MCP_IMAGE} mcp
           docker push ${AGENT_IMAGE}
-          docker push ${MCP_IMAGE}
 
-      - name: Deploy MCP to Cloud Run (auth required)
-        env:
-          REGION: ${{ env.REGION }}
-        run: |
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/maps-mcp-service:${GITHUB_SHA}
-          gcloud run deploy maps-mcp-service \
-            --image ${MCP_IMAGE} \
-            --region ${REGION} \
-            --platform managed \
-            --port 3000
-
-      - name: Deploy Agent to Cloud Run (with MCP URL)
+      - name: Deploy Agent to Cloud Run
         env:
           REGION: ${{ env.REGION }}
         run: |
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service:${GITHUB_SHA}
-          MCP_URL=$(gcloud run services describe maps-mcp-service --region ${REGION} --format 'value(status.url)')
-          MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
           gcloud run deploy travel-agent-service \
             --image ${AGENT_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro
 
-      - name: Grant Agent SA invoker on MCP service
-        env:
-          REGION: ${{ env.REGION }}
-          PROJECT_ID: ${{ env.PROJECT_ID }}
-        run: |
-          AGENT_SA=$(gcloud run services describe travel-agent-service --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
-          if [ -z "$AGENT_SA" ]; then
-            PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
-            AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
-          fi
-          echo "Granting roles/run.invoker to ${AGENT_SA} on maps-mcp-service"
-          gcloud run services add-iam-policy-binding maps-mcp-service \
-            --region ${REGION} \
-            --member serviceAccount:${AGENT_SA} \
-            --role roles/run.invoker
+      
 
       - name: Resolve Agent URL
         id: resolve_agent_url

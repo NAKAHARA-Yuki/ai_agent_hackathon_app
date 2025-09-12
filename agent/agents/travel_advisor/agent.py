@@ -1,80 +1,19 @@
 import os
-import logging
 import sys
-from typing import Any
+import logging
 from google.adk.agents import LlmAgent
-import httpx
+# Tools
+from google.adk.tools import google_search   # type: ignore
 
-# Import tools with better error handling
-try:
-    # Try relative import first
-    from ...tools.maps_mcp import register_maps_mcp_tool
-except ImportError:
-    # Fallback to adding parent directory to path
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-    from tools.maps_mcp import register_maps_mcp_tool
+# Ensure agent/ is importable so we can access tools/maps_mcp
+_here = os.path.dirname(__file__)
+_agent_base = os.path.abspath(os.path.join(_here, '..', '..'))  # agent/agents -> agent
+if _agent_base not in sys.path:
+	sys.path.insert(0, _agent_base)
 
-try:
-    from google.adk.tools import google_search
-except ImportError as e:
-    log.warning(f"Failed to import google_search tool: {e}")
-    google_search = None
-
-# 共有モジュール(shared/logging_config.py)は本コンテナにコピーしない方針のため
-# インポートに失敗した場合は最小限のフォールバックを内蔵定義する。
-try:
-	sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
-	from logging_config import configure_basic_cloud_logging, enforce_single_line_all  # type: ignore
-except Exception:  # shared が無い/壊れている場合
-	class _SingleLineFormatter(logging.Formatter):
-		def format(self, record: logging.LogRecord) -> str:  # noqa: D401
-			msg = super().format(record)
-			return ' '.join(msg.replace('\n', ' ').replace('\r', ' ').split())
-
-	def _base_handler(level: str):
-		h = logging.StreamHandler()
-		h.setFormatter(_SingleLineFormatter('[%(asctime)s] %(levelname)s %(name)s: %(message)s'))
-		h.setLevel(level)
-		return h
-
-	def configure_basic_cloud_logging(level_name: str = 'INFO', force: bool = False):  # minimal互換
-		lvl = getattr(logging, (level_name or 'INFO').upper(), logging.INFO)
-		root = logging.getLogger()
-		if force:
-			for h in list(root.handlers):
-				root.removeHandler(h)
-		if not root.handlers:
-			root.addHandler(_base_handler(lvl))
-		root.setLevel(lvl)
-		return root
-
-	def enforce_single_line_all(level: str = 'INFO'):
-		lvl = getattr(logging, (level or 'INFO').upper(), logging.INFO)
-		root = logging.getLogger()
-		for h in root.handlers:
-			h.setFormatter(_SingleLineFormatter('[%(asctime)s] %(levelname)s %(name)s: %(message)s'))
-			h.setLevel(lvl)
-		root.setLevel(lvl)
-
-# Cloud-friendly logging setup for agent container
-_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
-try:
-	configure_basic_cloud_logging(level_name=_LEVEL, force=True)
-	enforce_single_line_all(_LEVEL)
-except Exception:
-	configure_basic_cloud_logging(level_name="INFO", force=True)
-	try:
-		enforce_single_line_all(_LEVEL)
-	except Exception:
-		pass
 log = logging.getLogger("agent.travel_advisor")
 
-# Bridge GEMINI_API_KEY -> GOOGLE_API_KEY for google-genai used by ADK
-if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
-	os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
-	os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
-
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")  # Use gemini-2.5-pro as requested
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 log.info(f"Travel Advisor Agent model: {MODEL}")
 
 TRAVEL_ADVISOR_INSTRUCTION = (
@@ -84,26 +23,9 @@ TRAVEL_ADVISOR_INSTRUCTION = (
 	"出力スキーマ（単一JSON）:\n{\n  \"response_type\": \"advice|alternative|information|emergency\",\n  \"message\": string,\n  \"suggestions\": [\n    {\n      \"type\": \"location|timing|activity|route\",\n      \"title\": string,\n      \"description\": string,\n      \"priority\": \"high|medium|low\",\n      \"estimated_time\": string|null,\n      \"location\": {\n        \"name\": string,\n        \"lat\": number|null,\n        \"lng\": number|null\n      }|null\n    }\n  ],\n  \"updated_schedule\": [\n    {\n      \"time\": \"HH:MM\",\n      \"activity\": string,\n      \"location\": string,\n      \"notes\": string|null\n    }\n  ]|null,\n  \"route_info\": {\n    \"origin\": string,\n    \"destination\": string,\n    \"waypoints\": [string],\n    \"mode\": \"driving|walking|bicycling|transit\",\n    \"estimated_duration\": string|null\n  }|null\n}\n\n"
 	"対応シナリオ：\n- 天候変化による屋内代替案提案\n- 交通遅延時の時間調整アドバイス\n- 現在地からの最適ルート案内\n- 営業時間・混雑状況の確認と代案\n- 緊急時のサポート情報提供\n- 地域のリアルタイム情報収集\n\n"
 	"制約：\n- message は200文字以内で簡潔に\n- suggestions は最大5件まで\n- 安全性を最優先し、危険な提案は行わない\n- 実在する施設・ルートのみ提案\n- 営業時間・定休日を考慮した提案\n\n"
+	"Maps情報の取得：Google Maps の地図データ（ジオコーディング/リバースジオコード/場所検索/場所詳細/距離行列/経路案内/標高 など）が必要な場合は、transfer_to_agent(agent_name='googlemapmcp') を呼び出して必要情報を取得し、その結果を要約・検証してあなた自身の最終JSONスキーマに統合すること（サブエージェントの生JSONは貼り付けない）。\n\n"
 	"出力は開始文字 '{' から終了 '}' までの 1 個の JSON オブジェクトのみ。コードフェンス、説明文、マークダウンは禁止。"
 )
-
-# Configure tools - avoid mixing built-in and custom tools to prevent function calling conflicts
-tools = []
-
-# First try to use built-in google_search (preferred for stability)
-if google_search:
-    tools.append(google_search)  # Google提供の検索ツール（ADK built-in）
-    log.info("Using built-in Google search tool")
-else:
-    # Fallback to MCP tools only if google_search is not available
-    try:
-        mcp_tools = register_maps_mcp_tool()  # GoogleMapMCP
-        tools.extend(mcp_tools)
-        log.info(f"Using MCP tools as fallback: {len(mcp_tools)} tools registered")
-    except Exception as e:
-        log.warning(f"Failed to register MCP tools: {e}")
-
-log.info(f"Travel Advisor Sub-Agent: {len(tools)} tools registered")
 
 # Define the travel advisor sub-agent
 try:
@@ -112,9 +34,10 @@ try:
 		model=MODEL,
 		description="Provide day-of travel assistance and real-time advice based on travel plans and current situation",
 		instruction=TRAVEL_ADVISOR_INSTRUCTION,
-		tools=tools,
+		sub_agents=[],
+		tools=[google_search],
 	)
-	log.info(f"Travel Advisor Agent initialized with {len(tools)} tools")
+	log.info(f"Travel Advisor Agent initialized with tools")
 except Exception as e:
 	log.error(f"Failed to initialize Travel Advisor Agent: {e}")
 	raise
