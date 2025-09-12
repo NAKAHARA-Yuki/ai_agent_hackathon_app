@@ -47,6 +47,7 @@ try:
                         "GOOGLE_MAPS_API_KEY": google_maps_api_key
                     }
                 ),
+                timeout=10,
             ),
         )],
 	)
