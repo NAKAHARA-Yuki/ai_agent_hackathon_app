@@ -2,15 +2,8 @@ import os
 import sys
 import logging
 from google.adk.agents import LlmAgent
-# Tools
-from google.adk.tools import google_search  # type: ignore
-from ..googlemapmcp.agent import googlemapmcp_agent  # type: ignore
-
-# Ensure agent/ is importable so we can access tools/maps_mcp
-_here = os.path.dirname(__file__)
-_agent_base = os.path.abspath(os.path.join(_here, '..', '..'))  # agent/agents -> agent
-if _agent_base not in sys.path:
-	sys.path.insert(0, _agent_base)
+from google.adk.tools import google_search 
+from ..googlemapmcp.agent import googlemapmcp_agent
 
 log = logging.getLogger("agent.travel_planner")
 

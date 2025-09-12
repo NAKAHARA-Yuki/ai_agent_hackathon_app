@@ -25,8 +25,6 @@ ROOT_COORDINATOR_INSTRUCTION = (
 	"あなたは選択したサブエージェントの応答をそのまま返すことが役割です。レスポンスの形式を変更してはいけません。"
 )
 
-
-
 root_agent = LlmAgent(
 	name="root_coordinator",
 	model=MODEL,
