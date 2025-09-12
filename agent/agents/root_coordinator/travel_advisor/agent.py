@@ -29,7 +29,8 @@ try:
 		description="Provide day-of travel assistance and real-time advice based on travel plans and current situation",
 		instruction=TRAVEL_ADVISOR_INSTRUCTION,
 		sub_agents=[],
-		tools=[google_search],
+		# tools=[google_search],
+		tools=[],
 	)
 	log.info(f"Travel Advisor Agent initialized with tools")
 except Exception as e:
