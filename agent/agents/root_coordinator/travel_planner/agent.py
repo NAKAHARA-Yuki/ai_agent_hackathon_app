@@ -2,11 +2,16 @@ import os
 import sys
 import logging
 from google.adk.agents import LlmAgent
-from ..googlemapmcp.agent import googlemapmcp_agent  # type: ignore
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
+from mcp import StdioServerParameters
 log = logging.getLogger("agent.travel_planner")
 
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 log.info(f"Travel Planner Agent model: {MODEL}")
+
+google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY")
+print("Google Maps API Key:", google_maps_api_key)
 
 TRAVEL_PLANNER_INSTRUCTION = (
 	"あなたは日本国内旅行のコンシェルジュです。必ず JSON オブジェクト 1 個【のみ】を出力します。3 つの完全な旅行計画を含め、JSON 以外の文字(挨拶/説明/コードフェンス/マークダウン)を前後に一切出さない。\n\n"
@@ -18,7 +23,7 @@ TRAVEL_PLANNER_INSTRUCTION = (
 	"NG例: '以下にプランを示します:' など JSON 以外の前置き / ```json フェンス / 単数 plan / 途中で説明文を JSON の外に記述 / シングルクォート利用。\n\n"
 	"制約：\n- plans は必ず 3 件。title 25文字以内。tags 各 1-6 語。brief 40字以内。\n- itinerary: day 昇順 / time=HH:MM / 1日 2-8 items。\n- 各 plan の places 最大10 (重複名除外)。lat/lng 数値 or null。\n- route_info 任意。\n- text はプレーンな説明文章のみ (Markdown記法・表・見出し禁止)。\n- 余計なキー/末尾カンマ/シングルクォート禁止。\n\n"
 	"移動手段（transport）の記述：\n- 移動が伴う items には可能な限り transport オブジェクトを付与する。\n- transport = { \"mode\": \"driving|walking|bicycling|transit\", \"estimated_duration\": string|null, \"distance_km\": number|null }\n- 長距離徒歩は避け、現実的な移動手段を選択。所要時間が重要な箇所は概算でも良いが、必要に応じて directions/distance matrix で補強。\n\n"
-	"Maps情報の取得：Google Maps の地図データ（ジオコーディング/リバースジオコード/場所検索/場所詳細/距離行列/経路案内/標高 など）が必要な場合は、transfer_to_agent(agent_name='googlemapmcp') を呼び出して必要情報を取得し、その結果を要約・検証してあなた自身の最終JSONスキーマに統合すること（サブエージェントの生JSONは貼り付けない）。\n\n"
+	"Maps情報の取得：このエージェントには Google Maps MCP ツールが接続されています。地図データ（ジオコーディング/リバースジオコード/場所検索/場所詳細/距離行列/経路案内/標高 など）が必要な場合は、MCP の対応ツール（例: geocode / reverse_geocode / search_places / place_details / distance_matrix / directions / elevation など）を必要最小限で呼び出して情報を取得し、要点のみを要約・検証して最終JSONに統合すること。MCP の生出力をそのまま貼り付けない。\n\n"
 	"自己検証チェックリスト：\n1) 出力全体が '{' で始まり '}' で終わるか (前後空白以外なし)\n2) plans が配列で長さ=3 か\n3) 各 plan に title,tags,brief,itinerary,places,text が存在し型正しいか\n4) itinerary の time が HH:MM 形式か / day 昇順か / items 数 2-8 か\n4.1) 主要な移動箇所に transport.mode と estimated_duration が付与されているか\n5) places の name 重複なし & 最大10 件か\n6) コードフェンス/説明文/余計な文字列が JSON 外に出ていないか\n7) text に Markdown (# * | ``` 等) が含まれていないか\n\n"
 	"出力は開始文字 '{' から終了 '}' までの 1 個の JSON オブジェクトのみ。``` や説明文, マークダウン, 前後のテキストは禁止。\n"
 	"(EN Warning) Output exactly ONE raw JSON object only. No markdown headings/tables/fences. Any extra text may cause rejection."
@@ -30,8 +35,20 @@ try:
 		model=MODEL,
 		description="Generate domestic travel plans in Japanese from persona/profile/constraints",
 		instruction=TRAVEL_PLANNER_INSTRUCTION,
-  		sub_agents=[googlemapmcp_agent],	
-  		tools=[],
+  		tools=[MCPToolset(
+            connection_params=StdioConnectionParams(
+                server_params = StdioServerParameters(
+                    command='npx',
+                    args=[
+                        "-y",
+                        "@modelcontextprotocol/server-google-maps",
+                    ],
+                    env={
+                        "GOOGLE_MAPS_API_KEY": google_maps_api_key
+                    }
+                ),
+            ),
+        )],
 	)
 	log.info(f"Travel Planner Agent initialized with tools")
 except Exception as e:

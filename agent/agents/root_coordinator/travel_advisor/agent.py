@@ -3,12 +3,18 @@ import sys
 import logging
 from google.adk.agents import LlmAgent
 # Tools
-from google.adk.tools import google_search   # type: ignore
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
+from mcp import StdioServerParameters
+# from google.adk.tools import google_search   # type: ignore
 
 log = logging.getLogger("agent.travel_advisor")
 
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 log.info(f"Travel Advisor Agent model: {MODEL}")
+
+google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY")
+print("Google Maps API Key:", google_maps_api_key)
 
 TRAVEL_ADVISOR_INSTRUCTION = (
 	"あなたは旅行当日サポート専門のAIアドバイザーです。必ず JSON オブジェクト 1 個【のみ】を出力します。JSON 以外の文字(挨拶/説明/コードフェンス/マークダウン)を前後に一切出さない。\n\n"
@@ -30,7 +36,20 @@ try:
 		instruction=TRAVEL_ADVISOR_INSTRUCTION,
 		sub_agents=[],
 		# tools=[google_search],
-		tools=[],
+		tools=[MCPToolset(
+            connection_params=StdioConnectionParams(
+                server_params = StdioServerParameters(
+                    command='npx',
+                    args=[
+                        "-y",
+                        "@modelcontextprotocol/server-google-maps",
+                    ],
+                    env={
+                        "GOOGLE_MAPS_API_KEY": google_maps_api_key
+                    }
+                ),
+            ),
+        )],
 	)
 	log.info(f"Travel Advisor Agent initialized with tools")
 except Exception as e:
