@@ -377,6 +377,15 @@ def _extract_trailing_json(s: str):
         summary = obj.get('summary') if isinstance(obj.get('summary'), str) else None
         plans = obj.get('plans') if isinstance(obj.get('plans'), list) else None
         plans_norm = []
+        # advisor系: suggestions / updated_schedule / response_type を取り込む
+        suggestions_raw = obj.get('suggestions') if isinstance(obj.get('suggestions'), list) else None
+        updated_schedule_raw = (
+            obj.get('updated_schedule')
+            if (isinstance(obj.get('updated_schedule'), list) or isinstance(obj.get('updated_schedule'), dict))
+            else (obj.get('updatedSchedule') if (isinstance(obj.get('updatedSchedule'), list) or isinstance(obj.get('updatedSchedule'), dict)) else None)
+        )
+        response_type = obj.get('response_type') or obj.get('responseType')
+
         def _norm_itinerary(v):
             out = []
             if isinstance(v, list):
@@ -419,9 +428,41 @@ def _extract_trailing_json(s: str):
                 rinfo = _normalize_route_info(p.get('route_info') or p.get('route') or p.get('routeInfo'))
                 text_body = p.get('text') if isinstance(p.get('text'), str) else None
                 plans_norm.append({'title': title.strip(),'tags': tags,'brief': brief.strip() if brief else None,'itinerary': itin or [],'places': pls or [],'route_info': rinfo,'text': text_body})
-        if _flask_g is not None and (summary or plans_norm):
+        # suggestions の正規化
+        suggestions_norm = []
+        if isinstance(suggestions_raw, list):
+            for s_it in suggestions_raw[:20]:
+                if isinstance(s_it, str):
+                    txt = s_it.strip()
+                    if txt:
+                        suggestions_norm.append(txt)
+                elif isinstance(s_it, dict):
+                    # 代表的な形: {text, title}
+                    t = s_it.get('text') or s_it.get('title') or s_it.get('suggestion')
+                    if isinstance(t, str) and t.strip():
+                        suggestions_norm.append(t.strip())
+        # updated_schedule の正規化（配列 または {itinerary: [...]}）
+        itinerary_norm = []
+        if isinstance(updated_schedule_raw, dict):
+            if isinstance(updated_schedule_raw.get('itinerary'), list):
+                itinerary_norm = _norm_itinerary(updated_schedule_raw.get('itinerary')) or []
+            else:
+                # 単なる items リストのみの場合は day=1 扱い
+                items_raw = updated_schedule_raw.get('items') or []
+                if isinstance(items_raw, list):
+                    itinerary_norm = _norm_itinerary([{'day': 1, 'items': items_raw}]) or []
+        elif isinstance(updated_schedule_raw, list):
+            itinerary_norm = _norm_itinerary(updated_schedule_raw) or []
+
+        if _flask_g is not None and (summary or plans_norm or suggestions_norm or itinerary_norm or response_type):
             try:
-                _flask_g.agent_struct = {'summary': summary,'plans': plans_norm,'suggestions': [],'itinerary': []}
+                _flask_g.agent_struct = {
+                    'summary': summary,
+                    'plans': plans_norm,
+                    'suggestions': suggestions_norm,
+                    'itinerary': itinerary_norm,
+                    'response_type': response_type if isinstance(response_type, str) else None,
+                }
             except Exception:
                 pass
 
@@ -432,7 +473,12 @@ def _extract_trailing_json(s: str):
         route_info = obj.get('route_info') if isinstance(obj, dict) else None
         if route_info is None and isinstance(obj, dict):
             route_info = obj.get('route') or obj.get('routeInfo')
+        # 本文: text が無ければ advisor 系の assistant_message を採用
         text_field = obj.get('text') if isinstance(obj, dict) else None
+        if text_field is None and isinstance(obj, dict):
+            am = obj.get('assistant_message') or obj.get('assistantMessage')
+            if isinstance(am, str) and am.strip():
+                text_field = am
         _attach(obj)
         places = _normalize_places_list(places)
         route_info = _normalize_route_info(route_info)
@@ -1798,6 +1844,8 @@ def agent_chat():
                     resp['suggestions'] = struct.get('suggestions')
                 if 'itinerary' in struct and struct.get('itinerary'):
                     resp['itinerary'] = struct.get('itinerary')
+                if 'response_type' in struct and struct.get('response_type'):
+                    resp['response_type'] = struct.get('response_type')
         except Exception:
             pass
         if LOG_PAYLOADS:
