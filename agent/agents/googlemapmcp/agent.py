@@ -12,7 +12,7 @@ log = logging.getLogger("agent.googlemapmcp")
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 log.info(f"Google Maps MCP Agent model: {MODEL}")
 
-google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY", "AIzaSyCzYEK7mckmXZRHiFyN35FhmpuXmQMr980")
+google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY")
 
 GOOGLEMAP_MCP_INSTRUCTION = (
     "あなたはGoogle Maps API の MCP サーバーを用いて地理情報を取得する専門サブエージェントです。必ず JSON オブジェクト 1 個【のみ】を出力し、前後に説明/コードフェンス/マークダウンは出さない。\n\n"
