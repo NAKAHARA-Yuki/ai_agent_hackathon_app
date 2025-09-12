@@ -2,9 +2,8 @@ import os
 import sys
 import logging
 from google.adk.agents import LlmAgent
-from google.adk.tools import google_search 
-from ..googlemapmcp.agent import googlemapmcp_agent
-
+from google.adk.tools import google_search
+from ..googlemapmcp.agent import googlemapmcp_agent  # type: ignore
 log = logging.getLogger("agent.travel_planner")
 
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")

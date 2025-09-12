@@ -10,7 +10,11 @@ WORKDIR /app
 
 # System deps
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    ca-certificates tini && rm -rf /var/lib/apt/lists/*
+    ca-certificates tini curl gnupg && \
+    # Install Node.js (for npx to run MCP server)
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -23,4 +27,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8080
 ENTRYPOINT ["tini", "--"]
 # ADK API server with CORS configured for local dev; serve agents from /app/agents
-CMD ["adk", "api_server", "--host", "0.0.0.0", "--port", "8080", "--log_level", "debug", "--allow_origins", "http://localhost:4200", "./agents/root_coordinator"]
+CMD ["adk", "api_server", "--host", "0.0.0.0", "--port", "8080", "--log_level", "debug", "--allow_origins", "http://localhost:4200", "./agents"]

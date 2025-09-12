@@ -1,21 +1,8 @@
 services:
-  maps-mcp:
-    build:
-      context: ./mcp
-    container_name: maps-mcp
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - LOG_LEVEL=DEBUG
-    # Exposes an HTTP endpoint for docs retrieval at /tools/retrieve-google-maps-platform-docs
-
   agent:
     build:
       context: ./agent
     container_name: izatabi-agent
-    depends_on:
-      - maps-mcp
     ports:
       - "8080:8080"
     env_file:
@@ -23,16 +10,6 @@ services:
     environment:
       # Model/API keys are supplied via env_file (./server/.env)
       - LOG_LEVEL=DEBUG
-      # MCP bridging (service-to-service in compose network)
-      - MAPS_MCP_ENDPOINT_URL=http://maps-mcp:3000/tools/retrieve-google-maps-platform-docs
-      # Audience not needed for local dev (Cloud Run only)
-      - MAPS_MCP_AUDIENCE=
-    command: [
-      "adk","api_server",
-      "--host","0.0.0.0",
-      "--port","8080",
-      "--log_level","debug",
-      "--allow_origins","http://localhost:5173",
-      "--allow_origins","http://localhost:4200",
-      "./agents"
-    ]
+      # Allow local dev UIs
+      - CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:4200
+    # Use Dockerfile default CMD (adk api_server ... ./agents/root_coordinator)

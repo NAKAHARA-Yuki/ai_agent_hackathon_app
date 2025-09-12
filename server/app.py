@@ -1362,7 +1362,7 @@ def _extract_locations_via_llm(reply_text: str, user_id: str, session_id: str, t
                 "出力は JSON オブジェクトのみで、説明やコードフェンスは不要です。\n\n"
                 "[対象テキスト]\n" + (reply_text or "")
             )
-            events = call_adk_agent_chat('travel_planner', user_id, extract_sid, prompt2, timeout_sec=timeout_sec, ensure_session=True)
+            events = call_adk_agent_chat('root_coordinator', user_id, extract_sid, prompt2, timeout_sec=timeout_sec, ensure_session=True)
             if isinstance(events, list) and events:
                 final_event = events[-1]
                 content = final_event.get('content') or {}
@@ -1443,7 +1443,7 @@ def agent_chat():
         req_session_id = (data.get('session_id') or '').strip()
         if not req_session_id:
             return jsonify({"error": "session_id is required"}), 400
-        logger.info(f"/api/agent/chat start app=travel_planner user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} timeout={AGENT_HTTP_TIMEOUT}s trace={tid}")
+        logger.info(f"/api/agent/chat start app=root_coordinator user={req_user_id or 'auto'} session={req_session_id} msg_len={len(message)} timeout={AGENT_HTTP_TIMEOUT}s trace={tid}")
 
         claims = require_auth(request)
         user_info, last_persona, active_plan_context = None, None, ""
@@ -1515,7 +1515,7 @@ def agent_chat():
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
         try:
-            events = call_adk_agent_chat('travel_planner', req_user_id, req_session_id, message_to_send, timeout_sec=AGENT_HTTP_TIMEOUT, base_url=effective_base, ensure_session=True)
+            events = call_adk_agent_chat('root_coordinator', req_user_id, req_session_id, message_to_send, timeout_sec=AGENT_HTTP_TIMEOUT, base_url=effective_base, ensure_session=True)
         except Exception as e:
             logger.exception("agent_backend_unreachable")
             return jsonify({
