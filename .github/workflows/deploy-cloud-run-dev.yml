@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  agent-and-mcp-dev:
+  agent-dev:
     if: github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
-    name: Build and Deploy Agent + MCP (dev)
+    name: Build and Deploy Agent
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -80,11 +80,9 @@ jobs:
         run: |
           set -e
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service-dev:${GITHUB_SHA}
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service-dev:${GITHUB_SHA}
           docker build -t ${AGENT_IMAGE} agent
-          docker build -t ${MCP_IMAGE} mcp
           docker push ${AGENT_IMAGE}
-          docker push ${MCP_IMAGE}
+
 
       - name: Deploy Agent (dev)
         env:
@@ -109,7 +107,7 @@ jobs:
           echo "agent_url=${URL}" >> $GITHUB_OUTPUT
 
   build-and-deploy-dev:
-    needs: agent-and-mcp-dev
+    needs: agent-dev
     if: github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy App (dev)
     runs-on: ubuntu-latest
@@ -184,7 +182,7 @@ jobs:
             --allow-unauthenticated \
             --port=8080 \
             --max-instances=2 \
-            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp-dev.outputs.agent_url }}
+            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-dev.outputs.agent_url }}
 
       - name: Resolve App URL (dev)
         id: resolve_app_url

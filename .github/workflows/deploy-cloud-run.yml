@@ -10,10 +10,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  agent-and-mcp:
-    # Build & deploy Agent + MCP first so we can pass the URL to the app
+  agent:
+    # Build & deploy Agent first so we can pass the URL to the app
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    name: Build and Deploy Agent + MCP
+    name: Build and Deploy Agent
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -101,7 +101,7 @@ jobs:
           echo "agent_url=${URL}" >> $GITHUB_OUTPUT
 
   build-and-deploy:
-    needs: agent-and-mcp
+    needs: agent
     # Extra guard: run only on main branch or manual dispatch
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy to Cloud Run
@@ -178,7 +178,7 @@ jobs:
             --allow-unauthenticated \
             --port=8080 \
             --max-instances=3 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp.outputs.agent_url }}
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent.outputs.agent_url }}
 
       - name: Resolve App URL
         id: resolve_app_url
