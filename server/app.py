@@ -358,8 +358,11 @@ def _normalize_route_info(obj):
     return out
 
 def _extract_trailing_json(s: str):
-    """Extract trailing JSON object if present; returns (prefix_text, places, route_info, text_field).
-    簡素化版: シリアルに候補抽出を試行し最初の成功で終了。"""
+    """Extract JSON from agent reply in a simple, robust order.
+    Returns (prefix_text, places, route_info, text_field).
+    Strategy:
+      1) Parse the last fenced ```json block
+    """
     import re as _re
 
     # --- Helpers ---
@@ -484,110 +487,24 @@ def _extract_trailing_json(s: str):
         route_info = _normalize_route_info(route_info)
         return places, route_info, (text_field if isinstance(text_field, str) else None)
 
-    s = _strip_citations(s)
+    s = _strip_citations(s or "")
     stripped = s.strip()
 
-    # 1. direct parse
-    try:
-        obj = json.loads(stripped)
-        if isinstance(obj, dict):
-            places, rinfo, text_field = _extract_from_obj(obj)
-            return "", places, rinfo, text_field
-    except Exception:
-        pass
-
-    # 2. single extra '}' recovery
-    if stripped.endswith('}}') and stripped.startswith('{'):
-        try:
-            obj = json.loads(stripped[:-1])
-            if isinstance(obj, dict):
-                places, rinfo, text_field = _extract_from_obj(obj)
-                return "", places, rinfo, text_field
-        except Exception:
-            pass
-
-    # 3. balanced object with trailing lone '}'
-    if stripped.endswith('}'):
-        cand = _balanced_first_object(stripped)
-        if cand and len(cand) < len(stripped):
-            remainder = stripped[len(cand):].strip()
-            if remainder in ('','}'):
-                try:
-                    obj = json.loads(cand)
-                    if isinstance(obj, dict):
-                        places, rinfo, text_field = _extract_from_obj(obj)
-                        return "", places, rinfo, text_field
-                except Exception:
-                    pass
-
-    # 4. fenced code block (last)
-    fenced_blocks = _re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", s)
+    # 1) Last fenced block
+    fenced_blocks = _re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", stripped)
     if fenced_blocks:
-        raw_block = fenced_blocks[-1]
-        cand = _balanced_first_object(raw_block)
-        if cand:
-            try:
-                obj = json.loads(cand)
-                if isinstance(obj, dict):
-                    places, rinfo, text_field = _extract_from_obj(obj)
-                    last_idx = s.rfind('```')
-                    prefix = s[:last_idx].rstrip() if last_idx != -1 else s
-                    return prefix, places, rinfo, text_field
-            except Exception:
-                pass
-
-    # 5. regex object containing key of interest
-    m = _re.search(r"(\{[\s\S]*?(?:\"places\"|\"place\"|\"route_info\")[\s\S]*?\})\s*(?:\[[0-9,\s]+\]\s*)*$", s)
-    if m:
+        blk = fenced_blocks[-1]
         try:
-            obj = json.loads(m.group(1))
+            obj = json.loads(blk.strip())
             if isinstance(obj, dict):
                 places, rinfo, text_field = _extract_from_obj(obj)
-                return s[:m.start(1)].rstrip(), places, rinfo, text_field
+                last_idx = stripped.rfind('```')
+                prefix = stripped[:last_idx].rstrip() if last_idx != -1 else ''
+                return prefix, places, rinfo, text_field
         except Exception:
             pass
 
-    # 6. heuristic broken places array recovery (simplified)
-    mp = _re.search(r"(\{\s*\"(places|place)\"\s*:\s*\[)", s)
-    if mp:
-        head = s[:mp.start()]
-        arr_tail = s[mp.end():]
-        # collect object snippets
-        objs=[]; i=0
-        while i < len(arr_tail):
-            if arr_tail[i] == '{':
-                depth=1; j=i+1
-                while j < len(arr_tail) and depth>0:
-                    ch = arr_tail[j]
-                    if ch=='"':
-                        j+=1
-                        while j < len(arr_tail):
-                            if arr_tail[j]=='\\': j+=2; continue
-                            if arr_tail[j]=='"': j+=1; break
-                            j+=1
-                        continue
-                    elif ch=='{': depth+=1
-                    elif ch=='}': depth-=1
-                    j+=1
-                if depth==0:
-                    objs.append(arr_tail[i:j])
-                    i=j
-                    while i < len(arr_tail) and arr_tail[i] in ' \t\r\n,': i+=1
-                    continue
-                else:
-                    break
-            else:
-                i+=1
-        if objs:
-            places=[]
-            for o in objs:
-                try: places.append(json.loads(o))
-                except Exception: continue
-            places=_normalize_places_list(places)
-            if places:
-                return head.rstrip(), places, None, None
-
-    return s, None, None, None
+    return stripped, None, None, None
 
 def _normalize_grounding_meta(event: dict) -> dict:
     """Accepts an agent event and normalizes grounding metadata to snake_case keys.
@@ -630,6 +547,39 @@ def _normalize_grounding_meta(event: dict) -> dict:
         }
     except Exception:
         return {}
+
+def _extract_json_passthrough(s: str):
+    """最初と最後の ``` を抜いて、必要なら先頭の 'json' トークンを落とし、そのままJSONを返す。
+    返り値: dict または None（失敗時）。
+    """
+    try:
+        import re as _re
+        if not isinstance(s, str) or not s.strip():
+            return None
+        txt = s.strip()
+        # 末尾のフェンスブロックがあれば中身を使う
+        m = _re.findall(r"```\s*([\s\S]*?)\s*```", txt)
+        if m:
+            txt = m[-1].strip()
+        # 全体が引用で囲まれていれば剥がす
+        if (txt.startswith('"') and txt.endswith('"')) or (txt.startswith("'") and txt.endswith("'")):
+            txt = txt[1:-1].strip()
+        # 先頭の 'json' または 'JSON' トークンを落とす（任意の空白/記号をスキップし最初の '{' まで進める）
+        if txt.lower().startswith('json'):
+            # 'json' の後ろから最初の '{' を探す
+            brace = txt.find('{')
+            if brace != -1:
+                txt = txt[brace:]
+        # 先頭の '{' から末尾の '}' までを抽出
+        start = txt.find('{')
+        end = txt.rfind('}')
+        if start == -1 or end == -1 or end <= start:
+            return None
+        cand = txt[start:end+1]
+        obj = json.loads(cand)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
 
 @app.before_request
 def _start_timer():
@@ -1348,86 +1298,6 @@ def call_adk_agent_chat(app_name: str, user_id: str, session_id: str, message_te
             pass
     return j
 
-def _extract_locations_via_llm(reply_text: str, user_id: str, session_id: str, timeout_sec: int = 30):
-    """第二段: 本文から場所とルートを抽出するために、非エージェントのLLM（Gemini REST）を優先して使用。
-    返信は JSON オブジェクトのみを期待。失敗時は (None, None) を返す。
-    """
-    try:
-        # 1) Gemini REST を優先
-        if genai_configured:
-            model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
-            prompt = (
-                "以下の文章から、旅行に関係する場所候補（places）と任意のルート情報（route_info）を抽出してください。\n"
-                "要件:\n"
-                "- 出力は JSON オブジェクトのみ（前後に説明やコードフェンスを付けない）\n"
-                "- 形式: {\"places\":[{\"name\":\"…\",\"lat\":null,\"lng\":null,\"note\":\"…\",\"url\":null,\"imageUrl\":null,\"iconUrl\":null,\"label\":null,\"color\":null,\"address\":null}], \"route_info\":{\"origin\":\"…\",\"destination\":\"…\",\"waypoints\":[""],\"mode\":\"driving|walking|bicycling|transit\"}}\n"
-                "- places は最大10件。name は自然言語の地名・施設名。lat/lng が不明なら null。\n"
-                "- route_info は存在する場合のみ。waypoints は文字列の配列で良い。\n\n"
-                "[対象テキスト]\n" + (reply_text or "")
-            )
-            try:
-                resp = call_gemini_api(prompt, model_name=model)
-                text_out = ''
-                try:
-                    for c in (resp.get('candidates') or []):
-                        parts = ((c.get('content') or {}).get('parts') or [])
-                        for p in parts:
-                            t = p.get('text')
-                            if isinstance(t, str):
-                                text_out += t
-                except Exception:
-                    text_out = ''
-                places, route_info = None, None
-                if isinstance(text_out, str) and text_out.strip():
-                    try:
-                        obj = json.loads(text_out.strip())
-                        places = obj.get('places') if isinstance(obj, dict) else None
-                        if places is None and isinstance(obj, dict):
-                            places = obj.get('place')
-                        route_info = obj.get('route_info') if isinstance(obj, dict) else None
-                        if route_info is None and isinstance(obj, dict):
-                            route_info = obj.get('route') or obj.get('routeInfo')
-                        places = _normalize_places_list(places)
-                        route_info = _normalize_route_info(route_info)
-                    except Exception:
-                        try:
-                            # フェンス/余白混入時は末尾抽出で救済
-                            _, places, route_info = _extract_trailing_json(text_out.strip())
-                        except Exception:
-                            places, route_info = None, None
-                if places is not None or route_info is not None:
-                    return places, route_info
-            except Exception as e:
-                logging.getLogger('extract').warning(f"Gemini extraction failed: {e}")
-
-        # 2) フォールバック: （オプション）ADKエージェントに抽出依頼（利用不可や失敗時はスキップ）
-        try:
-            extract_sid = f"{session_id}-extract"
-            prompt2 = (
-                "以下の文章から、旅行に関係する場所候補（places）と任意のルート情報（route_info）を抽出してください。\n"
-                "出力は JSON オブジェクトのみで、説明やコードフェンスは不要です。\n\n"
-                "[対象テキスト]\n" + (reply_text or "")
-            )
-            events = call_adk_agent_chat('root_coordinator', user_id, extract_sid, prompt2, timeout_sec=timeout_sec, ensure_session=True)
-            if isinstance(events, list) and events:
-                final_event = events[-1]
-                content = final_event.get('content') or {}
-                if content.get('role') == 'model':
-                    text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
-                    try:
-                        _, places, route_info = _extract_trailing_json(text.strip())
-                        if places is not None or route_info is not None:
-                            return places, route_info
-                    except Exception:
-                        pass
-        except Exception as e:
-            logging.getLogger('extract').warning(f"Agent fallback extraction failed: {e}")
-
-        return None, None
-    except Exception as e:
-        logging.getLogger('extract').warning(f"LLM extraction wrapper failed: {e}")
-        return None, None
-
 # ---- Session initialization tracking (first-message detection) ----
 _primed_sessions = set()
 
@@ -1557,7 +1427,6 @@ def agent_chat():
             # For ongoing sessions, still include active plan context if available
             if active_plan_context:
                 message_to_send = active_plan_context + "\n[ユーザーからの依頼]\n" + message
-    # 保存はフロントエンドの明示ボタンでのみ実行（エージェント経由トークン付与は廃止）
         
         logger.info(f"About to call agent with message: {message_to_send[:100]}...")
         try:
@@ -1737,86 +1606,41 @@ def agent_chat():
                     if LOG_PAYLOADS:
                         logger.info(f"grounding_html generated from web_search_queries count={len(queries or [])}")
 
-        # JSON-onlyバリデーション: 先頭の非JSON文字を除去し、JSON未検出なら明示的に再要求
+        # パススルー（ユーザー要望: 最初と最後の```を抜き、そのまま返す）
         if isinstance(reply_text, str) and reply_text.strip():
-            json_found = False
-            try:
-                # まず末尾JSON抽出を試行
-                reply_text2, p_h, r_h, t_h = _extract_trailing_json(reply_text)
-                json_found = (p_h is not None) or (r_h is not None) or (isinstance(t_h, str) and t_h.strip())
-                # 表示本文はJSONを除去。JSON内textがあれば優先して本文に採用。
-                reply_text = (t_h if isinstance(t_h, str) and t_h.strip() else reply_text2)
-                if p_h is not None:
-                    places = p_h
-                if r_h is not None:
-                    route_info = r_h
+            passthrough = _extract_json_passthrough(reply_text)
+            if passthrough is not None:
+                # そのまま返す（パススルー）
+                if LOG_PAYLOADS:
+                    logger.info("agent_reply_passthrough_json: returning raw JSON object")
+                return jsonify(passthrough)
 
-                # JSONが全く見つからない場合は、最後の '{' 以降のみを残して再試行（先頭非JSON除去）
-                if not json_found:
-                    try:
-                        # 生の応答からJSON開始位置を探索（本文除去後だとJSONが失われる可能性があるため）
-                        source = raw_reply_text if isinstance(raw_reply_text, str) else reply_text
-                        last_brace = source.rfind('{') if isinstance(source, str) else -1
-                        if last_brace != -1:
-                            tail = source[last_brace:]
-                            rt2, p2, r2, t2 = _extract_trailing_json(tail)
-                            if (p2 is not None) or (r2 is not None) or (isinstance(t2, str) and t2.strip()):
-                                # 採用
-                                reply_text = (t2 if isinstance(t2, str) and t2.strip() else rt2)
-                                if p2 is not None:
-                                    places = p2
-                                if r2 is not None:
-                                    route_info = r2
-                                json_found = True
-                    except Exception:
-                        pass
-
-                # それでもJSONが無い場合: raw_reply 全体が実は完全な JSON か最終確認 (セーフガード)
-                if not json_found and isinstance(raw_reply_text, str):
-                    try:
-                        obj_guard = json.loads(raw_reply_text.strip())
-                        if isinstance(obj_guard, dict):
-                            # 直接抽出 (places/route_info/text)
-                            places_g = obj_guard.get('places') or obj_guard.get('place')
-                            route_g = obj_guard.get('route_info') or obj_guard.get('route') or obj_guard.get('routeInfo')
-                            text_g = obj_guard.get('text') if isinstance(obj_guard.get('text'), str) else None
-                            places = _normalize_places_list(places_g)
-                            route_info = _normalize_route_info(route_g)
-                            reply_text = text_g or ''
-                            json_found = True
-                    except Exception:
-                        pass
-
-                # 依然 JSON 不在ならユーザー再要求（attempted_json_snippet は廃止）
-                if not json_found:
-                    global AGENT_JSON_FAIL
-                    AGENT_JSON_FAIL += 1
-                    try:
-                        snippet = (raw_reply_text or '')
-                        if isinstance(snippet, str):
-                            snippet = snippet.strip().replace('\n', ' ')[:200]
-                        logger.warning(f"agent_output_not_json: no JSON detected in agent reply snippet='{snippet}'")
-                    except Exception:
-                        logger.warning("agent_output_not_json: no JSON detected in agent reply")
-                    msg = "内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。"
-                    return jsonify({
-                        'reply': msg,
-                        'places': None,
-                        'citations': [],
-                        'grounding_html': None,
-                        'route_info': None,
-                        'error': 'agent_output_not_json',
-                        'raw_reply': raw_reply_text
-                    }), 502
-            except Exception:
-                pass
-            # JSON検出成功をカウント
-            try:
-                if json_found:
-                    global AGENT_JSON_OK
-                    AGENT_JSON_OK += 1
-            except Exception:
-                pass
+            # パススルーに失敗したら、簡素化抽出へフォールバック
+            prefix_text, p_h, r_h, t_h = _extract_trailing_json(reply_text)
+            reply_text = (t_h if isinstance(t_h, str) and t_h.strip() else prefix_text)
+            if p_h is not None:
+                places = p_h
+            if r_h is not None:
+                route_info = r_h
+            json_found = (p_h is not None) or (r_h is not None) or (isinstance(t_h, str) and t_h.strip())
+            if not json_found:
+                global AGENT_JSON_FAIL
+                AGENT_JSON_FAIL += 1
+                snippet = (raw_reply_text or '')
+                if isinstance(snippet, str):
+                    snippet = snippet.strip().replace('\n', ' ')[:200]
+                logger.warning(f"agent_output_not_json: no JSON detected in agent reply snippet='{snippet}'")
+                return jsonify({
+                    'reply': '内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。',
+                    'places': None,
+                    'citations': [],
+                    'grounding_html': None,
+                    'route_info': None,
+                    'error': 'agent_output_not_json',
+                    'raw_reply': raw_reply_text
+                }), 502
+            global AGENT_JSON_OK
+            AGENT_JSON_OK += 1
 
         # 進捗ログ（route_info の有無も記録）
         has_route = bool(route_info and isinstance(route_info, dict) and route_info.get('origin') and route_info.get('destination'))
