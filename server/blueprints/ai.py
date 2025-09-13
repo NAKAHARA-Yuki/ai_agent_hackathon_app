@@ -40,9 +40,9 @@ agent_configured = bool(AGENT_BASE_URL)
 try:
     AGENT_HTTP_TIMEOUT = int(os.getenv('AGENT_HTTP_TIMEOUT') or '90')
     if AGENT_HTTP_TIMEOUT <= 0:
-        AGENT_HTTP_TIMEOUT = 90
+        AGENT_HTTP_TIMEOUT = 300
 except Exception:
-    AGENT_HTTP_TIMEOUT = 90
+    AGENT_HTTP_TIMEOUT = 300
 
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 LOG_PAYLOADS = True
