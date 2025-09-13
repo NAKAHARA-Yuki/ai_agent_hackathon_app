@@ -34,18 +34,21 @@ async function handleCreatePlan(keyword) {
     if (!resp.ok) throw new Error('Failed to generate plans')
     const data = await resp.json()
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
-    const mapped = plans.map((p, i) => ({
-      id: i+1,
-      title: p.title || `プラン ${i+1}`,
-      tags: '',
-      brief: p.description || '',
-      itinerary: [],
-      places: [],
-      route_info: null,
-      text: p.description || '',
-      __raw: p,
-      __full: data
-    }))
+    const mapped = plans.map((p, i) => {
+      const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
+      return {
+        id: i+1,
+        title: p?.title || `プラン ${i+1}`,
+        tags: tagsStr,
+        brief: typeof p?.brief === 'string' ? p.brief : (typeof p?.description === 'string' ? p.description : ''),
+        itinerary: Array.isArray(p?.itinerary) ? p.itinerary : [],
+        places: Array.isArray(p?.places) ? p.places : [],
+        route_info: p?.route_info ?? null,
+        text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
+        __raw: p,
+        __full: data
+      }
+    })
     travelPlans.value = mapped.length ? mapped : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
@@ -118,18 +121,21 @@ async function handleCreatePlanForRegeneration(keyword) {
     if (!resp.ok) throw new Error('Failed to regenerate plans')
     const data = await resp.json()
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
-    const mapped = plans.map((p, i) => ({
-      id: i+1,
-      title: p.title || `プラン ${i+1}`,
-      tags: '',
-      brief: p.description || '',
-      itinerary: [],
-      places: [],
-      route_info: null,
-      text: p.description || '',
-      __raw: p,
-      __full: data
-    }))
+    const mapped = plans.map((p, i) => {
+      const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
+      return {
+        id: i+1,
+        title: p?.title || `プラン ${i+1}`,
+        tags: tagsStr,
+        brief: typeof p?.brief === 'string' ? p.brief : (typeof p?.description === 'string' ? p.description : ''),
+        itinerary: Array.isArray(p?.itinerary) ? p.itinerary : [],
+        places: Array.isArray(p?.places) ? p.places : [],
+        route_info: p?.route_info ?? null,
+        text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
+        __raw: p,
+        __full: data
+      }
+    })
     travelPlans.value = mapped.length ? mapped : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
@@ -147,13 +153,13 @@ async function handleConfirm(plan){
     const full = plan.__full || {}
     const payload = { 
       title: plan.title, 
-      text: full.text || plan.tags || '', 
-      places: full.places || [], 
-      route_info: full.route_info || null, 
+      text: plan.text || plan.brief || '', 
+      places: Array.isArray(plan.places) ? plan.places : [], 
+      route_info: plan.route_info || null, 
       status: 'confirmed',
-      summary: full.summary || null,
-      suggestions: full.suggestions || [],
-      itinerary: full.itinerary || []
+      summary: typeof full.summary === 'string' ? full.summary : null,
+      suggestions: Array.isArray(full.suggestions) ? full.suggestions : [],
+      itinerary: Array.isArray(plan.itinerary) ? plan.itinerary : []
     }
     await createPlan(payload, auth.authHeader())
     // 保存後ホーム（main）へ遷移 or 予定へ
