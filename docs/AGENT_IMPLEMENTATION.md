@@ -372,7 +372,7 @@ services:
 ### Cloud Run デプロイメント
 
 **個別サービス構成**:
-- `travel-quiz-app` - メインアプリケーション
+- `izatabi-app` - メインアプリケーション
 - `travel-agent-service` - ADKエージェントサービス  
 - `maps-mcp-service` - Google Maps MCPサーバー
 

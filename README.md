@@ -55,7 +55,7 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 #### 本番環境 (Production)
 - **ブランチ**: `main`
 - **サービス名**: 
-  - `travel-quiz-app`
+  - `izatabi-app`
   - `travel-agent-service`
   - `maps-mcp-service`
 - **データベース**: Firestore デフォルトデータベース `(default)`
@@ -63,7 +63,7 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 #### 開発環境 (Development) 
 - **ブランチ**: `dev`
 - **サービス名**:
-  - `travel-quiz-app-dev`
+  - `izatabi-app-dev`
   - `travel-agent-service-dev`
   - `maps-mcp-service-dev`
 - **データベース**: Firestore データベース `izatabi-dev`
