@@ -58,7 +58,32 @@ async function handleCreatePlan(keyword) {
     currentView.value = 'input'
   }
 }
-function handleSelectPlan(p) { selectedPlan.value = p; currentView.value = 'detail' }
+function handleSelectPlan(p) {
+  // 念のため日程/スポット/ルート情報をフォールバックしつつ正規化
+  const raw = p && typeof p === 'object' ? p : {}
+  const fromRaw = raw.__raw && typeof raw.__raw === 'object' ? raw.__raw : null
+  const itinerary = Array.isArray(raw.itinerary)
+    ? raw.itinerary
+    : (Array.isArray(fromRaw?.itinerary) ? fromRaw.itinerary : [])
+  const places = Array.isArray(raw.places)
+    ? raw.places
+    : (Array.isArray(fromRaw?.places) ? fromRaw.places : [])
+  const route_info = raw.route_info ?? (fromRaw?.route_info ?? null)
+
+  selectedPlan.value = {
+    id: raw.id,
+    title: raw.title || '',
+    tags: raw.tags || '',
+    brief: raw.brief || '',
+    text: raw.text || raw.brief || '',
+    itinerary,
+    places,
+    route_info,
+    __raw: raw.__raw || null,
+    __full: raw.__full || null,
+  }
+  currentView.value = 'detail'
+}
 function handleGoBack() { currentView.value = 'suggestions' }
 
 function handleRefine(plan) {
