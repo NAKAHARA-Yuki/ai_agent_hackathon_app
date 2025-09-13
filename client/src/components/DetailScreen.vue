@@ -167,6 +167,7 @@ function formatDistance(km) {
   flex: 1;
   overflow-y: auto; /* 縦スクロール有効化 */
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box; /* ボックスサイジング追加 */
 }
 .section { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px 18px 16px; box-shadow:0 4px 14px -4px rgba(0,0,0,0.08); }
 .section h2 { margin:0 0 10px; font-size:14px; font-weight:700; letter-spacing:.5px; color:#334155; }
@@ -194,6 +195,9 @@ function formatDistance(km) {
   gap: 8px;
   max-width: 600px;
   width: 100%;
+  margin-left: auto; /* センタリング追加 */
+  margin-right: auto; /* センタリング追加 */
+  box-sizing: border-box; /* ボックスサイジング追加 */
 }
 
 .cta { 
@@ -260,17 +264,23 @@ function formatDistance(km) {
   .cta { font-size:16px; }
 }
 
-/* Mobile responsive styles for CTA section */
+/* Mobile responsive styles for CTA section with better centering */
 @media (max-width: 768px) {
   .detail-screen {
     overflow-y: auto; /* 確実に縦スクロール有効化 */
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto; /* 画面全体のセンタリング */
+    max-width: 100%;
   }
   
   .body {
     padding: 12px;
     padding-bottom: calc(env(safe-area-inset-bottom) + 100px); /* フッターとの余白を十分確保 */
     overflow: visible; /* コンテンツがクリップされないように */
+    margin: 0 auto; /* ボディのセンタリング */
+    max-width: 100%;
   }
   
   .hero {
@@ -283,12 +293,18 @@ function formatDistance(km) {
     margin-top: 20px;
     padding: 16px 0 20px; /* 下のpaddingを増やしてフッターとの余白確保 */
     position: relative; /* 確実に表示されるように */
+    margin-left: auto; /* センタリング */
+    margin-right: auto; /* センタリング */
+    max-width: 100%; /* モバイルでの幅調整 */
+    align-items: center; /* 垂直センタリング */
   }
   
   .cta {
     max-width: 100%;
     min-height: 48px;
     font-size: 16px;
+    margin: 0 auto; /* 個別ボタンもセンタリング */
+    width: 100%; /* モバイルでフル幅 */
   }
 }
 
@@ -297,12 +313,17 @@ function formatDistance(km) {
     gap: 10px;
     margin-top: 16px;
     padding: 12px 0;
+    margin-left: auto; /* センタリング */
+    margin-right: auto; /* センタリング */
+    align-items: center; /* ボタンを中央揃え */
   }
   
   .cta {
     padding: 16px 20px;
     font-size: 15px;
     min-height: 52px;
+    max-width: 280px; /* 最大幅制限でより良いセンタリング */
+    margin: 0 auto; /* 個別ボタンセンタリング */
   }
 }
 </style>

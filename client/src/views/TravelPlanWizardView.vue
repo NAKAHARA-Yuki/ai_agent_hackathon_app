@@ -259,10 +259,23 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
   margin:0; 
   padding-top: env(safe-area-inset-top); 
 }
-/* 中央固定幅コンテナ (幅 >600px でセンター) */
-.wizard-inner { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; width:100%; margin:0 auto; }
+/* 中央固定幅コンテナ (全画面でセンター) */
+.wizard-inner { 
+  flex:1 1 auto; 
+  display:flex; 
+  flex-direction:column; 
+  min-height:0; 
+  width:100%; 
+  max-width:560px; 
+  margin:0 auto; 
+  padding:0 16px;
+  box-sizing:border-box;
+}
+/* デスクトップでのパディング調整 */
 @media (min-width:600px){
-  .wizard-inner { max-width:560px; width:100%; }
+  .wizard-inner { 
+    padding:0 20px; 
+  }
 }
 /* 横向き (landscape) で高さが低い場合は中央揃え & 余白微調整 */
 @media (orientation:landscape){
@@ -273,7 +286,7 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
 .wizard-screen { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
 /* スクロールが必要な領域にのみ付与 */
 .wizard-scroll { flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior: contain; }
-/* モバイルでの適切な表示 - スクロール改善 */
+/* モバイルでの適切な表示 - スクロール改善とセンタリング */
 @media (max-width: 768px) {
   .wizard-wrap { 
     height: 100dvh; /* 動的ビューポート高さを使用、100vhにフォールバック */
@@ -281,6 +294,8 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
     padding-top: calc(env(safe-area-inset-top) + 60px); /* ヘッダー分の余白を確保 */
     overflow-y: auto; /* モバイルで縦スクロールを有効化 */
     overflow-x: hidden; /* 横スクロールは無効化 */
+    display: flex;
+    justify-content: center; /* 水平センタリング追加 */
   }
   
   .wizard-inner { 
@@ -288,6 +303,9 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
     min-height: 0; 
     overflow: visible; /* 内側のオーバーフローを表示可能に */
     width: 100%;
+    max-width: 100%; /* モバイルでは全幅使用 */
+    padding: 0 12px; /* より適切なモバイルパディング */
+    margin: 0 auto; /* 明示的にセンタリング */
   }
   
   .wizard-screen { 
@@ -297,6 +315,9 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
     min-height: 0;
     padding-bottom: calc(env(safe-area-inset-bottom) + 80px); /* フッター分の余白を十分確保 */
     overflow: visible; /* コンテンツを表示可能に */
+    margin: 0 auto; /* 画面コンテンツもセンタリング */
+    width: 100%;
+    max-width: 100%;
   }
   
   .wizard-scroll {
