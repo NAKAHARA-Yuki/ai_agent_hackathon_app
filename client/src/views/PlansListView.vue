@@ -133,6 +133,8 @@ onMounted(fetchPlans)
   min-height: 100%;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden; /* 横スクロール完全に無効化 */
+  max-width: 100vw; /* ビューポート幅を超えないよう制限 */
 }
 
 /* モバイル対応: より適切なパディングとスクロール */
@@ -313,6 +315,8 @@ onMounted(fetchPlans)
   justify-content: center; /* Center the grid items */
   max-width: 100%; /* Prevent horizontal scrolling */
   margin: 0 auto; /* Center the grid container */
+  width: 100%;
+  overflow-x: hidden; /* 横スクロール無効化 */
 }
 
 /* モバイル対応: グリッドレイアウトの最適化 */
@@ -321,7 +325,9 @@ onMounted(fetchPlans)
     grid-template-columns: 1fr; /* 1列レイアウトでより使いやすく */
     gap: 10px;
     max-width: 100%; /* 横スクロール防止 */
-    justify-items: center; /* モバイルでアイテムを中央寄せ */
+    width: 100%;
+    justify-items: stretch; /* カードを全幅に拡張 */
+    overflow-x: hidden; /* 確実に横スクロール無効 */
   }
 }
 
@@ -351,6 +357,9 @@ onMounted(fetchPlans)
   position: relative;
   transition: all 0.2s ease;
   min-height: 100px;
+  width: 100%; /* 全幅使用 */
+  max-width: 100%; /* 幅制限 */
+  box-sizing: border-box; /* パディングを含めてサイズ計算 */
 }
 
 .card:active { transform: translateY(1px); }
