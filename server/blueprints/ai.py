@@ -36,13 +36,13 @@ if ENV.lower() == "development" and not os.getenv('AGENT_LOG_RAW'):
 
 agent_configured = bool(AGENT_BASE_URL)
 
-# Agent呼び出しHTTPタイムアウト（秒）環境変数で調整可能。デフォルト90。
+# Agent呼び出しHTTPタイムアウト（秒）環境変数で調整可能。デフォルト180。
 try:
-    AGENT_HTTP_TIMEOUT = int(os.getenv('AGENT_HTTP_TIMEOUT') or '90')
+    AGENT_HTTP_TIMEOUT = int(os.getenv('AGENT_HTTP_TIMEOUT') or '180')
     if AGENT_HTTP_TIMEOUT <= 0:
-        AGENT_HTTP_TIMEOUT = 300
+        AGENT_HTTP_TIMEOUT = 180
 except Exception:
-    AGENT_HTTP_TIMEOUT = 300
+    AGENT_HTTP_TIMEOUT = 180
 
 # Whether to log request/response payloads (useful for debugging; be careful in prod)
 LOG_PAYLOADS = True

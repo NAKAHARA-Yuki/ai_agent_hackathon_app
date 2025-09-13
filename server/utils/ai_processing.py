@@ -51,39 +51,52 @@ def increment_agent_json_fail():
 
 def retry_on_503(func, max_retries=3, base_delay=1.0, *args, **kwargs):
     """
-    HTTP 503エラー時のリトライ処理ラッパー。
-    指数バックオフでリトライし、最大回数に達した場合は最後の例外を再発生させる。
+    一時的な失敗時のリトライ処理ラッパー。
+    - HTTP 503 を指数バックオフで再試行
+    - ReadTimeout / ConnectTimeout / ConnectionError も一時的エラーとして再試行
+    最大回数に達した場合は最後の例外を再発生させる。
     """
     import random
     last_exception = None
-    
+
     for attempt in range(max_retries + 1):  # 初回 + リトライ回数
         try:
             return func(*args, **kwargs)
         except requests.RequestException as e:
             last_exception = e
-            
-            # 503以外のHTTPエラーまたは非HTTPエラーの場合はすぐに再発生
-            if not hasattr(e, 'response') or e.response is None:
+            # 例外タイプ判定
+            is_timeout = isinstance(e, (requests.ReadTimeout, requests.ConnectTimeout, requests.Timeout))
+            is_conn_err = isinstance(e, requests.ConnectionError)
+            status_code = getattr(getattr(e, 'response', None), 'status_code', None)
+
+            transient = (status_code == 503) or is_timeout or is_conn_err
+            if not transient:
+                # それ以外は即時再発生
                 raise
-            
-            status_code = e.response.status_code
-            if status_code != 503:
-                raise
-                
+
             # 最大リトライ回数に達した場合は例外を再発生
             if attempt >= max_retries:
-                logger.warning(f"503 retry exhausted after {max_retries} attempts, giving up")
+                kind = (
+                    '503' if status_code == 503 else
+                    'timeout' if is_timeout else
+                    'connection'
+                )
+                logger.warning(f"{kind} retry exhausted after {max_retries} attempts, giving up")
                 raise
-                
+
             # 指数バックオフで待機
             delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-            logger.info(f"503 error detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries + 1})")
+            kind = (
+                '503' if status_code == 503 else
+                'timeout' if is_timeout else
+                'connection'
+            )
+            logger.info(f"Transient {kind} error, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries + 1})")
             sleep(delay)
         except Exception:
             # requests以外の例外（JSON解析エラーなど）はすぐに再発生
             raise
-    
+
     # ここには到達しないはずだが、念のため
     if last_exception:
         raise last_exception
