@@ -237,7 +237,7 @@ class TestAuthEndpoints:
         
         assert response.status_code == 200
         data = response.get_json()
-        assert data['user_id'] == 'test_user'
+        assert data['id'] == 'test_user'  # Changed from user_id to id
         assert data['name'] == 'Test User'
 
     def test_me_endpoint_unauthenticated(self, client):
