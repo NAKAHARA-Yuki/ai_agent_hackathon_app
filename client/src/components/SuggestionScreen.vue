@@ -172,9 +172,22 @@ async function handleRegenerate() {
   overflow-y: auto; /* 縦スクロール有効化 */
   overflow-x: hidden; /* 横スクロール無効化 */
   max-width: 100vw; /* ビューポート幅制限 */
+  margin: 0 auto; /* センタリング追加 */
+  width: 100%;
 }
-.header h1 { margin:4px 0 0; font-size:20px; font-weight:700; letter-spacing:-.5px; text-align:center; }
-.header .tagline { margin:4px 0 4px; text-align:center; font-size:12px; color:var(--color-text-subtle); }
+.header h1 { 
+  margin:4px 0 0; 
+  font-size:20px; 
+  font-weight:700; 
+  letter-spacing:-.5px; 
+  text-align:center; 
+}
+.header .tagline { 
+  margin:4px 0 4px; 
+  text-align:center; 
+  font-size:12px; 
+  color:var(--color-text-subtle); 
+}
 /* 縦一列表示 */
 .cards { 
   display:flex; 
@@ -184,6 +197,7 @@ async function handleRegenerate() {
   width: 100%;
   max-width: 100%;
   overflow: visible;
+  margin: 0 auto; /* カードコンテナもセンタリング */
 }
 .card { 
   position:relative; 
@@ -215,6 +229,10 @@ async function handleRegenerate() {
   border-radius: 16px; 
   border: 1px solid rgba(0, 0, 0, 0.08);
   text-align: center;
+  max-width: 480px; /* 最大幅制限追加 */
+  margin-left: auto; /* センタリング追加 */
+  margin-right: auto; /* センタリング追加 */
+  width: 100%;
 }
 
 .regenerate-text { 
@@ -399,18 +417,20 @@ async function handleRegenerate() {
   border: 0;
 }
 
-/* モバイルでの適切な表示 - カードの伸縮を防止 */
+/* モバイルでの適切な表示 - カードの伸縮を防止とセンタリング */
 @media (max-width: 768px) {
   .suggestions-screen { 
     flex: 1; 
     min-height: 0;
     overflow-y: auto;
     padding: 12px; 
-    margin: 0;
+    margin: 0 auto; /* センタリング追加 */
     border-radius: 0;
     box-shadow: none;
     background: transparent;
     padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
+    max-width: 100%; /* 幅制限 */
+    width: 100%;
   }
   
   .header h1 {
@@ -424,11 +444,15 @@ async function handleRegenerate() {
   .cards {
     padding: 4px 0 20px; /* 左右のpaddingを削除 */
     gap: 14px; /* カード間の間隔を少し広げる */
+    margin: 0 auto; /* カードコンテナもセンタリング */
+    max-width: 100%;
   }
   
   .card {
     height: 140px; /* モバイルでは少し低く */
     border-radius: 14px;
+    margin: 0 auto; /* 個別カードもセンタリング */
+    max-width: 100%;
   }
   
   .card-content {
@@ -446,10 +470,11 @@ async function handleRegenerate() {
   }
   
   .regenerate-section {
-    margin: 12px 0 0;
+    margin: 12px auto 0; /* 上下マージンとセンタリング */
     padding: 14px;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 12px;
+    max-width: 100%; /* 幅制限 */
   }
   
   .regenerate-text {
@@ -460,10 +485,13 @@ async function handleRegenerate() {
     padding: 14px 20px;
     font-size: 15px;
     min-height: 48px; /* タッチフレンドリーなサイズ */
+    margin: 0 auto; /* ボタンもセンタリング */
+    display: inline-flex; /* インラインフレックスでセンタリング */
   }
   
   .regenerate-form {
     max-width: 100%; /* モバイルでは全幅使用 */
+    margin: 0 auto; /* フォームもセンタリング */
   }
   
   .regenerate-input {
@@ -475,6 +503,7 @@ async function handleRegenerate() {
   
   .regenerate-buttons {
     gap: 10px;
+    justify-content: center; /* ボタンをセンタリング */
   }
   
   .regenerate-submit,
@@ -485,25 +514,34 @@ async function handleRegenerate() {
   }
 }
 
-/* 非常に小さな画面用の追加調整 */
+/* 非常に小さな画面用の追加調整とセンタリング */
 @media (max-width: 480px) {
   .suggestions-screen {
     padding: 10px;
+    margin: 0 auto; /* センタリング確保 */
   }
   
   .card {
     height: 120px;
+    margin: 0 auto; /* 個別カードセンタリング */
+  }
+  
+  .regenerate-section {
+    margin: 10px auto 0; /* センタリング */
+    padding: 12px;
   }
   
   .regenerate-buttons {
     flex-direction: column; /* 縦並びでより使いやすく */
     gap: 8px;
+    align-items: center; /* ボタンをセンター揃え */
   }
   
   .regenerate-submit,
   .regenerate-cancel {
     width: 100%;
     min-height: 48px;
+    max-width: 280px; /* 最大幅制限でセンタリング効果 */
   }
 }
 
