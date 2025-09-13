@@ -132,11 +132,17 @@ def persona_latest():
             pdoc = db.collection('users').document(claims['sub']).collection('personas').document(last_id).get(timeout=5)
             if pdoc.exists:
                 pd = pdoc.to_dict() or {}
-                return jsonify({"id": last_id, "profile": pd.get('profile'), "system_prompt": pd.get('system_prompt')})
-        return jsonify({}), 404
+                profile = pd.get('profile')
+                if profile and profile.get('title'):  # Validate profile has required fields
+                    return jsonify({"id": last_id, "profile": profile, "system_prompt": pd.get('system_prompt')})
+                else:
+                    logger.warning(f"Persona {last_id} exists but has invalid profile data: {profile}")
+        
+        # No valid persona found
+        return jsonify({"error": "no_persona_found", "message": "診断結果が見つかりません。性格診断を完了してください。"}), 404
     except Exception as e:
         logger.exception("/api/persona/latest error")
-        return jsonify({}), 404
+        return jsonify({"error": "server_error", "message": "ペルソナデータの取得中にエラーが発生しました。"}), 500
 
 
 @personas_bp.route('/api/profile', methods=['GET', 'POST'])

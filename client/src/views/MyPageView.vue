@@ -54,8 +54,23 @@ async function loadProfile() {
 async function loadLatestPersona() {
   try {
     const resp = await fetch('/api/persona/latest', { headers: { ...auth.authHeader() } })
-    if (resp.ok) latestPersona.value = await resp.json()
-  } catch {}
+    if (resp.ok) {
+      const data = await resp.json()
+      // Validate persona data structure
+      if (data && data.profile && data.profile.title) {
+        latestPersona.value = data
+      } else {
+        console.warn('Invalid persona data received:', data)
+        latestPersona.value = null
+      }
+    } else {
+      console.log('No persona data found (HTTP', resp.status + ')')
+      latestPersona.value = null
+    }
+  } catch (e) {
+    console.error('Failed to load persona:', e)
+    latestPersona.value = null
+  }
 }
 
 function addTag(e) {
@@ -225,10 +240,16 @@ onMounted(async () => {
           <p v-if="error" class="error">{{ error }}</p>
         </form>
 
-        <div class="persona" v-if="latestPersona?.profile">
+        <div class="persona">
           <h3>最新の診断</h3>
-          <p class="muted">タイプ: {{ latestPersona.profile.title }}</p>
-          <p>{{ latestPersona.profile.description }}</p>
+          <div v-if="latestPersona?.profile">
+            <p class="muted">タイプ: {{ latestPersona.profile.title || '不明' }}</p>
+            <p>{{ latestPersona.profile.description || '詳細情報が利用できません。' }}</p>
+          </div>
+          <div v-else class="muted">
+            <p>診断結果がまだありません。</p>
+            <p>性格診断を完了すると、ここに結果が表示されます。</p>
+          </div>
         </div>
       </div>
     </section>

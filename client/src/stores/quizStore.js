@@ -377,11 +377,22 @@ export const useQuizStore = defineStore('quiz', () => {
       // 3) プラン生成とプロフィール保存を並列に実行
       processingStage.value = 'parallel'
       isSavingProfile.value = true
-      await Promise.all([
+      
+      const [
+        generateAIPlansResult,
+        savePersonaProfileResult,
+        saveUserHobbiesResult
+      ] = await Promise.allSettled([
         (async () => { await generateAIPlans() })(),
         (async () => { try { await savePersonaProfile() } finally { isSavingProfile.value = false } })(),
         (async () => { try { await saveUserHobbies() } catch(_) {} })()
       ])
+      
+      // Check if persona saving failed
+      if (savePersonaProfileResult.status === 'rejected') {
+        console.warn('Persona saving failed, but continuing with quiz completion:', savePersonaProfileResult.reason)
+        // Note: We don't throw here to allow the user to see results even if saving failed
+      }
 
   // 完了
   processingStage.value = 'done'
@@ -400,7 +411,10 @@ export const useQuizStore = defineStore('quiz', () => {
   async function savePersonaProfile() {
     try {
       const current = finalResult.value;
-      if (!current) return;
+      if (!current) {
+        console.warn('No final result available for persona profile saving');
+        return;
+      }
       const auth = useAuthStore();
     // hobbies を同時送信（サーバー側でプロンプトに反映される）
     const opts = Array.isArray(likesOptions.value) ? likesOptions.value : []
@@ -419,11 +433,15 @@ export const useQuizStore = defineStore('quiz', () => {
         body: JSON.stringify(payload)
       });
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
+        const err = await resp.json().catch(() => ({ error: 'Unknown error' }));
         console.error('savePersonaProfile failed:', err);
+        throw new Error(`Failed to save persona: ${err.error || 'Server error'}`);
+      } else {
+        console.log('Persona profile saved successfully');
       }
     } catch (e) {
       console.error('savePersonaProfile error:', e);
+      throw e; // Re-throw to allow parent error handling
     }
   }
 
