@@ -28,7 +28,7 @@ async function handleCreatePlan(keyword) {
     // /api/generate_plan を使用
     const resp = await fetch('/api/agent/generate_plan', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
       body: JSON.stringify({ keyword: String(keyword)})
     })
     if (!resp.ok) throw new Error('Failed to generate plans')
@@ -112,8 +112,8 @@ async function handleCreatePlanForRegeneration(keyword) {
   try {
     const resp = await fetch('/api/agent/generate_plan', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ travel_type: String(keyword), description: String(keyword) })
+  headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
+  body: JSON.stringify({ keyword: String(keyword) })
     })
     if (!resp.ok) throw new Error('Failed to regenerate plans')
     const data = await resp.json()
