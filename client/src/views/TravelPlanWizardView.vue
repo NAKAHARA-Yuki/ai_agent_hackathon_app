@@ -273,18 +273,21 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
 .wizard-screen { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
 /* スクロールが必要な領域にのみ付与 */
 .wizard-scroll { flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior: contain; }
-/* モバイルでの適切な表示 - カード伸縮の防止 */
+/* モバイルでの適切な表示 - スクロール改善 */
 @media (max-width: 768px) {
   .wizard-wrap { 
     height: 100dvh; /* 動的ビューポート高さを使用、100vhにフォールバック */
     min-height: 100vh;
     padding-top: calc(env(safe-area-inset-top) + 60px); /* ヘッダー分の余白を確保 */
+    overflow-y: auto; /* モバイルで縦スクロールを有効化 */
+    overflow-x: hidden; /* 横スクロールは無効化 */
   }
   
   .wizard-inner { 
     flex: 1; 
     min-height: 0; 
-    overflow: hidden;
+    overflow: visible; /* 内側のオーバーフローを表示可能に */
+    width: 100%;
   }
   
   .wizard-screen { 
@@ -292,7 +295,18 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding-bottom: calc(env(safe-area-inset-bottom) + 20px); 
+    padding-bottom: calc(env(safe-area-inset-bottom) + 80px); /* フッター分の余白を十分確保 */
+    overflow: visible; /* コンテンツを表示可能に */
+  }
+  
+  .wizard-scroll {
+    overflow-y: auto; /* 縦スクロール有効 */
+    overflow-x: hidden; /* 横スクロール無効 */
+    -webkit-overflow-scrolling: touch; /* iOSでスムーススクロール */
+    overscroll-behavior: contain;
+    flex: 1;
+    width: 100%;
+    max-width: 100vw; /* ビューポート幅を超えないよう制限 */
   }
 }
 </style>

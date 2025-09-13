@@ -127,7 +127,15 @@ function formatDistance(km) {
 </script>
 
 <style scoped>
-.detail-screen { position:relative; display:flex; flex-direction:column; padding:0; }
+.detail-screen { 
+  position:relative; 
+  display:flex; 
+  flex-direction:column; 
+  padding:0; 
+  min-height: 100%;
+  overflow-y: auto; /* 縦スクロール有効化 */
+  -webkit-overflow-scrolling: touch; /* iOSでスムーススクロール */
+}
 .hero { 
   position:relative; 
   width:100%; 
@@ -151,7 +159,15 @@ function formatDistance(km) {
 .hero-text .tags { margin:0; font-size:12px; opacity:.9; }
 .hero-text .brief { margin:4px 0 0; font-size:11px; opacity:.95; max-width:90%; line-height:1.3; }
 
-.body { padding:18px 18px calc(20px + env(safe-area-inset-bottom)); max-width:640px; width:100%; margin:0 auto; }
+.body { 
+  padding:18px 18px calc(20px + env(safe-area-inset-bottom)); 
+  max-width:640px; 
+  width:100%; 
+  margin:0 auto; 
+  flex: 1;
+  overflow-y: auto; /* 縦スクロール有効化 */
+  -webkit-overflow-scrolling: touch;
+}
 .section { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:18px 18px 16px; box-shadow:0 4px 14px -4px rgba(0,0,0,0.08); }
 .section h2 { margin:0 0 10px; font-size:14px; font-weight:700; letter-spacing:.5px; color:#334155; }
 .itinerary { list-style:disc; padding-left:20px; margin:0; display:flex; flex-direction:column; gap:4px; font-size:13px; line-height:1.45; color:#475569; }
@@ -246,11 +262,27 @@ function formatDistance(km) {
 
 /* Mobile responsive styles for CTA section */
 @media (max-width: 768px) {
+  .detail-screen {
+    overflow-y: auto; /* 確実に縦スクロール有効化 */
+    height: 100%;
+  }
+  
+  .body {
+    padding: 12px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 100px); /* フッターとの余白を十分確保 */
+    overflow: visible; /* コンテンツがクリップされないように */
+  }
+  
+  .hero {
+    margin: -12px -12px 16px; /* bodyのpaddingに合わせて調整 */
+  }
+  
   .cta-section {
     flex-direction: column;
     gap: 12px;
     margin-top: 20px;
-    padding: 16px 0;
+    padding: 16px 0 20px; /* 下のpaddingを増やしてフッターとの余白確保 */
+    position: relative; /* 確実に表示されるように */
   }
   
   .cta {

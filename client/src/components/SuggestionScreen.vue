@@ -164,12 +164,40 @@ async function handleRegenerate() {
 </script>
 
 <style scoped>
-.suggestions-screen { padding:16px 16px 24px; display:flex; flex-direction:column; gap:16px; }
+.suggestions-screen { 
+  padding:16px 16px 24px; 
+  display:flex; 
+  flex-direction:column; 
+  gap:16px; 
+  overflow-y: auto; /* 縦スクロール有効化 */
+  overflow-x: hidden; /* 横スクロール無効化 */
+  max-width: 100vw; /* ビューポート幅制限 */
+}
 .header h1 { margin:4px 0 0; font-size:20px; font-weight:700; letter-spacing:-.5px; text-align:center; }
 .header .tagline { margin:4px 0 4px; text-align:center; font-size:12px; color:var(--color-text-subtle); }
 /* 縦一列表示 */
-.cards { display:flex; flex-direction:column; gap:18px; padding:4px 2px 20px; }
-.card { position:relative; width:100%; height:160px; border-radius:18px; overflow:hidden; cursor:pointer; isolation:isolate; background:#ddd; display:flex; }
+.cards { 
+  display:flex; 
+  flex-direction:column; 
+  gap:18px; 
+  padding:4px 2px 20px; 
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+.card { 
+  position:relative; 
+  width:100%; 
+  height:160px; 
+  border-radius:18px; 
+  overflow:hidden; 
+  cursor:pointer; 
+  isolation:isolate; 
+  background:#ddd; 
+  display:flex;
+  max-width: 100%; /* 幅制限 */
+  box-sizing: border-box;
+}
 .card::before { content:""; position:absolute; inset:0; background:var(--bg-img) center/cover no-repeat; filter:brightness(1) saturate(1.1); transition:transform .6s ease; }
 .card-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.05)); mix-blend-mode:multiply; }
 .card-content { position:relative; z-index:2; margin-top:auto; padding:14px 16px 14px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:6px; }
