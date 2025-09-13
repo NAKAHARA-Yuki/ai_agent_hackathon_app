@@ -49,7 +49,7 @@ def auth_headers():
     from datetime import datetime, timedelta
     
     payload = {
-        'user_id': 'test_user',
+        'sub': 'test_user',
         'exp': datetime.utcnow() + timedelta(hours=1)
     }
     token = jwt.encode(payload, 'test-secret-key', algorithm='HS256')
@@ -58,7 +58,7 @@ def auth_headers():
 @pytest.fixture
 def mock_gemini():
     """Mock Gemini AI API calls."""
-    with patch('app.call_gemini_api') as mock:
+    with patch('utils.ai_processing.call_gemini_api') as mock:
         mock.return_value = {'text': 'Mock AI response'}
         yield mock
 

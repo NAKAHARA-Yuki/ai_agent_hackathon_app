@@ -10,16 +10,19 @@ class TestAuthEndpoints:
 
     def test_signup_success(self, client, mock_firestore_client):
         """Test successful user signup"""
+        # Reset the mock to ensure clean state
+        mock_firestore_client.reset_mock()
+        
         # Mock Firestore document check (user doesn't exist)
         mock_doc = MagicMock()
         mock_doc.exists = False
         mock_firestore_client.collection.return_value.document.return_value.get.return_value = mock_doc
         
-        # Test signup
+        # Test signup with a unique user ID to avoid conflicts
         response = client.post('/api/auth/signup', 
             json={
                 'name': 'Test User',
-                'user_id': 'testuser123',
+                'user_id': 'uniqueuser123',
                 'password': 'password123'
             },
             content_type='application/json'
@@ -29,7 +32,7 @@ class TestAuthEndpoints:
         data = response.get_json()
         assert 'user' in data
         assert 'token' in data
-        assert data['user']['user_id'] == 'testuser123'
+        assert data['user']['id'] == 'uniqueuser123'
         assert data['user']['name'] == 'Test User'
 
     def test_signup_invalid_user_id(self, client):
@@ -78,7 +81,7 @@ class TestAuthEndpoints:
             content_type='application/json'
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 409  # Changed from 400 to 409 (Conflict)
         data = response.get_json()
         assert 'error' in data
         assert 'already exists' in data['error'].lower()
@@ -291,7 +294,7 @@ class TestAuthEndpoints:
         from datetime import datetime, timedelta
         
         # Test token creation
-        from app import create_jwt, verify_jwt
+        from utils.auth import create_jwt, verify_jwt
         
         user_id = 'test_user'
         token = create_jwt(user_id)
@@ -302,11 +305,11 @@ class TestAuthEndpoints:
         # Verify token
         claims = verify_jwt(token)
         assert claims is not None
-        assert claims['user_id'] == user_id
+        assert claims['sub'] == user_id
 
     def test_jwt_token_with_ttl(self, client):
         """Test JWT token creation with custom TTL"""
-        from app import create_jwt_with_ttl, verify_jwt
+        from utils.auth import create_jwt_with_ttl, verify_jwt
         
         user_id = 'test_user'
         ttl_min = 30
@@ -319,11 +322,11 @@ class TestAuthEndpoints:
         # Verify token
         claims = verify_jwt(token)
         assert claims is not None
-        assert claims['user_id'] == user_id
+        assert claims['sub'] == user_id
 
     def test_require_auth_decorator(self, client):
         """Test require_auth decorator functionality"""
-        from app import require_auth
+        from utils.auth import require_auth
         from flask import request
         
         # Mock request with valid auth header
@@ -337,12 +340,13 @@ class TestAuthEndpoints:
                 pass
 
     def test_claims_or_dev_function(self, client):
-        """Test _claims_or_dev helper function"""
-        from app import _claims_or_dev
+        """Test claims_or_dev helper function"""
+        from utils.auth import claims_or_dev
         
         # In test environment, should return dev claims
-        claims = _claims_or_dev()
-        
-        # Should return some form of claims (either real or dev)
-        assert claims is not None
-        assert isinstance(claims, dict)
+        with client.application.test_request_context('/'):
+            claims = claims_or_dev()
+            
+            # Should return some form of claims (either real or dev)
+            assert claims is not None
+            assert isinstance(claims, dict)

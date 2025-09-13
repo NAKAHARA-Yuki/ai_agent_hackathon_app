@@ -139,4 +139,8 @@ def me():
         })
     except Exception as e:
         logger.exception("/api/me error")
-        return jsonify({"id": claims['sub']}), 200
+        # Provide fallback if claims exist but there's a DB error
+        if claims and 'sub' in claims:
+            return jsonify({"id": claims['sub']}), 200
+        else:
+            return jsonify({"error": "internal server error"}), 500
