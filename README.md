@@ -37,7 +37,7 @@ Frontend (Vue.js) ──→ Backend (Flask) ──→ ADK Agent Service ──�
   - Root Coordinator Agent（リクエスト振り分け）
   - Travel Planner Agent（新規プラン作成）
   - Travel Advisor Agent（当日サポート）
-- **MCP Service** (`mcp/`): Google Maps Platform Code Assist MCP サーバー
+- **MCP Service** (`mcp/`): MCP (Model Context Protocol) サーバー（Google Maps機能提供）
 - **Database**: Google Firestore
 - **Deployment**: Google Cloud Run + Docker
 
@@ -98,7 +98,7 @@ ai_agent_hackathon_app/
 │   │           └── agent.py # 旅行アドバイザーエージェント（当日サポート）
 │   ├── requirements.txt  # ADK依存関係
 │   └── Dockerfile        # エージェント用Docker設定
-├── mcp/                  # Maps Code Assist MCP サーバー
+├── mcp/                  # Google Maps MCP サーバー
 │   └── Dockerfile        # MCP用Docker設定
 ├── shared/               # 共有ユーティリティ
 │   ├── contracts/        # 型定義・インターフェース
@@ -163,7 +163,7 @@ ai_agent_hackathon_app/
 
 **agents/travel_planner/agent.py** - ADK（Agent Development Kit）ベースの旅行計画AI
 - Gemini 2.5 Flashモデルを使用
-- Google Search、Maps Platform Code Assistツール統合
+- Google Search、Google Maps MCP ツール統合
 - インテリジェントな旅行プラン生成
 
 #### 共有モジュール（shared/）
@@ -351,7 +351,7 @@ Root Coordinator Agent (ルートコーディネーター)
 - **役割**: persona/profile情報から3つの完全な旅行プランを生成
 - **モデル**: `gemini-2.5-pro`
 - **出力形式**: 厳密なJSON構造（plans配列、itinerary、places、route_info含む）
-- **ツール統合**: Google Maps Platform Code Assist MCP
+- **ツール統合**: MCP (Model Context Protocol) による Google Maps機能統合
 - **特徴**:
   - 地理的合理性・季節感・移動時間を考慮
   - 輸送手段（transport）詳細情報付与
@@ -387,7 +387,7 @@ agent = LlmAgent(
 ```
 
 **MCP (Model Context Protocol) ツール統合**
-- **Google Maps Platform Code Assist**: 地図データ・経路情報・場所検索
+- **Google Maps MCP**: 地図データ・経路情報・場所検索（MCP経由）
 - **接続方式**: StdioConnectionParams経由でnpxプロセス起動
 - **API Key管理**: 環境変数`GOOGLE_MAPS_API_KEY`から自動設定
 - **タイムアウト**: 10秒（設定可能）
@@ -618,7 +618,7 @@ pytest -v                 # 詳細出力
   - Root Coordinator: Gemini 2.5 Flash Lite (高速ルーティング)
   - Travel Planner: Gemini 2.5 Pro (高品質プラン生成)
   - Travel Advisor: Gemini 2.5 Pro (詳細サポート)
-- **Tools**: Google Maps Platform Code Assist MCP, Google Search
+- **Tools**: Google Maps MCP (Model Context Protocol), Google Search
 - **Architecture**: 階層型マルチエージェント（ルートコーディネーター + サブエージェント）
 - **Communication**: ADK API Server プロトコル
 

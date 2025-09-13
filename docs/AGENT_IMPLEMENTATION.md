@@ -42,7 +42,7 @@
                   ▼                               ▼
 ┌─────────────────────────────┐    ┌─────────────────────────────┐
 │      Google Maps MCP        │    │      Gemini API             │
-│   (Code Assist Server)      │    │    (AI Generation)          │
+│   (MCP Server)             │    │    (AI Generation)          │
 │  http://localhost:3000      │    │                             │
 └─────────────────────────────┘    └─────────────────────────────┘
 ```
@@ -189,7 +189,7 @@ root_agent = LlmAgent(
 
 ## MCP (Model Context Protocol) 統合
 
-### Google Maps Platform Code Assist
+### Google Maps MCP (Model Context Protocol)
 
 **統合方式**:
 ```python
@@ -361,7 +361,7 @@ services:
     depends_on:
       - mcp-service
 
-  # Maps Code Assist MCPサーバー
+  # Google Maps MCPサーバー
   mcp-service:
     build: ./mcp  
     ports:
@@ -374,7 +374,7 @@ services:
 **個別サービス構成**:
 - `travel-quiz-app` - メインアプリケーション
 - `travel-agent-service` - ADKエージェントサービス  
-- `maps-mcp-service` - Maps Code Assist MCPサーバー
+- `maps-mcp-service` - Google Maps MCPサーバー
 
 **GitHub Actions CI/CD**:
 ```yaml

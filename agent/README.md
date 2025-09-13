@@ -6,7 +6,7 @@
 - 主要環境変数:
   - GEMINI_API_KEY（自動的に GOOGLE_API_KEY にブリッジ）
   - GEMINI_MODEL（既定: gemini-2.5-pro）
-  - MAPS_MCP_ENDPOINT_URL（任意）: Google Maps Platform Code Assist MCP HTTP サーバーのツールエンドポイントURL
+  - MAPS_MCP_ENDPOINT_URL（任意）: Google Maps MCP (Model Context Protocol) HTTP サーバーのツールエンドポイントURL
 
 ## ローカル実行（コンテナ）
 
@@ -26,7 +26,7 @@ docker run --rm -p 8082:8080 \
 - `agents/travel_planner/agent.py` に `root_agent` を定義し、`agent` として再エクスポートしています（ADK api_server ディレクトリモード対応）。
 - `GEMINI_API_KEY` は `GOOGLE_API_KEY` にブリッジされます（追加設定不要）。
 
-### Google Maps Platform Code Assist MCP の利用（任意）
+### Google Maps MCP (Model Context Protocol) の利用（任意）
 
 このエージェントは `MAPS_MCP_ENDPOINT_URL` が設定されている場合、関数ツール `retrieve_google_maps_platform_docs` を有効化します。
 

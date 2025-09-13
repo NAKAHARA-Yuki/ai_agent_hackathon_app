@@ -1,6 +1,6 @@
 # AI エージェント ハッカソン 旅行アプリ
 
-Vue.js フロントエンド、Flask バックエンド、Google ADK エージェントサービス、Maps Code Assist MCP サーバーを使用した AI 搭載旅行計画アプリケーション。Google Maps と Gemini AI 統合で Docker + Cloud Run 経由でデプロイされます。
+Vue.js フロントエンド、Flask バックエンド、Google ADK エージェントサービス、Google Maps MCP サーバーを使用した AI 搭載旅行計画アプリケーション。Google Maps と Gemini AI 統合で Docker + Cloud Run 経由でデプロイされます。
 
 **ここにない情報に遭遇した場合のみ、常にこれらの手順を最初に参照し、検索やbashコマンドにフォールバックしてください。**
 
@@ -38,7 +38,7 @@ pip install -r requirements.txt  # ファイアウォール/ネットワーク�
 - サンドボックス環境では予想される失敗として文書化
 - 適切なネットワーキングを持つ実際のGoogle Cloud環境では動作します
 
-**MCP (Maps Code Assist):**
+**MCP (Google Maps MCP):**
 ```bash
 npx -y @googlemaps/code-assist-mcp --port 3000  # MCPサーバーをインストールして実行
 ```
@@ -166,7 +166,7 @@ MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
 - **エンドポイント**: 旅行プラン生成用`/v1/plan`
 
 ### MCPサーバー (`mcp/`)
-- **目的**: Google Maps Platform Code Assistサーバー
+- **目的**: MCP (Model Context Protocol) サーバー（Google Maps機能提供）
 - **ランタイム**: @googlemaps/code-assist-mcpを使用したNode.js
 - **エンドポイント**: `/tools/retrieve-google-maps-platform-docs`
 
@@ -218,7 +218,7 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 ├── client/          # Vue.jsフロントエンド
 ├── server/          # Flaskバックエンド  
 ├── agent/           # Google ADKエージェントサービス
-├── mcp/             # Maps Code Assistサーバー
+├── mcp/             # Google Maps MCPサーバー
 ├── shared/          # 共有コントラクト/タイプ
 ├── Dockerfile       # マルチステージ本番ビルド
 └── docker-compose.dev.yml  # 開発オーケストレーション
