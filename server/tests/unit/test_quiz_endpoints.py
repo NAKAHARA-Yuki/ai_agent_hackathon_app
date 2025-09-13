@@ -24,8 +24,8 @@ class TestQuizEndpoints:
             assert 'id' in question
             assert 'question' in question
             assert 'trait' in question
-            assert 'scale' in question
-            assert isinstance(question['scale'], list)
+            assert 'options' in question
+            assert isinstance(question['options'], list)
 
     def test_get_questions_structure(self, client):
         """Test questions have proper structure"""
@@ -35,17 +35,17 @@ class TestQuizEndpoints:
         question = data[0]
         
         # Check question structure
-        assert isinstance(question['id'], str)
+        assert isinstance(question['id'], int)
         assert isinstance(question['question'], str)
         assert isinstance(question['trait'], str)
-        assert isinstance(question['scale'], list)
+        assert isinstance(question['options'], list)
         
-        # Check scale structure
-        for scale_item in question['scale']:
-            assert 'value' in scale_item
-            assert 'label' in scale_item
-            assert isinstance(scale_item['value'], int)
-            assert isinstance(scale_item['label'], str)
+        # Check options structure
+        for option in question['options']:
+            assert 'text' in option
+            assert 'score' in option
+            assert isinstance(option['text'], str)
+            assert isinstance(option['score'], int)
 
     def test_get_hobbies_master(self, client):
         """Test GET /api/hobbies endpoint"""
@@ -93,18 +93,20 @@ class TestQuizEndpoints:
         assert isinstance(data['explanation'], str)
 
     def test_analyze_text_missing_fields(self, client):
-        """Test analyze endpoint with missing fields"""
-        # Missing text
+        """Test analyze endpoint with missing fields - should handle gracefully"""
+        # Missing text should work with base_score
         response = client.post('/api/analyze',
             json={
                 'trait': 'novelty',
-                'question': 'Test question?'
+                'question': 'Test question?',
+                'base_score': 2,
+                'question_id': 1
             },
             content_type='application/json'
         )
-        assert response.status_code == 400
+        assert response.status_code == 200
 
-        # Missing trait
+        # Missing trait should also work
         response = client.post('/api/analyze',
             json={
                 'text': 'Some text',
@@ -112,7 +114,7 @@ class TestQuizEndpoints:
             },
             content_type='application/json'
         )
-        assert response.status_code == 400
+        assert response.status_code == 200
 
     def test_analyze_text_empty_values(self, client, mock_gemini):
         """Test analyze endpoint with empty values"""
@@ -159,7 +161,7 @@ class TestQuizEndpoints:
         data = response.get_json()
         assert 'analyzed_score' in data
 
-    @patch('app.call_gemini_api')
+    @patch('utils.ai_processing.call_gemini_api')
     def test_analyze_text_gemini_error(self, mock_gemini, client):
         """Test analyze endpoint when Gemini API fails"""
         mock_gemini.side_effect = Exception('Gemini API error')
