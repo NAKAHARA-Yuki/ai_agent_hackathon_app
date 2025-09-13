@@ -132,9 +132,316 @@ const unsubscribe = onSnapshot(
 - ❌ Firestoreへの依存増加
 - ❌ 追加読み込みコスト
 
+### アプローチ5: Google Cloud Pub/Sub + Push通知
+**実装内容:**
+```python
+# Backend: Pub/Sub Publisher
+from google.cloud import pubsub_v1
+
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path('your-project-id', 'travel-plan-updates')
+
+def publish_job_update(job_id, status, result=None):
+    message_data = json.dumps({
+        'job_id': job_id,
+        'status': status,
+        'result': result,
+        'timestamp': datetime.now().isoformat()
+    }).encode('utf-8')
+    
+    future = publisher.publish(topic_path, message_data)
+    return future.result()
+
+# Pub/Sub Subscriber (別のサービスまたはCloud Function)
+def handle_job_update(message):
+    data = json.loads(message.data.decode('utf-8'))
+    # Firestoreにステータス更新 or フロントエンドに通知
+    update_job_status_in_firestore(data['job_id'], data['status'])
+```
+
+```javascript
+// Frontend: Firestore listener (Pub/Subからの更新を受信)
+const unsubscribe = onSnapshot(
+  doc(db, 'job_status', jobId),
+  (doc) => {
+    const status = doc.data()
+    if (status?.status === 'completed') {
+      showNotification('プラン生成完了！')
+    }
+  }
+)
+```
+
+**メリット:**
+- ✅ **既存Google Cloudインフラとの親和性抜群**
+- ✅ **高い信頼性とスケーラビリティ**
+- ✅ **マネージドサービスで運用負荷最小**
+- ✅ **Firestoreとの組み合わせで永続化も簡単**
+- ✅ **将来の他機能（画像生成等）でも再利用可能**
+- ✅ **At-least-once配信保証**
+- ✅ **自動スケーリング**
+
+**デメリット:**
+- ❌ Google Cloud依存度上昇
+- ❌ 追加インフラコスト（ただし従量課金で小規模なら安価）
+- ❌ 初期セットアップがやや複雑
+
 ## 推奨実装方針
 
-### フェーズ1: ジョブキュー + ポーリング
+### 最新推奨: Google Cloud Pub/Sub + Firestoreハイブリッド
+
+### 最新推奨: Google Cloud Pub/Sub + Firestoreハイブリッド
+
+**NAKAHARA-Yukiさんのコメントを受けて、Pub/Subアプローチを再評価した結果、これが実際に最も適切な解決策と判断します。**
+
+#### なぜPub/Subが「簡単」なのか
+
+**1. 既存インフラとの親和性**
+```python
+# 既にプロジェクトで使用中
+google-cloud-firestore==2.16.0  # ✅ 既存
+google-generativeai==0.7.1      # ✅ 既存
+# 追加するのは
+google-cloud-pubsub==2.18.1     # ➕ 新規（Google Cloud ファミリー）
+```
+
+**2. 実装の簡潔性比較**
+
+| アプローチ | バックエンド実装 | フロントエンド実装 | インフラ設定 |
+|-----------|----------------|------------------|--------------|
+| **Pub/Sub** | **15行** (ジョブ送信) | **10行** (Firestore listener) | **5分** (gcloud CLI) |
+| WebSocket | 50行 (接続管理) | 30行 (再接続ロジック) | 30分 (Socket.IO設定) |
+| ポーリング | 40行 (ジョブキュー) | 25行 (polling service) | 15分 (メモリ管理) |
+
+**3. 運用の簡単さ**
+- ✅ マネージドサービス（サーバー管理不要）
+- ✅ 自動スケーリング（設定不要） 
+- ✅ 障害復旧（Google Cloud が保証）
+- ✅ モニタリング（Cloud Console で可視化）
+
+#### Pub/Sub実装の核心部分
+
+**最小限の実装例**:
+```python
+# バックエンド (追加15行)
+from google.cloud import pubsub_v1, firestore
+
+def start_async_plan(user_id, plan_data):
+    # 1. Firestore にジョブ作成 (5行)
+    db = firestore.Client()
+    job_ref = db.collection('jobs').document()
+    job_ref.set({'status': 'pending', 'user_id': user_id, 'params': plan_data})
+    
+    # 2. Pub/Sub にメッセージ送信 (3行)
+    publisher = pubsub_v1.PublisherClient()
+    topic = publisher.topic_path('project-id', 'travel-jobs')
+    publisher.publish(topic, job_id=job_ref.id, user_id=user_id)
+    
+    return job_ref.id
+```
+
+```javascript
+// フロントエンド (追加10行)
+import { onSnapshot, doc } from 'firebase/firestore'
+
+function watchJob(jobId) {
+  return onSnapshot(doc(db, 'jobs', jobId), (doc) => {
+    const status = doc.data().status
+    if (status === 'completed') {
+      showNotification('プラン完成！')
+      router.push(`/plan/${doc.data().result.id}`)
+    }
+  })
+}
+```
+
+理由：
+1. **既存インフラとの親和性**: プロジェクトは既にFirestoreとGoogle Generative AIを使用
+2. **将来性**: 画像生成やその他の長時間処理にも拡張可能
+3. **信頼性**: マネージドサービスによる高可用性
+4. **実装の簡潔性**: 実は最もシンプルな実装が可能
+
+#### Pub/Sub実装アーキテクチャ
+
+**1. バックエンドジョブ処理**
+```python
+# server/utils/job_processor.py
+from google.cloud import pubsub_v1
+from google.cloud import firestore
+import json
+from datetime import datetime
+
+class PubSubJobProcessor:
+    def __init__(self, project_id):
+        self.publisher = pubsub_v1.PublisherClient()
+        self.db = firestore.Client()
+        self.topic_path = self.publisher.topic_path(project_id, 'travel-jobs')
+    
+    def start_async_job(self, user_id, job_type, params):
+        # 1. Firestoreにジョブ作成
+        job_ref = self.db.collection('jobs').document()
+        job_data = {
+            'id': job_ref.id,
+            'user_id': user_id,
+            'type': job_type,
+            'status': 'pending',
+            'params': params,
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        job_ref.set(job_data)
+        
+        # 2. Pub/Subにジョブ送信
+        message_data = json.dumps({
+            'job_id': job_ref.id,
+            'user_id': user_id,
+            'type': job_type,
+            'params': params
+        }).encode('utf-8')
+        
+        future = self.publisher.publish(self.topic_path, message_data)
+        return job_ref.id
+
+# 新しいAPIエンドポイント
+@app.route('/api/plans/generate-async', methods=['POST'])
+def generate_plan_async():
+    claims = claims_or_dev()
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+    
+    user_id = claims['sub']
+    data = request.get_json()
+    
+    processor = PubSubJobProcessor(os.getenv('GCP_PROJECT_ID'))
+    job_id = processor.start_async_job(user_id, 'plan_generation', data)
+    
+    return jsonify({
+        'job_id': job_id,
+        'status': 'pending',
+        'message': 'プラン生成を開始しました'
+    })
+```
+
+**2. Pub/Sub Subscriber (Cloud Function または別サービス)**
+```python
+# cloud_functions/travel_job_processor/main.py
+import json
+import logging
+from google.cloud import firestore
+from utils.ai_processing import generate_travel_plan
+
+def process_travel_job(event, context):
+    """Pub/Sub triggered function"""
+    message_data = json.loads(event['data'].decode('utf-8'))
+    job_id = message_data['job_id']
+    job_type = message_data['type']
+    params = message_data['params']
+    
+    db = firestore.Client()
+    job_ref = db.collection('jobs').document(job_id)
+    
+    try:
+        # ステータス更新: processing
+        job_ref.update({
+            'status': 'processing',
+            'updated_at': datetime.now()
+        })
+        
+        # AI処理実行
+        if job_type == 'plan_generation':
+            result = generate_travel_plan(params)
+            
+        # ステータス更新: completed
+        job_ref.update({
+            'status': 'completed',
+            'result': result,
+            'updated_at': datetime.now()
+        })
+        
+    except Exception as e:
+        logging.error(f"Job {job_id} failed: {e}")
+        job_ref.update({
+            'status': 'failed',
+            'error': str(e),
+            'updated_at': datetime.now()
+        })
+```
+
+**3. フロントエンド（Firestoreリアルタイムリスナー）**
+```javascript
+// client/src/services/AsyncJobService.js
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '@/firebase/config'
+import { useNotificationStore } from '@/stores/notifications'
+
+export class AsyncJobService {
+  static async startPlanGeneration(planData) {
+    const response = await fetch('/api/plans/generate-async', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planData)
+    })
+    
+    const result = await response.json()
+    
+    if (result.job_id) {
+      this.watchJob(result.job_id)
+    }
+    
+    return result
+  }
+  
+  static watchJob(jobId) {
+    const notifications = useNotificationStore()
+    
+    const unsubscribe = onSnapshot(
+      doc(db, 'jobs', jobId),
+      (doc) => {
+        const job = doc.data()
+        
+        switch (job.status) {
+          case 'processing':
+            notifications.show('プラン生成中...', 'info')
+            break
+          case 'completed':
+            notifications.show('プラン生成完了！', 'success')
+            // 結果画面に遷移
+            this.$router.push(`/plan/${job.result.id}`)
+            unsubscribe()
+            break
+          case 'failed':
+            notifications.show('プラン生成に失敗しました', 'error')
+            unsubscribe()
+            break
+        }
+      },
+      (error) => {
+        console.error('Job watcher error:', error)
+        notifications.show('通信エラーが発生しました', 'error')
+      }
+    )
+  }
+}
+```
+
+#### 実装メリット
+
+**簡潔性**: 
+- Pub/Subでジョブキュー管理が不要
+- Firestoreで永続化とリアルタイム更新を同時に実現
+- Cloud Functionsで処理ロジックを分離
+
+**信頼性**:
+- マネージドサービスによる高可用性
+- 自動リトライとエラーハンドリング
+- At-least-once配信保証
+
+**スケーラビリティ**:
+- 処理負荷に応じた自動スケーリング
+- 複数ジョブの並列処理
+- 将来機能の追加が容易
+
+### フェーズ1: ジョブキュー + ポーリング（代替案）
 初期実装として最もリスクが低く、効果が高いアプローチ1を推奨します。
 
 #### バックエンド実装

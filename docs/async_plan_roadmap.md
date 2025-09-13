@@ -3,47 +3,54 @@
 ## プロジェクト概要
 
 **目標**: 旅行プラン生成を非同期化し、UXを大幅改善  
-**期間**: 4週間（Phase 1-3）  
-**工数**: 約20人日  
+**期間**: 3週間（Phase 1-3）  
+**工数**: 約15人日  
 **リリース**: 段階的デプロイメント  
 
-## Phase 1: 基本非同期機能 (Week 1-2)
+**重要更新**: NAKAHARA-Yukiさんの提案によりGoogle Cloud Pub/Sub + Firestoreアプローチを採用。既存インフラ活用により実装期間とコストを削減。
+
+## Phase 1: Pub/Sub + Firestoreベース実装 (Week 1-2)
 
 ### 🎯 目標
-現在の同期処理を非同期に変更し、基本的なUX改善を実現
+Google Cloud Pub/Subを使った信頼性の高い非同期システム構築
 
 ### 📋 実装タスク
 
-#### Week 1: バックエンド基盤
-- [ ] **Day 1-2**: JobManager クラス実装
-  - ジョブ作成・管理機能
-  - スレッドプール実装
-  - 基本ステータス管理
+#### Week 1: バックエンドPub/Sub基盤
+- [ ] **Day 1**: Google Cloud Pub/Sub設定
+  - トピック/サブスクリプション作成
+  - 認証・権限設定
+  - requirements.txtにgoogle-cloud-pubsub追加
   
-- [ ] **Day 3-4**: 非同期APIエンドポイント
+- [ ] **Day 2-3**: PubSubJobProcessor実装
+  - Firestoreジョブ管理
+  - Pub/Subメッセージ送信
+  - エラーハンドリング
+  
+- [ ] **Day 4**: 非同期APIエンドポイント
   - `POST /api/plans/generate-async` 実装
-  - `GET /api/jobs/{job_id}/status` 実装
-  - エラーハンドリング追加
+  - `GET /api/jobs/{job_id}/status` 実装（必要に応じて）
   
-- [ ] **Day 5**: バックグラウンド処理
-  - AI呼び出しの非同期化
-  - プログレス更新機能
+- [ ] **Day 5**: Cloud Functionまたはサブスクライバー実装
+  - travel-job-processor作成
+  - AI呼び出し処理
+  - Firestore結果更新
 
-#### Week 2: フロントエンド実装  
-- [ ] **Day 1-2**: ポーリングサービス実装
-  - JobPollingService クラス
-  - 自動リトライ機能
-  - タイムアウト制御
+#### Week 2: フロントエンドFirestoreリスナー実装  
+- [ ] **Day 1-2**: AsyncJobService実装
+  - Firestoreリアルタイムリスナー
+  - 自動ジョブ監視
+  - エラー処理
   
-- [ ] **Day 3**: 通知システム
-  - NotificationStore 実装
-  - Toast通知の拡張
-  - 成功/エラー通知
+- [ ] **Day 3**: 通知システム統合
+  - 既存Toast通知の活用
+  - ジョブステータス通知
+  - 成功時の画面遷移
   
-- [ ] **Day 4-5**: UI更新
+- [ ] **Day 4-5**: UI更新とテスト
   - TravelPlanWizardView 非同期対応
-  - ホーム画面遷移
-  - 基本テスト実装
+  - E2Eテスト実装
+  - パフォーマンステスト
 
 ### 📊 成功指標
 - [x] プラン生成開始応答時間 < 500ms
