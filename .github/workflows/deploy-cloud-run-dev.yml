@@ -117,9 +117,9 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: ${{ secrets.CLOUD_RUN_REGION }}
-      SERVICE: travel-quiz-app-dev
+      SERVICE: izatabi-app-dev
       REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
-      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app-dev:${{ github.sha }}
+      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/izatabi-app-dev:${{ github.sha }}
       APP_ENV: development
     steps:
       - name: Checkout
