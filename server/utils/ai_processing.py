@@ -6,7 +6,8 @@ import requests
 import logging
 from time import sleep
 from typing import Optional, Dict, Any, Tuple, List
-from .data_processing import normalize_places_list, normalize_route_info
+from time import monotonic
+from .data_processing import normalize_places_list, normalize_route_info, snip_json, snip_text
 
 logger = logging.getLogger(__name__)
 
@@ -352,3 +353,117 @@ def extract_trailing_json(s: str) -> Tuple[str, Optional[List], Optional[Dict], 
             pass
 
     return stripped, None, None, None
+
+
+def call_adk_agent_chat(
+    app_name: str,
+    user_id: str,
+    session_id: str,
+    message_text: str,
+    timeout_sec: int = 60,
+    base_url: Optional[str] = None,
+    ensure_session: bool = True,
+    prefix: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """ADK api_server に従った呼び出し手順でチャット実行。
+    1) /apps/{app_name}/users/{user_id}/sessions/{session_id} に空ボディPOSTでセッション作成（任意/冪等）
+    2) /run に { app_name, user_id, session_id, new_message } をPOST
+    戻り値: events配列（最終応答はevents内のmodelメッセージ）
+
+    環境変数:
+    - AGENT_BASE_URL: エージェントAPIベースURL（base_url未指定時に使用）
+    - AGENT_API_KEY: 認可ヘッダ付与に使用（任意）
+    - CLOUD_LOG_FULL_PAYLOAD: '1' のとき応答ログをフルに出力
+    """
+    AGENT_BASE_URL = base_url or os.getenv("AGENT_BASE_URL")
+    AGENT_API_KEY = os.getenv("AGENT_API_KEY")
+    if not AGENT_BASE_URL:
+        raise Exception("Agent base URL is not configured.")
+
+    headers = { 'Content-Type': 'application/json' }
+    if AGENT_API_KEY:
+        headers['Authorization'] = f"Bearer {AGENT_API_KEY}"
+
+    bridge_logger = logging.getLogger("agent_bridge")
+    LOG_PAYLOADS = True
+    FULL_PAYLOAD = (os.getenv('CLOUD_LOG_FULL_PAYLOAD') == '1')
+
+    base = AGENT_BASE_URL.rstrip('/')
+
+    # 2) セッション作成（初回のみ／冪等）
+    if ensure_session:
+        def _create_session():
+            sess_url = f"{base}/apps/{app_name}/users/{user_id}/sessions/{session_id}"
+            bridge_logger.info(f"Create session: POST {sess_url}")
+            r = requests.post(sess_url, headers=headers, json={}, timeout=timeout_sec)
+            text_snip = (r.text[:300] + '…') if (getattr(r, 'text', None) and len(r.text) > 300) else (r.text or '')
+            already_exists = (r.status_code == 400 and isinstance(r.text, str) and 'session already exists' in r.text.lower())
+            if 200 <= r.status_code < 300 or r.status_code == 409 or already_exists:
+                if already_exists:
+                    bridge_logger.info(f"Create session OK (already exists): {r.status_code} body={text_snip}")
+                else:
+                    bridge_logger.info(f"Create session OK: {r.status_code}")
+                return r
+            else:
+                bridge_logger.error(f"Create session unexpected status: {r.status_code} body={text_snip}")
+                r.raise_for_status()
+            return r
+        retry_on_503(_create_session)
+    else:
+        bridge_logger.info("Skip create session (already initialized on server side)")
+
+    # 3) 実行
+    def _run_agent():
+        run_url = f"{base}/run"
+        # 応答スキーマの前置き注記（上書き可能）。None の場合はデフォルトスキーマ、"" なら前置きなし
+        default_prefix = ""
+        prefix_to_use = default_prefix if prefix is None else prefix
+        payload = {
+            "app_name": app_name,
+            "user_id": user_id,
+            "session_id": session_id,
+            "new_message": { "role": "user", "parts": [{"text": (prefix_to_use + message_text) if prefix_to_use else message_text}] }
+        }
+        bridge_logger.info(f"Run agent: POST {run_url} app={app_name} user={user_id} session={session_id} msg_len={len(message_text)}")
+        if LOG_PAYLOADS:
+            try:
+                bridge_logger.info(f"Run payload: {snip_json(payload)}")
+            except Exception:
+                pass
+        r2 = requests.post(run_url, headers=headers, json=payload, timeout=timeout_sec)
+        r2.raise_for_status()
+        return r2
+
+    t0 = monotonic()
+    try:
+        r2 = retry_on_503(_run_agent)
+    except requests.RequestException as e:
+        dt = (monotonic() - t0) * 1000
+        status = getattr(getattr(e, 'response', None), 'status_code', 'n/a')
+        body = None
+        try:
+            body = e.response.text if getattr(e, 'response', None) is not None else None
+        except Exception:
+            body = None
+        body_snip = (body[:500] + '…') if body and len(body) > 500 else (body or '')
+        bridge_logger.error(f"Run agent failed: status={status} {int(dt)}ms body={body_snip}")
+        raise
+
+    # 成功時の処理
+    dt = (monotonic() - t0) * 1000
+    j = r2.json()
+    bridge_logger.info(f"Run agent OK: {r2.status_code} {int(dt)}ms events={len(j) if isinstance(j, list) else 'n/a'}")
+    bridge_logger.debug(f"Raw agent response: {snip_json(j)}")
+    if LOG_PAYLOADS:
+        try:
+            if FULL_PAYLOAD:
+                bridge_logger.info(f"Run response(full): {snip_json(j)}")
+            else:
+                bridge_logger.info(f"Run response: {snip_text(snip_json(j), 1200)}")
+        except Exception:
+            pass
+    # 期待形式は events のリスト
+    if not isinstance(j, list):
+        # 互換: v1/chat など別APIの戻りを透過してしまった場合
+        raise RuntimeError("Unexpected agent response shape (expected list of events)")
+    return j

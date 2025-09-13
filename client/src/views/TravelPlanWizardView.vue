@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { agentChat } from '@/services/apiClient'
 import InputScreen from '@/components/InputScreen.vue'
 import LoadingScreen from '@/components/LoadingScreen.vue'
 import SuggestionScreen from '@/components/SuggestionScreen.vue'
@@ -26,40 +25,28 @@ async function handleCreatePlan(keyword) {
   
   currentView.value = 'loading'
   try {
-    // 簡易セッション: wizard 用にランダム ID
-    const sessionId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
-    const resp = await agentChat({ message: keyword, user_id: auth.user?.id || 'u_local', session_id: sessionId, authHeader: auth.authHeader() })
-    // suggestions -> travelPlans
-    let mapped = []
-    if (Array.isArray(resp.plans) && resp.plans.length) {
-      mapped = resp.plans.slice(0,3).map((p,i)=>({
-        id: i+1,
-        title: p.title || `プラン ${i+1}`,
-        tags: (p.tags||[]).map(t=>`#${t}`).join(' '),
-        brief: p.brief || '',
-        itinerary: p.itinerary || [],
-        places: p.places || [],
-        route_info: p.route_info || null,
-        text: p.text || '',
-        __raw: p,
-        __full: resp
-      }))
-    } else {
-      const sugg = Array.isArray(resp.suggestions) ? resp.suggestions : []
-      mapped = sugg.slice(0,3).map((s,i)=>({
-        id: i+1,
-        title: s.title || `プラン ${i+1}`,
-        tags: (s.tags||[]).map(t=>`#${t}`).join(' '),
-        brief: s.brief || '',
-        itinerary: (resp.itinerary||[]),
-        __raw: s,
-        __full: resp
-      }))
-      if (!mapped.length) {
-        mapped.push({ id:1, title: resp.summary || '旅行プラン', tags: '', brief: '', itinerary: resp.itinerary||[], __full: resp })
-      }
-    }
-    travelPlans.value = mapped
+    // /api/generate_plan を使用
+    const resp = await fetch('/api/agent/generate_plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: String(keyword)})
+    })
+    if (!resp.ok) throw new Error('Failed to generate plans')
+    const data = await resp.json()
+    const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
+    const mapped = plans.map((p, i) => ({
+      id: i+1,
+      title: p.title || `プラン ${i+1}`,
+      tags: '',
+      brief: p.description || '',
+      itinerary: [],
+      places: [],
+      route_info: null,
+      text: p.description || '',
+      __raw: p,
+      __full: data
+    }))
+    travelPlans.value = mapped.length ? mapped : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
     console.error('wizard agent error', e)
@@ -123,40 +110,27 @@ function handleRegenerate(keyword) {
 
 async function handleCreatePlanForRegeneration(keyword) {
   try {
-    // 簡易セッション: wizard 用にランダム ID
-    const sessionId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
-    const resp = await agentChat({ message: keyword, user_id: auth.user?.id || 'u_local', session_id: sessionId, authHeader: auth.authHeader() })
-    // suggestions -> travelPlans
-    let mapped = []
-    if (Array.isArray(resp.plans) && resp.plans.length) {
-      mapped = resp.plans.slice(0,3).map((p,i)=>({
-        id: i+1,
-        title: p.title || `プラン ${i+1}`,
-        tags: (p.tags||[]).map(t=>`#${t}`).join(' '),
-        brief: p.brief || '',
-        itinerary: p.itinerary || [],
-        places: p.places || [],
-        route_info: p.route_info || null,
-        text: p.text || '',
-        __raw: p,
-        __full: resp
-      }))
-    } else {
-      const sugg = Array.isArray(resp.suggestions) ? resp.suggestions : []
-      mapped = sugg.slice(0,3).map((s,i)=>({
-        id: i+1,
-        title: s.title || `プラン ${i+1}`,
-        tags: (s.tags||[]).map(t=>`#${t}`).join(' '),
-        brief: s.brief || '',
-        itinerary: (resp.itinerary||[]),
-        __raw: s,
-        __full: resp
-      }))
-      if (!mapped.length) {
-        mapped.push({ id:1, title: resp.summary || '旅行プラン', tags: '', brief: '', itinerary: resp.itinerary||[], __full: resp })
-      }
-    }
-    travelPlans.value = mapped
+    const resp = await fetch('/api/agent/generate_plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ travel_type: String(keyword), description: String(keyword) })
+    })
+    if (!resp.ok) throw new Error('Failed to regenerate plans')
+    const data = await resp.json()
+    const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
+    const mapped = plans.map((p, i) => ({
+      id: i+1,
+      title: p.title || `プラン ${i+1}`,
+      tags: '',
+      brief: p.description || '',
+      itinerary: [],
+      places: [],
+      route_info: null,
+      text: p.description || '',
+      __raw: p,
+      __full: data
+    }))
+    travelPlans.value = mapped.length ? mapped : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
     console.error('wizard regenerate error', e)

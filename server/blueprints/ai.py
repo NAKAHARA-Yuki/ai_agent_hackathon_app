@@ -4,13 +4,15 @@ import os
 import logging
 import random
 import time
+import re
 import requests
 from time import monotonic
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 
 from utils.ai_processing import (
-    call_gemini_api, genai_configured, extract_trailing_json, 
-    extract_json_passthrough, retry_on_503, increment_agent_json_ok, increment_agent_json_fail
+    call_gemini_api, genai_configured, extract_trailing_json,
+    extract_json_passthrough, retry_on_503, increment_agent_json_ok, increment_agent_json_fail,
+    call_adk_agent_chat
 )
 from utils.auth import claims_or_dev
 from utils.data_processing import snip_json, snip_text, normalize_places_list, normalize_route_info
@@ -178,177 +180,6 @@ def agent_chat():
                     'reply': 'AIサービスでエラーが発生しました。しばらく待ってから再試行してください。'
                 }), 500
         
-        # Call agent service
-        try:
-            headers = {"Content-Type": "application/json"}
-            if AGENT_API_KEY:
-                headers["Authorization"] = f"Bearer {AGENT_API_KEY}"
-            
-            payload = {
-                "message": message,
-                "user_id": req_user_id,
-                "session_id": req_session_id
-            }
-            
-            if LOG_PAYLOADS:
-                logger.info(f"agent_chat request: {snip_json(payload)} trace={tid}")
-            
-            def _make_agent_request():
-                url = f"{AGENT_BASE_URL}/v1/chat"
-                resp = requests.post(url, json=payload, headers=headers, timeout=AGENT_HTTP_TIMEOUT)
-                resp.raise_for_status()
-                return resp.json()
-            
-            response_data = retry_on_503(_make_agent_request)
-            
-        except requests.exceptions.RequestException as e:
-            status_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
-            if status_code == 404:
-                return jsonify({
-                    'reply': 'エージェントサービスが見つかりません。管理者に連絡してください。',
-                    'places': None,
-                    'citations': [],
-                    'grounding_html': None,
-                    'route_info': None,
-                    'error': 'agent_not_found'
-                }), 502
-            elif status_code in (503, 502, 504):
-                return jsonify({
-                    'reply': 'エージェントサービスが一時的に利用できません。しばらく待ってから再試行してください。',
-                    'places': None,
-                    'citations': [],
-                    'grounding_html': None,
-                    'route_info': None,
-                    'error': 'agent_unavailable'
-                }), 502
-            else:
-                logger.exception(f"Agent request failed: status={status_code}")
-                return jsonify({
-                    'reply': 'エージェントサービスでエラーが発生しました。時間をおいて再試行してください。',
-                    'places': None,
-                    'citations': [],
-                    'grounding_html': None,
-                    'route_info': None,
-                    'error': 'agent_error'
-                }), 502
-        except Exception as e:
-            logger.exception("Agent call error")
-            return jsonify({
-                'reply': 'システムエラーが発生しました。時間をおいて再試行してください。',
-                'places': None,
-                'citations': [],
-                'grounding_html': None,
-                'route_info': None,
-                'error': 'system_error'
-            }), 500
-        
-        # Process agent response
-        reply_text = response_data.get('reply', '')
-        places = response_data.get('places', [])
-        route_info = response_data.get('route_info')
-        raw_reply_text = reply_text
-        citations = []
-        grounding_html = None
-        
-        # Process grounding metadata if present
-        events = response_data.get('events', [])
-        if isinstance(events, list):
-            for event in events:
-                if not isinstance(event, dict):
-                    continue
-                meta_norm = normalize_grounding_meta(event)
-                grounding_chunks = meta_norm.get('grounding_chunks') or []
-                grounding_supports = meta_norm.get('grounding_supports') or []
-                
-                # Build citation map
-                citation_map = {}
-                for chunk in grounding_chunks:
-                    if not isinstance(chunk, dict):
-                        continue
-                    chunk_id = chunk.get('chunk_id')
-                    title = chunk.get('title')
-                    uri = chunk.get('uri')
-                    if chunk_id and title:
-                        citation_map[len(citation_map) + 1] = {"title": title, "uri": uri}
-                
-                # Process citations in reply text
-                if citation_map and isinstance(reply_text, str):
-                    # Process inline citations
-                    citations = []
-                    for i, c in citation_map.items():
-                        original_uri = c.get('uri') if isinstance(c, dict) else None
-                        title = c.get('title') if isinstance(c, dict) else None
-                        if original_uri and "vertexaisearch.cloud.google.com/grounding-api-redirect/" in original_uri:
-                            if title:
-                                citations.append({"index": i, "title": title, "uri": f"https://www.google.com/search?q={requests.utils.quote(title)}"})
-                            else:
-                                citations.append({"index": i, "title": title, "uri": original_uri})
-                        else:
-                            citations.append({"index": i, "title": title, "uri": original_uri})
-                
-                # Generate grounding HTML
-                sep = meta_norm.get('search_entry_point') or {}
-                rendered = sep.get('rendered_content') if isinstance(sep, dict) else None
-                queries = sep.get('web_search_queries') if isinstance(sep, dict) else None
-                if rendered:
-                    grounding_html = rendered
-                elif queries:
-                    chips_html = []
-                    for query in queries:
-                        encoded_query = requests.utils.quote(str(query))
-                        chips_html.append(f'<a href="https://www.google.com/search?q={encoded_query}" target="_blank" rel="noopener" style="display:inline-block; border:solid 1px; border-radius:16px; min-width:14px; padding:5px 16px; text-align:center; margin: 0 8px;">{query}</a>')
-                    grounding_html = f'<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">{" ".join(chips_html)}</div>'
-        
-        # Try JSON passthrough extraction first
-        if isinstance(reply_text, str) and reply_text.strip():
-            passthrough = extract_json_passthrough(reply_text)
-            if passthrough is not None:
-                if LOG_PAYLOADS:
-                    logger.info("agent_reply_passthrough_json: returning raw JSON object")
-                return jsonify(passthrough)
-            
-            # Fallback to simplified extraction
-            prefix_text, p_h, r_h, t_h = extract_trailing_json(reply_text)
-            reply_text = (t_h if isinstance(t_h, str) and t_h.strip() else prefix_text)
-            if p_h is not None:
-                places = p_h
-            if r_h is not None:
-                route_info = r_h
-            json_found = (p_h is not None) or (r_h is not None) or (isinstance(t_h, str) and t_h.strip())
-            if not json_found:
-                increment_agent_json_fail()
-                snippet = (raw_reply_text or '')
-                if isinstance(snippet, str):
-                    snippet = snippet.strip().replace('\n', ' ')[:200]
-                logger.warning(f"agent_output_not_json: no JSON detected in agent reply snippet='{snippet}'")
-                return jsonify({
-                    'reply': '内部AIの応答形式が不正でした。もう一度、要件を短く伝えてください。',
-                    'places': None,
-                    'citations': [],
-                    'grounding_html': None,
-                    'route_info': None,
-                    'error': 'agent_output_not_json',
-                    'raw_reply': raw_reply_text
-                }), 502
-            
-            increment_agent_json_ok()
-        
-        # Log completion
-        has_route = bool(route_info and isinstance(route_info, dict) and route_info.get('origin') and route_info.get('destination'))
-        logger.info(f"/api/agent/chat done user={req_user_id} session={req_session_id} reply_len={len(reply_text or '')} places={len(places or [])} citations={len(citations)} route={'1' if has_route else '0'} trace={tid}")
-        
-        if not is_session_initialized(req_user_id, req_session_id):
-            mark_session_initialized(req_user_id, req_session_id)
-        
-        # Build response
-        resp = {
-            'reply': reply_text or '提案を作成しました。',
-            'route_info': route_info,
-            'places': places,
-            'citations': citations,
-            'grounding_html': grounding_html
-        }
-        
         # Attach structured agent output if available
         try:
             struct = getattr(g, 'agent_struct', None)
@@ -469,3 +300,103 @@ def generate_plan():
     except Exception as e:
         logger.exception("An error occurred during plan generation")
         return jsonify({"error": "Failed to generate travel plans with AI", "details": str(e)}), 500
+
+
+@ai_bp.post('/api/agent/generate_plan')
+def agent_generate_plan():
+    """Generate 3 travel plan options via ADK agent chat using Firestore persona + UI keyword."""
+    try:
+        claims = claims_or_dev()
+        if not claims:
+            return jsonify({"error": "auth_required"}), 401
+
+        body = request.get_json(silent=True) or {}
+        # UIからのキーワード（任意）
+        keyword = (body.get('keyword') or body.get('travel_type') or '').strip()
+
+        # Firestore の診断結果（persona）を優先
+        travel_type = ''
+        description = ''
+        try:
+            db = getattr(current_app, 'db', None)
+            user_id = claims['sub']
+            if db is not None:
+                uref = db.collection('users').document(user_id)
+                udoc = uref.get(timeout=5)
+                last_pid = None
+                if udoc and getattr(udoc, 'exists', False):
+                    udata = udoc.to_dict() or {}
+                    last_pid = udata.get('last_persona_id')
+                pref = uref.collection('personas')
+                pdoc = pref.document(last_pid).get(timeout=5) if last_pid else None
+                # Fallback: 最初のペルソナ
+                if not pdoc or not getattr(pdoc, 'exists', False):
+                    try:
+                        for _d in pref.stream():
+                            pdoc = _d
+                            break
+                    except Exception:
+                        pdoc = None
+                if pdoc and getattr(pdoc, 'exists', False):
+                    pdata = pdoc.to_dict() or {}
+                    prof = pdata.get('profile') or {}
+                    travel_type = str(prof.get('title') or '').strip()
+                    description = str(prof.get('description') or '').strip()
+        except Exception:
+            logger.exception('failed to load persona from firestore; falling back to request body')
+
+        # 最終フォールバック: リクエストの値
+        if not travel_type:
+            travel_type = (body.get('travel_type') or '').strip()
+        if not description:
+            description = (body.get('description') or '').strip()
+        session_id = (body.get('session_id') or 'plan-wizard').strip() or 'plan-wizard'
+
+        if not travel_type or not description:
+            return jsonify({"error": "missing_parameters", "message": "診断結果（title/description）が見つかりません"}), 400
+
+        # Agent path via ADK chat（travel_planner に明示委譲する前置き）
+        user_id = claims['sub']
+        prefix_lines = [
+            "travel_planner", 
+            "診断結果",
+            f"旅行タイプ: {travel_type}",
+            f"説明: {description}",
+        ]
+        if keyword:
+            prefix_lines.append(f"キーワード: {keyword}")
+        prefix_text = "\n".join(prefix_lines) + "\n"
+
+        # 本文は短く補足のみ（実処理はプレフィックスの診断結果を使用）
+        message = f"（キーワード: {keyword}）" if keyword else ""
+
+        if LOG_PAYLOADS:
+            logger.info(f"agent_generate_plan request user={user_id} session={session_id} type='{travel_type}' len(desc)={len(description)}")
+        events = call_adk_agent_chat(
+            app_name='root_coordinator',
+            user_id=user_id,
+            session_id=session_id,
+            message_text=message,
+            timeout_sec=AGENT_HTTP_TIMEOUT,
+            base_url=AGENT_BASE_URL,
+            ensure_session=True,
+            prefix=prefix_text,
+        )
+
+        # Join final model parts into text
+        text = ''
+        if isinstance(events, list) and events:
+            final = events[-1] or {}
+            content = final.get('content') or {}
+            if content.get('role') == 'model':
+                text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+
+        # Try passthrough fenced JSON
+        if text:
+            return jsonify(extract_json_passthrough(text))
+        else:
+            return jsonify({"error": "agent_output_not_json"},{"request":prefix_text},{"response": events}), 502
+
+    except Exception:
+        logger.exception("agent_generate_plan error")
+        return jsonify({"error": "internal_error"}), 500
