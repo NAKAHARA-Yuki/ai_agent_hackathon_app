@@ -378,16 +378,19 @@ export const useQuizStore = defineStore('quiz', () => {
       processingStage.value = 'parallel'
       isSavingProfile.value = true
       
-      const results = await Promise.allSettled([
+      const [
+        generateAIPlansResult,
+        savePersonaProfileResult,
+        saveUserHobbiesResult
+      ] = await Promise.allSettled([
         (async () => { await generateAIPlans() })(),
         (async () => { try { await savePersonaProfile() } finally { isSavingProfile.value = false } })(),
         (async () => { try { await saveUserHobbies() } catch(_) {} })()
       ])
       
       // Check if persona saving failed
-      const personaResult = results[1]
-      if (personaResult.status === 'rejected') {
-        console.warn('Persona saving failed, but continuing with quiz completion:', personaResult.reason)
+      if (savePersonaProfileResult.status === 'rejected') {
+        console.warn('Persona saving failed, but continuing with quiz completion:', savePersonaProfileResult.reason)
         // Note: We don't throw here to allow the user to see results even if saving failed
       }
 

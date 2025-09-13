@@ -244,7 +244,7 @@ onMounted(async () => {
           <h3>最新の診断</h3>
           <div v-if="latestPersona?.profile">
             <p class="muted">タイプ: {{ latestPersona.profile.title || '不明' }}</p>
-            <p>{{ latestPersona.profile.description || '診断結果の詳細情報を読み込み中です。' }}</p>
+            <p>{{ latestPersona.profile.description || '詳細情報が利用できません。' }}</p>
           </div>
           <div v-else class="muted">
             <p>診断結果がまだありません。</p>
