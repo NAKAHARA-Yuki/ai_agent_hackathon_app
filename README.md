@@ -9,6 +9,7 @@ AIを活用した旅行診断・プランニングアプリケーションです
 - **AIペルソナ生成**: 診断結果に基づいた専用AIアシスタントの作成
 - **インタラクティブ旅行プランニング**: AIとのチャット形式での旅行計画作成
 - **マップ統合**: Google Maps連携による視覚的な旅行ルート表示
+- **輸送情報表示**: 移動手段のアイコン・ラベル・所要時間・距離の詳細表示
 - **マルチプラン提案**: 複数の旅行プランの比較・選択機能
 
 ## 🏗️ システム構成
@@ -16,21 +17,27 @@ AIを活用した旅行診断・プランニングアプリケーションです
 ### アーキテクチャ概要
 
 ```
-Frontend (Vue.js) ──→ Backend (Flask) ──→ AI Agent (ADK)
+Frontend (Vue.js) ──→ Backend (Flask) ──→ ADK Agent Service ──→ Gemini API
+       │                    │                    │                    │
+       │                    │                    ├──→ Maps MCP ───────┴──→ Maps API
+       │                    │                    │    Server
        │                    │                    │
-       │                    │                    └──→ Gemini API
-       │                    │
-       │                    └──→ Firestore Database
-       │
-       └──→ Google Maps JavaScript API
+       │                    └──→ Firestore ──────┼──→ Google Cloud
+       │                         Database       │
+       │                                        │
+       └──→ Google Maps ───────────────────────┘
+           JavaScript API
 ```
 
 ### 各コンポーネント
 
 - **Frontend** (`client/`): Vue.js + Vite による SPA
 - **Backend** (`server/`): Python Flask API サーバー
-- **AI Agent** (`agent/`): ADK (Agent Development Kit) ベースの AI エージェント
-- **MCP Service** (`mcp/`): Google Maps Platform Code Assist MCP サーバー
+- **ADK Agent Service** (`agent/`): Google ADK ベースのマルチエージェントシステム
+  - Root Coordinator Agent（リクエスト振り分け）
+  - Travel Planner Agent（新規プラン作成）
+  - Travel Advisor Agent（当日サポート）
+- **MCP Service** (`mcp/`): MCP (Model Context Protocol) サーバー（Google Maps機能提供）
 - **Database**: Google Firestore
 - **Deployment**: Google Cloud Run + Docker
 
@@ -81,15 +88,17 @@ ai_agent_hackathon_app/
 │   ├── conftest.py       # pytestフィクスチャ定義
 │   ├── tests/            # テストスイート
 │   └── .env              # 環境変数（要作成）
-├── agent/                # AI エージェントサービス
+├── agent/                # ADK マルチエージェントサービス
 │   ├── agents/
-│   │   └── travel_planner/
-│   │       ├── __init__.py
-│   │       └── agent.py  # メインADKエージェント実装
-│   ├── tools/            # エージェント用ツール
-│   ├── requirements.txt  # Python ADK依存関係
+│   │   └── root_coordinator/
+│   │       ├── agent.py     # ルートコーディネーター（リクエスト振り分け）
+│   │       ├── travel_planner/
+│   │       │   └── agent.py # 旅行プランナーエージェント（新規作成）
+│   │       └── travel_advisor/
+│   │           └── agent.py # 旅行アドバイザーエージェント（当日サポート）
+│   ├── requirements.txt  # ADK依存関係
 │   └── Dockerfile        # エージェント用Docker設定
-├── mcp/                  # Maps Code Assist MCP サーバー
+├── mcp/                  # Google Maps MCP サーバー
 │   └── Dockerfile        # MCP用Docker設定
 ├── shared/               # 共有ユーティリティ
 │   ├── contracts/        # 型定義・インターフェース
@@ -154,7 +163,7 @@ ai_agent_hackathon_app/
 
 **agents/travel_planner/agent.py** - ADK（Agent Development Kit）ベースの旅行計画AI
 - Gemini 2.5 Flashモデルを使用
-- Google Search、Maps Platform Code Assistツール統合
+- Google Search、Google Maps MCP ツール統合
 - インテリジェントな旅行プラン生成
 
 #### 共有モジュール（shared/）
@@ -314,16 +323,140 @@ def retry_on_503(func, max_retries=3)
 - `BackButton.vue` - 共通戻るボタン
 - `DetailScreen.vue`、`InputScreen.vue`、`SuggestionScreen.vue` - 各種画面コンポーネント
 
-### AIエージェント機能（agent/agents/travel_planner/agent.py）
+### AIエージェント機能（ADK統合）
 
-```python
-# ADKベースの旅行計画エージェント
-# - Gemini 2.5 Flash モデル統合
-# - Google Search ツール
-# - Maps Platform Code Assist ツール
-# - コンテキスト保持チャット
-# - 構造化旅行プラン生成
+#### エージェントアーキテクチャ
+
+本アプリケーションは **Google Agent Development Kit (ADK)** を使用した階層型マルチエージェントシステムを採用しています：
+
 ```
+Root Coordinator Agent (ルートコーディネーター)
+├── Travel Planner Agent (旅行プランナー)
+│   └── 新規旅行プラン作成・3案提案・JSON構造化出力
+└── Travel Advisor Agent (旅行アドバイザー)
+    └── 当日サポート・既存プラン調整・リアルタイム対応
+```
+
+#### エージェント詳細仕様
+
+**1. Root Coordinator Agent** (`agents/root_coordinator/agent.py`)
+- **役割**: ユーザーリクエストの分析・適切なサブエージェントへの振り分け
+- **モデル**: `gemini-2.5-flash-lite`
+- **判断基準**:
+  - 新規旅行プラン作成依頼 → Travel Planner
+  - 既存プラン修正・当日対応 → Travel Advisor
+- **特徴**: サブエージェントの応答をそのまま返す（形式変更なし）
+
+**2. Travel Planner Agent** (`agents/root_coordinator/travel_planner/agent.py`)
+- **役割**: persona/profile情報から3つの完全な旅行プランを生成
+- **モデル**: `gemini-2.5-pro`
+- **出力形式**: 厳密なJSON構造（plans配列、itinerary、places、route_info含む）
+- **ツール統合**: MCP (Model Context Protocol) による Google Maps機能統合
+- **特徴**:
+  - 地理的合理性・季節感・移動時間を考慮
+  - 輸送手段（transport）詳細情報付与
+  - 危険/非現実/閉鎖施設の除外
+
+**3. Travel Advisor Agent** (`agents/root_coordinator/travel_advisor/agent.py`)
+- **役割**: 旅行当日のリアルタイムサポート・既存プラン調整
+- **モデル**: `gemini-2.5-pro`
+- **対応シナリオ**:
+  - 天候変化による代替案提案
+  - 交通遅延時の時間調整
+  - 現在地からの最適ルート案内
+  - 営業時間・混雑状況確認
+  - 緊急時サポート情報
+- **出力形式**: JSON構造（suggestions、updated_schedule、route_info含む）
+
+#### ADK技術統合詳細
+
+**Agent Development Kit (ADK) 基盤**
+```python
+# エージェント定義パターン
+from google.adk.agents import LlmAgent
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+
+agent = LlmAgent(
+    name="agent_name",
+    model="gemini-2.5-pro",
+    description="Agent description",
+    instruction="Detailed instructions...",
+    sub_agents=[...],  # サブエージェント配列
+    tools=[...]        # ツールセット
+)
+```
+
+**MCP (Model Context Protocol) ツール統合**
+- **Google Maps MCP**: 地図データ・経路情報・場所検索（MCP経由）
+- **接続方式**: StdioConnectionParams経由でnpxプロセス起動
+- **API Key管理**: 環境変数`GOOGLE_MAPS_API_KEY`から自動設定
+- **タイムアウト**: 10秒（設定可能）
+
+#### エージェント通信プロトコル
+
+**ADK API Server 呼び出しフロー**
+1. **セッション作成**: `POST /apps/{app_name}/users/{user_id}/sessions/{session_id}`
+2. **エージェント実行**: `POST /run` with payload
+3. **応答処理**: events配列からmodel応答を抽出
+
+**Flask統合エンドポイント** (`server/blueprints/ai.py`)
+```python
+@ai_bp.post('/api/agent/chat')
+def agent_chat():
+    # 1. ユーザー認証確認
+    # 2. エージェントサービス可用性チェック
+    # 3. ADK呼び出し（call_adk_agent_chat）
+    # 4. 構造化データ抽出・正規化
+    # 5. Geminiフォールバック（エージェント不可時）
+```
+
+#### エージェント設定・デプロイメント
+
+**環境変数設定**
+```bash
+# エージェント基本設定
+AGENT_BASE_URL=http://localhost:8080          # ADK API Server URL
+AGENT_API_KEY=optional_bearer_token           # 認証トークン（任意）
+AGENT_HTTP_TIMEOUT=180                        # HTTPタイムアウト（秒）
+
+# AIモデル設定
+GEMINI_API_KEY=your_gemini_api_key           # Gemini API認証
+GEMINI_MODEL=gemini-2.5-pro                 # 使用モデル指定
+
+# MCP設定
+GOOGLE_MAPS_API_KEY=your_maps_api_key        # Maps MCP用
+MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
+```
+
+**Docker Compose設定** (`docker-compose.dev.yml`)
+```yaml
+services:
+  agent-service:
+    build: ./agent
+    ports:
+      - "8082:8080"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+  
+  mcp-service:
+    build: ./mcp
+    ports:
+      - "3000:3000"
+    command: npx @googlemaps/code-assist-mcp --port 3000
+```
+
+#### エージェント品質保証
+
+**JSON応答検証**
+- **カウンター管理**: `app.AGENT_JSON_OK` / `app.AGENT_JSON_FAIL`
+- **構造検証**: plans配列、itinerary形式、places座標
+- **エラーハンドリング**: 503エラー指数バックオフリトライ
+
+**ログ・監視**
+- **トレースID**: リクエスト追跡用ユニークID付与
+- **レスポンス時間**: ミリ秒単位パフォーマンス計測
+- **ペイロードログ**: デバッグ用詳細ログ（設定可能）
 
 ## 🚀 セットアップ・開発環境構築
 
@@ -357,7 +490,8 @@ FLASK_ENV=development
 ENV=development
 
 # エージェント設定
-AGENT_BASE_URL=http://localhost:8080
+AGENT_BASE_URL=http://localhost:8082
+MAPS_MCP_ENDPOINT_URL=http://localhost:3000/tools/retrieve-google-maps-platform-docs
 ```
 
 #### 2. フロントエンド環境変数 (`client/.env.local`)
@@ -409,10 +543,10 @@ cd server
 pip install -r requirements.txt
 python app.py  # http://localhost:8080
 
-# 3. AIエージェント
+# 3. ADKエージェントサービス
 cd agent
 pip install -r requirements.txt
-adk api_server --host 0.0.0.0 --port 8080 ./agents
+adk api_server --host 0.0.0.0 --port 8082 ./agents
 
 # 4. MCP サービス (任意)
 cd mcp
@@ -478,10 +612,15 @@ pytest -v                 # 詳細出力
 - **デプロイ**: Gunicorn 22.0.0
 - **テスト**: pytest 7.4.4
 
-### AI Agent (ADK)
+### ADK Agent Service (Multi-Agent)
 - **フレームワーク**: Google Agent Development Kit (ADK)
-- **AI Model**: Gemini 2.5 Pro
-- **Tools**: Google Search, Maps Platform Code Assist
+- **AI Models**: 
+  - Root Coordinator: Gemini 2.5 Flash Lite (高速ルーティング)
+  - Travel Planner: Gemini 2.5 Pro (高品質プラン生成)
+  - Travel Advisor: Gemini 2.5 Pro (詳細サポート)
+- **Tools**: Google Maps MCP (Model Context Protocol), Google Search
+- **Architecture**: 階層型マルチエージェント（ルートコーディネーター + サブエージェント）
+- **Communication**: ADK API Server プロトコル
 
 ### インフラ
 - **コンテナ**: Docker
@@ -505,6 +644,7 @@ pytest -v                 # 詳細出力
 - **[docs/](docs/)** - 詳細ドキュメント集
 
 ### 詳細ドキュメント (`docs/` ディレクトリ)
+- **[AIエージェント実装](docs/AGENT_IMPLEMENTATION.md)** - ADK統合・マルチエージェントシステム詳細仕様
 - **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書
 - **[保守関連](docs/maintenance/)** - 未使用ファイル整理レポート等
 
@@ -537,8 +677,11 @@ pytest -v                 # 詳細出力
 - `GET /api/persona/latest` - 最新ペルソナ取得
 
 ### 旅行プラン・AI機能
-- `POST /api/agent/chat` - AIエージェントチャット
-- `POST /api/generate_plan` - 旅行プラン生成
+- `POST /api/agent/chat` - **ADKエージェントチャット** (メイン機能)
+  - **リクエスト**: `{ "message": string, "session_id": string }`
+  - **レスポンス**: 構造化JSON（plans, suggestions, itinerary, route_info含む）
+  - **フォールバック**: エージェント不可時Gemini API直接呼び出し
+- `POST /api/generate_plan` - Gemini旅行プラン生成（エージェント補助機能）
 - `GET /api/plans` - プラン一覧
 - `POST /api/plans` - プラン保存
 - `GET /api/plans/:id` - プラン詳細
@@ -622,6 +765,8 @@ GitHub Actions ワークフローにより自動デプロイ：
 ## 📝 更新履歴
 
 ### 最新更新 (2025年9月)
+- ✅ **エージェント実装ドキュメント化**: ADK統合・マルチエージェント詳細仕様書
+- ✅ 輸送情報表示機能の追加（移動手段のアイコン・ラベル・所要時間・距離）
 - ✅ ドキュメント構造の整理・統合
 - ✅ コンポーネント情報の正確性向上
 - ✅ API エンドポイント一覧の完全化
@@ -632,6 +777,6 @@ GitHub Actions ワークフローにより自動デプロイ：
 - ✅ Vue.js 3.4.21 フロントエンド
 - ✅ Flask 3.0.3 バックエンド  
 - ✅ Google ADK エージェント統合
-- ✅ 包括的テストスイート (130+ テストケース)
+- ✅ 包括的テストスイート (163+ テストケース)
 - ✅ Google Cloud Run デプロイメント対応
 
