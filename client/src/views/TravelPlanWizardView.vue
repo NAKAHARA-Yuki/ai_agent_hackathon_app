@@ -19,6 +19,22 @@ const loadingSubtitle = ref('最適なプランを考えています。少しお
 const auth = useAuthStore()
 const lastKeyword = ref('') // Store the last used keyword for regeneration
 
+// 並列実行ユーティリティ（簡易プール）
+async function runWithConcurrency(taskFns, limit = 3) {
+  const total = taskFns.length
+  if (total === 0) return
+  const pool = Math.min(limit, total)
+  let idx = 0
+  const runners = Array.from({ length: pool }, async () => {
+    while (true) {
+      const current = idx++
+      if (current >= total) break
+      await taskFns[current]()
+    }
+  })
+  await Promise.all(runners)
+}
+
 async function handleCreatePlan(keyword) {
   if (!keyword || currentView.value !== 'input') return
   
@@ -26,8 +42,8 @@ async function handleCreatePlan(keyword) {
   lastKeyword.value = keyword
   
   currentView.value = 'loading'
-  loadingTitle.value = 'AIが旅行プランを生成中...'
-  loadingSubtitle.value = '最適なプランを考えています。少しお待ちください。'
+  loadingTitle.value = '旅行プランを作成中...'
+  loadingSubtitle.value = 'AIが最適な旅程を考えています。少しお待ちください。'
   try {
     // /api/generate_plan を使用
     const resp = await fetch('/api/agent/generate_plan', {
@@ -39,37 +55,10 @@ async function handleCreatePlan(keyword) {
     const data = await resp.json()
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
     // 画像生成の進捗表示に切替
-    loadingTitle.value = 'プラン画像を生成中...'
-    loadingSubtitle.value = `0/${plans.length} 件 完了`
-
-    const enriched = []
-    let done = 0
-    for (let i=0; i<plans.length; i++) {
-      const p = plans[i] || {}
-      // 画像生成（失敗しても続行）
-      try {
-        const img = await generatePlanImage({
-          plan: {
-            title: p.title || `プラン ${i+1}`,
-            summary: data?.summary || p.brief || p.description || '',
-            places: Array.isArray(p.places) ? p.places : [],
-            itinerary: Array.isArray(p.itinerary) ? p.itinerary : [],
-            route_info: p?.route_info ?? null
-          },
-          authHeader: auth.authHeader()
-        })
-        p.image_base64 = img?.image_base64 || null
-        p.image_mime_type = img?.image_mime_type || null
-      } catch (e) {
-        // 続行
-        // console.warn('image gen failed', e)
-      } finally {
-        done++
-        loadingSubtitle.value = `${done}/${plans.length} 件 完了`
-      }
-
+    loadingTitle.value = 'プランのイメージ画像を生成中...'
+    const enriched = plans.map((p, i) => {
       const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
-      enriched.push({
+      return {
         id: i+1,
         title: p?.title || `プラン ${i+1}`,
         tags: tagsStr,
@@ -78,12 +67,40 @@ async function handleCreatePlan(keyword) {
         places: Array.isArray(p?.places) ? p.places : [],
         route_info: p?.route_info ?? null,
         text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
-        image_base64: p.image_base64 || null,
-        image_mime_type: p.image_mime_type || null,
+        image_base64: null,
+        image_mime_type: null,
         __raw: p,
         __full: data
-      })
-    }
+      }
+    })
+    let done = 0
+    const total = enriched.length
+    loadingSubtitle.value = total ? `画像生成中... ${done}/${total}` : '画像生成の対象がありません'
+    const taskFns = enriched.map((ep, i) => async () => {
+      try {
+        const source = plans[i] || {}
+        const img = await generatePlanImage({
+          plan: {
+            title: source.title || `プラン ${i+1}`,
+            summary: data?.summary || source.brief || source.description || '',
+            places: Array.isArray(source.places) ? source.places : [],
+            itinerary: Array.isArray(source.itinerary) ? source.itinerary : [],
+            route_info: source?.route_info ?? null
+          },
+          authHeader: auth.authHeader()
+        })
+        if (img && img.image_base64) {
+          ep.image_base64 = img.image_base64
+          ep.image_mime_type = img.image_mime_type || 'image/png'
+        }
+      } catch (e) {
+        // 失敗は許容
+      } finally {
+        done++
+        loadingSubtitle.value = `画像生成中... ${done}/${total}`
+      }
+    })
+    await runWithConcurrency(taskFns, 3)
     travelPlans.value = enriched.length ? enriched : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
@@ -183,35 +200,10 @@ async function handleCreatePlanForRegeneration(keyword) {
     if (!resp.ok) throw new Error('Failed to regenerate plans')
     const data = await resp.json()
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
-    loadingTitle.value = 'プラン画像を生成中...'
-    loadingSubtitle.value = `0/${plans.length} 件 完了`
-
-    const enriched = []
-    let done = 0
-    for (let i=0; i<plans.length; i++) {
-      const p = plans[i] || {}
-      try {
-        const img = await generatePlanImage({
-          plan: {
-            title: p.title || `プラン ${i+1}`,
-            summary: data?.summary || p.brief || p.description || '',
-            places: Array.isArray(p.places) ? p.places : [],
-            itinerary: Array.isArray(p.itinerary) ? p.itinerary : [],
-            route_info: p?.route_info ?? null
-          },
-          authHeader: auth.authHeader()
-        })
-        p.image_base64 = img?.image_base64 || null
-        p.image_mime_type = img?.image_mime_type || null
-      } catch (e) {
-        // 続行
-      } finally {
-        done++
-        loadingSubtitle.value = `${done}/${plans.length} 件 完了`
-      }
-
+    loadingTitle.value = 'プランのイメージ画像を生成中...'
+    const enriched = plans.map((p, i) => {
       const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
-      enriched.push({
+      return {
         id: i+1,
         title: p?.title || `プラン ${i+1}`,
         tags: tagsStr,
@@ -220,12 +212,40 @@ async function handleCreatePlanForRegeneration(keyword) {
         places: Array.isArray(p?.places) ? p.places : [],
         route_info: p?.route_info ?? null,
         text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
-        image_base64: p.image_base64 || null,
-        image_mime_type: p.image_mime_type || null,
+        image_base64: null,
+        image_mime_type: null,
         __raw: p,
         __full: data
-      })
-    }
+      }
+    })
+    let done = 0
+    const total = enriched.length
+    loadingSubtitle.value = total ? `画像生成中... ${done}/${total}` : '画像生成の対象がありません'
+    const taskFns = enriched.map((ep, i) => async () => {
+      try {
+        const source = plans[i] || {}
+        const img = await generatePlanImage({
+          plan: {
+            title: source.title || `プラン ${i+1}`,
+            summary: data?.summary || source.brief || source.description || '',
+            places: Array.isArray(source.places) ? source.places : [],
+            itinerary: Array.isArray(source.itinerary) ? source.itinerary : [],
+            route_info: source?.route_info ?? null
+          },
+          authHeader: auth.authHeader()
+        })
+        if (img && img.image_base64) {
+          ep.image_base64 = img.image_base64
+          ep.image_mime_type = img.image_mime_type || 'image/png'
+        }
+      } catch (e) {
+        // 続行
+      } finally {
+        done++
+        loadingSubtitle.value = `画像生成中... ${done}/${total}`
+      }
+    })
+    await runWithConcurrency(taskFns, 3)
     travelPlans.value = enriched.length ? enriched : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
