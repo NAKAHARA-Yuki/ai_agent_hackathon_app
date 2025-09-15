@@ -107,23 +107,14 @@ async function sendMessage() {
     // 当日モードでは day_advice を優先、それ以外は modify_plan を優先
     let response
     if (isDayMode.value) {
-      try {
-        response = await dayAdvice({
-          plan: currentPlan.value,
-          user_message: userMessage,
-          current_context: {},
-          session_id: sessionId.value,
-          authHeader: auth.authHeader()
-        })
-      } catch (e) {
-        // フォールバック: 通常のエージェントチャット
-        response = await agentChat({
-          message: contextMessage,
-          user_id: auth.user?.id || 'u_local',
-          session_id: sessionId.value,
-          authHeader: auth.authHeader()
-        })
-      }
+      // 当日モード: day_advice のみ使用
+      response = await dayAdvice({
+        plan: currentPlan.value,
+        user_message: userMessage,
+        current_context: {},
+        session_id: sessionId.value,
+        authHeader: auth.authHeader()
+      })
     } else {
       try {
         response = await modifyPlan({

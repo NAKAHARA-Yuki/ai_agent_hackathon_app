@@ -3,7 +3,7 @@ import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { useActivePlanStore } from '@/stores/activePlanStore'
-import { agentChat, dayAdvice } from '@/services/apiClient'
+import { dayAdvice } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -86,25 +86,14 @@ async function sendMessage() {
   loading.value = true
   
   try {
-    // Primary: Use day_advice endpoint with current plan context
-    let response
-    try {
-      response = await dayAdvice({
-        plan: plan.value,
-        user_message: userMessage,
-        current_context: {},
-        session_id: sessionId.value,
-        authHeader: auth.authHeader()
-      })
-    } catch (e) {
-      // Fallback: standard chat if day_advice fails
-      response = await agentChat({
-        message: userMessage,
-        user_id: auth.user?.id || 'u_local',
-        session_id: sessionId.value,
-        authHeader: auth.authHeader()
-      })
-    }
+    // Use day_advice endpoint only
+    const response = await dayAdvice({
+      plan: plan.value,
+      user_message: userMessage,
+      current_context: {},
+      session_id: sessionId.value,
+      authHeader: auth.authHeader()
+    })
 
     // Add AI response
     const aiMsg = {
