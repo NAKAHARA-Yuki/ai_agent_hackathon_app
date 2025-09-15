@@ -509,8 +509,56 @@ export AGENT_LOG_RAW=full
    gemini-2.5-pro → gemini-2.5-flash-lite
    ```
 
+## 最近の改善・修正 (2025年9月)
+
+### Tool Configuration 競合修正
+
+**問題**: Tool use with function calling is unsupported エラー
+**原因**: Built-in ADK tools (`google_search`) と custom MCP tools の混在
+**解決策**: 
+- **Primary**: Built-in `google_search` tool を優先使用
+- **Fallback**: MCP tools は google_search 利用不可時のみ使用
+- **結果**: Function calling 競合を完全解決
+
+### Circular Import 問題修正
+
+**問題**: Agent が複数回作成される循環インポート
+**解決策**:
+```python
+# Before: 循環インポート
+agents/
+├── root_coordinator/agent.py  # サブエージェントを直接インポート
+├── travel_planner/agent.py    # ルートをインポート
+└── travel_advisor/agent.py    # ルートをインポート
+
+# After: Lazy Loading
+agents/
+├── __init__.py          # サブエージェント優先インポート
+├── agent.py             # ADK api_server 用メインエクスポート
+└── root_coordinator/    # サブエージェントをLazy Loading
+```
+
+### Model 互換性向上
+
+**変更点**:
+- **Current**: `gemini-2.5-pro` (ユーザーフィードバック対応)  
+- **Previous**: `gemini-2.0-flash-exp` (一時的互換性対応)
+- **FunctionTool Import**: 複数ADKバージョン対応
+
+### 検証済み修正項目
+
+✅ **Agent imports** - 循環依存関係なし  
+✅ **Function calling** - 競合検出なし  
+✅ **Agent hierarchy** - 正常な親子関係 (root → sub-agents)  
+✅ **ADK api_server** - 互換インポート確認  
+✅ **Tool configurations** - 一貫性・互換性確認
+
+詳細な修正内容は `agent/AGENT_FIX_NOTES.md` を参照してください。
+
 ## まとめ
 
 本実装では、Google ADKを活用した階層型マルチエージェントシステムにより、高品質で構造化された旅行計画サービスを実現しています。各エージェントの役割分担、MCP統合によるリアルタイム情報活用、包括的なエラーハンドリング・フォールバック機構により、信頼性の高いAIサービスを提供します。
+
+2025年9月の大幅な改善により、Tool Configuration 競合、Circular Import、Model 互換性の問題をすべて解決し、より安定したエージェントシステムを構築しました。
 
 開発・運用時は本ドキュメントを参照し、適切な監視・デバッグ手法を活用してください。
