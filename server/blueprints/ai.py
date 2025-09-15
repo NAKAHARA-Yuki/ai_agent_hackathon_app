@@ -223,34 +223,6 @@ def generate_plan():
     if not data or 'travel_type' not in data or 'description' not in data:
         return jsonify({"error": "Missing travel_type or description"}), 400
 
-    # まず Agent サービスが設定されていれば委譲
-    if agent_configured:
-        try:
-            persona = {
-                "title": data['travel_type'],
-                "description": data['description']
-            }
-            # 将来的にユーザープロフィールも付与可
-            agent_result = call_agent_plan(persona=persona)
-            # 期待形式 {"plans": [{title, description} ...]}
-            if isinstance(agent_result, dict) and isinstance(agent_result.get('plans'), list):
-                return jsonify(agent_result)
-            else:
-                logger.warning("Agent response shape unexpected; falling back to Gemini path")
-        except Exception as e:
-            logger.exception("Agent call failed, fallback to Gemini")
-
-    if not genai_configured:
-        logger.warning("Skipping Gemini API call for plan generation due to missing configuration.")
-        # ダミーのプランを返す
-        dummy_plans = {
-            "plans": [
-                {"title": "設定エラー", "description": "APIキーが設定されていないため、AIプランを生成できません。"},
-                {"title": "管理者向け", "description": "server/.env ファイルに有効な GEMINI_API_KEY を設定してください。"}
-            ]
-        }
-        return jsonify(dummy_plans)
-
     try:
         travel_type = data['travel_type']
         description = data['description']
