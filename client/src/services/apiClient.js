@@ -113,6 +113,34 @@ export async function modifyPlan({ plan, change_requests, constraints, context, 
   }
 }
 
+export async function dayAdvice({ plan, user_message, current_context, session_id, authHeader }){
+  if (!useMock) {
+    const payload = { plan, user_message, current_context, session_id }
+    const data = await realFetch('/api/agent/day_advice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(authHeader||{}) },
+      body: JSON.stringify(payload)
+    })
+    if (import.meta.env.DEV) {
+      try { console.log('[dayAdvice response]', data) } catch {}
+    }
+    return data
+  }
+  // Mock: Return simple advice with minor schedule tweak
+  await new Promise(r=>setTimeout(r, 400))
+  const firstPlace = (plan?.places||[])[0]
+  return {
+    response_type: 'advice',
+    message: typeof user_message === 'string' ? user_message.slice(0, 80) : 'アドバイスを表示します',
+    suggestions: firstPlace ? [{
+      type: 'route', title: '最適ルート案', description: `${firstPlace.name} への移動を混雑回避ルートに変更`, priority:'medium', estimated_time: null,
+      location: { name: firstPlace.name, lat: firstPlace.lat||null, lng: firstPlace.lng||null }
+    }] : [],
+    updated_schedule: null,
+    route_info: null
+  }
+}
+
 export async function listPlans(authHeader){
   if (!useMock) {
     try { return await realFetch('/api/plans', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } }) } catch(e){ throw e }

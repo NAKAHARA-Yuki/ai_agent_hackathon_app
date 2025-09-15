@@ -448,3 +448,75 @@ def agent_modify_plan():
     except Exception:
         logger.exception("agent_modify_plan error")
         return jsonify({"error": "internal_error"}), 500
+
+
+@ai_bp.post('/api/agent/day_advice')
+def agent_day_advice():
+    """Provide day-of travel advice via ADK agent (travel_advisor).
+    Expects JSON body with:
+      - plan: object (required)
+      - user_message: string (required)
+      - current_context: object (optional)  # location/time/weather etc.
+      - session_id: string (optional)
+    Returns: strict JSON from agent (single object).
+    """
+    try:
+        claims = claims_or_dev()
+        if not claims:
+            return jsonify({"error": "auth_required"}), 401
+
+        body = request.get_json(silent=True) or {}
+        plan = body.get('plan')
+        user_message = (body.get('user_message') or body.get('message') or '').strip()
+        current_context = body.get('current_context') or body.get('context')
+        session_id = (body.get('session_id') or 'day-advisor').strip() or 'day-advisor'
+
+        if not isinstance(plan, dict):
+            return jsonify({"error": "invalid_parameters", "message": "plan must be an object"}), 400
+        if not user_message:
+            return jsonify({"error": "invalid_parameters", "message": "user_message is required"}), 400
+
+        # Prepare prefix targeted to travel_advisor
+        prefix_lines = [
+            "travel_advisor",
+            "travel_plan:",
+            json.dumps(plan, ensure_ascii=False),
+            "user_message:",
+            user_message,
+        ]
+        if isinstance(current_context, (dict, list)) and current_context:
+            prefix_lines += ["current_context:", json.dumps(current_context, ensure_ascii=False)]
+        prefix_text = "\n".join(prefix_lines) + "\n"
+
+        message = "(当日サポート)"
+
+        user_id = claims['sub']
+        if LOG_PAYLOADS:
+            logger.info(f"agent_day_advice user={user_id} session={session_id} msg_len={len(user_message)}")
+
+        events = call_adk_agent_chat(
+            app_name='root_coordinator',
+            user_id=user_id,
+            session_id=session_id,
+            message_text=message,
+            timeout_sec=AGENT_HTTP_TIMEOUT,
+            base_url=AGENT_BASE_URL,
+            ensure_session=True,
+            prefix=prefix_text,
+        )
+
+        text = ''
+        if isinstance(events, list) and events:
+            final = events[-1] or {}
+            content = final.get('content') or {}
+            if content.get('role') == 'model':
+                text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+
+        if text:
+            return jsonify(extract_json_passthrough(text))
+        else:
+            return jsonify({"error": "agent_output_not_json"},{"request":prefix_text},{"response": events}), 502
+
+    except Exception:
+        logger.exception("agent_day_advice error")
+        return jsonify({"error": "internal_error"}), 500
