@@ -108,7 +108,7 @@ function handleImageError() {
           class="hero-img"
         />
         <div class="hero-overlay">
-          <div class="hero-title-wrap">
+          <div class="hero-text-wrap">
             <h1 class="hero-title">{{ plan.title }}</h1>
           </div>
         </div>
@@ -256,18 +256,17 @@ function handleImageError() {
   line-height: 1.2;
 }
 
-/* Add white gradient background strip behind text for readability */
-.hero-title-wrap{
+/* Semi-transparent dark panel behind hero title for readability */
+.hero-text-wrap{
   display: inline-block;
-  background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6), rgba(255,255,255,0));
-  color: #111827; /* Dark text on white strip */
-  padding: 6px 10px;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(2px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
-.hero-title-wrap .hero-title{
-  color: #111827;
-  text-shadow: none;
+.hero-text-wrap .hero-title{
+  color: #fff;
 }
 
 /* Mobile responsive adjustments for hero image */

@@ -135,8 +135,10 @@ onMounted(fetchPlans)
           </button>
         </div>
         <div class="card-content">
-          <h2 class="title">{{ p.title || '無題プラン' }}</h2>
-          <p class="meta">{{ p.created_at || '' }}</p>
+          <div class="card-text-wrap">
+            <h2 class="title">{{ p.title || '無題プラン' }}</h2>
+            <p class="meta">{{ p.created_at || '' }}</p>
+          </div>
         </div>
         <div v-if="isActivePlan(p.id)" class="active-badge">旅行当日モード</div>
       </div>
@@ -430,12 +432,14 @@ onMounted(fetchPlans)
   transform: scale(1.02);
   transition: transform .6s ease;
 }
-.card-overlay{ position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.06)); mix-blend-mode:multiply; z-index:1; }
+.card-overlay{ position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.1)); mix-blend-mode:multiply; z-index:1; }
 .card:hover{ transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.12); }
 .card:hover::before{ transform: scale(1.06); }
-.card-content{ position:absolute; z-index:2; bottom:12px; left:14px; right:14px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:6px; }
+.card-content{ position:absolute; z-index:2; bottom:12px; left:14px; right:14px; color:#fff; display:flex; flex-direction:column; gap:6px; }
+.card-text-wrap{ background: rgba(0,0,0,0.45); backdrop-filter: blur(2px); padding: 8px 10px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 .card .title{ font-size:16px; font-weight:700; margin:0; letter-spacing:.2px; }
-.card .meta{ font-size:12px; opacity:.9; }
+.card .meta{ font-size:12px; opacity:.9; margin: 2px 0 0; }
+.card-content .title, .card-content .meta { color: #fff !important; }
 .corner-actions{ position:absolute; z-index:3; top:10px; right:10px; display:flex; gap:6px; }
 
 .card:active { transform: translateY(1px); }
