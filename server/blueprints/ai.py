@@ -324,8 +324,8 @@ def agent_generate_plan():
             description = (body.get('description') or '').strip()
         session_id = (body.get('session_id') or 'plan-wizard').strip() or 'plan-wizard'
 
-        # if not travel_type or not description:
-        #     return jsonify({"error": "missing_parameters", "message": "診断結果（title/description）が見つかりません"}), 400
+        if not travel_type or not description:
+            return jsonify({"error": "missing_parameters", "message": "診断結果（title/description）が見つかりません"}), 400
 
         # Agent path via ADK chat（travel_planner に明示委譲する前置き）
         user_id = claims['sub']
