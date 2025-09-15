@@ -261,6 +261,7 @@ function goMain() {
       </div>
       <div class="result-actions">
         <button class="primary" @click="goMain">メインページへ進む</button>
+        <button class="secondary" @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
       </div>
     </div>
     <div v-else>
@@ -270,7 +271,6 @@ function goMain() {
         <button class="primary" @click="restartQuiz">診断を開始する</button>
       </div>
     </div>
-      <button @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
     </div>
   </main>
 </template>
@@ -431,8 +431,65 @@ p {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
-.result-actions { display:flex; justify-content:center; margin-top: 12px; }
-button.primary { background: var(--color-primary); color:#fff; border:none; padding:10px 16px; border-radius:8px; }
+.result-actions { 
+  display:flex; 
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center; 
+  margin-top: 24px;
+  padding: 0 16px;
+}
+
+/* Button styles with shared properties */
+button.primary, 
+button.secondary { 
+  /* Shared button properties */
+  border:none; 
+  padding:12px 24px; 
+  border-radius:8px; 
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  width: 100%;
+  max-width: 280px;
+}
+
+button.primary { 
+  background: var(--color-primary); 
+  color:#fff; 
+}
+
+button.secondary { 
+  background: #f8f9fa; 
+  color: #6c757d; 
+  border: 1px solid #dee2e6; 
+}
+
+button.primary:hover {
+  background: var(--color-primary-hover, #1d4ed8);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+button.secondary:hover {
+  background: #e9ecef;
+  border-color: #ced4da;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .traits-grid {
   display: grid;
@@ -501,8 +558,20 @@ button.primary { background: var(--color-primary); color:#fff; border:none; padd
   .result-section { padding: 16px; }
   .travel-plans li { padding: 12px; }
   .score-details th, .score-details td { padding: 10px 12px; }
-  .result-actions { padding: 0 4px; }
-  button.primary { width: 100%; padding: 12px; }
+  
+  .result-actions { 
+    padding: 0 8px;
+    gap: 20px;
+    margin-top: 32px;
+  }
+  
+  button.primary, button.secondary { 
+    width: 100%; 
+    padding: 14px 24px;
+    font-size: 16px;
+    min-height: 48px;
+    max-width: none;
+  }
 }
 
 /* Ensure proper font rendering for Japanese text */
