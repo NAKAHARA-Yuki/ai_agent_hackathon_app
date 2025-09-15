@@ -15,7 +15,7 @@ const items = ref([])
 const error = ref('')
 const toast = ref('')
 
-function thumbFor(p){
+function imageFor(p){
   if (!p) return placeholderForTitle('')
   if (p.image_base64) {
     const mime = p.image_mime_type || 'image/png'
@@ -24,9 +24,15 @@ function thumbFor(p){
   return p.image_url || p.hero_image || placeholderForTitle(p.title||'')
 }
 
+function bgFor(p){
+  const src = imageFor(p)
+  // Wrap with url() for CSS var usage
+  return `url(${src})`
+}
+
 function placeholderForTitle(title){
   const key = encodeURIComponent((title || 'travel landscape').toString())
-  return `https://source.unsplash.com/featured/400x300?${key}`
+  return `https://source.unsplash.com/featured/600x400?${key}`
 }
 
 async function fetchPlans() {
@@ -105,17 +111,15 @@ onMounted(fetchPlans)
       <div 
         v-for="p in items" 
         :key="p.id" 
-        class="card" 
+        class="card"
+        :style="{ '--bg-img': bgFor(p) }"
         :class="{ active: isActivePlan(p.id) }" 
         @click="openDetail(p)" 
         role="button" 
         :aria-label="p.title"
       >
-        <div class="thumb">
-          <img :src="thumbFor(p)" :alt="(p.title||'旅行プラン') + 'の画像'" loading="lazy" />
-        </div>
-        <div class="card-header">
-          <div class="title">{{ p.title || '無題プラン' }}</div>
+        <div class="card-overlay"></div>
+        <div class="corner-actions">
           <button 
             @click="toggleActivePlan($event, p)" 
             class="toggle-btn" 
@@ -130,7 +134,10 @@ onMounted(fetchPlans)
             </svg>
           </button>
         </div>
-        <div class="meta">{{ p.created_at || '' }}</div>
+        <div class="card-content">
+          <h2 class="title">{{ p.title || '無題プラン' }}</h2>
+          <p class="meta">{{ p.created_at || '' }}</p>
+        </div>
         <div v-if="isActivePlan(p.id)" class="active-badge">旅行当日モード</div>
       </div>
       <p v-if="!items.length" class="empty">まだ保存されたプランはありません。</p>
@@ -359,8 +366,8 @@ onMounted(fetchPlans)
 .state.error { color:#b91c1c; }
 .cards { 
   display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); 
-  gap: 12px; 
+  grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); 
+  gap: 14px; 
   justify-content: center; /* Center the grid items */
   max-width: 100%; /* Prevent horizontal scrolling */
   margin: 0 auto; /* Center the grid container */
@@ -405,41 +412,31 @@ onMounted(fetchPlans)
 }
 
 .card { 
-  background: var(--color-surface); 
-  border: 1px solid var(--color-border); 
-  border-radius: 14px; 
-  padding: 14px 16px; 
-  box-shadow: 0 6px 14px rgba(0,0,0,0.05); 
-  display: flex; 
-  flex-direction: column; 
-  gap: 8px; 
-  cursor: pointer; 
   position: relative;
-  transition: all 0.2s ease;
-  min-height: 100px;
-  width: 100%; /* 全幅使用 */
-  max-width: 100%; /* 幅制限 */
-  box-sizing: border-box; /* パディングを含めてサイズ計算 */
-  /* コンテンツオーバーフロー制御の強化 */
+  isolation: isolate;
+  background: #ddd;
+  border-radius: 18px;
   overflow: hidden;
-  contain: layout style;
-  /* さらに厳密なカード幅制限 */
-  min-width: 0; /* フレックスアイテムの最小幅をリセット */
+  height: 180px;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+  transition: transform .2s ease, box-shadow .2s ease;
 }
-
-.thumb {
-  width: calc(100% + 32px); /* 左右パディング分をはみ出して端まで表示 */
-  margin: -14px -16px 8px; /* カード内の上部に密着 */
-  height: 120px;
-  overflow: hidden;
-  background: #e5e7eb;
+.card::before{
+  content:"";
+  position:absolute; inset:0;
+  background: var(--bg-img) center/cover no-repeat;
+  filter: brightness(1) saturate(1.05);
+  transform: scale(1.02);
+  transition: transform .6s ease;
 }
-.thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+.card-overlay{ position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.06)); mix-blend-mode:multiply; z-index:1; }
+.card:hover{ transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.12); }
+.card:hover::before{ transform: scale(1.06); }
+.card-content{ position:absolute; z-index:2; bottom:12px; left:14px; right:14px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:6px; }
+.card .title{ font-size:16px; font-weight:700; margin:0; letter-spacing:.2px; }
+.card .meta{ font-size:12px; opacity:.9; }
+.corner-actions{ position:absolute; z-index:3; top:10px; right:10px; display:flex; gap:6px; }
 
 .card:active { transform: translateY(1px); }
 

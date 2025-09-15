@@ -100,7 +100,7 @@ function handleImageError() {
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="plan" class="content">
       <!-- Hero Image Section -->
-    <div v-if="heroImageSrc && !imageLoadError" class="hero-image">
+      <div v-if="heroImageSrc && !imageLoadError" class="hero-image">
         <img 
       :src="heroImageSrc" 
           :alt="plan.title || '旅行プラン画像'"
@@ -108,7 +108,9 @@ function handleImageError() {
           class="hero-img"
         />
         <div class="hero-overlay">
-          <h1 class="hero-title">{{ plan.title }}</h1>
+          <div class="hero-title-wrap">
+            <h1 class="hero-title">{{ plan.title }}</h1>
+          </div>
         </div>
       </div>
       
@@ -252,6 +254,20 @@ function handleImageError() {
   margin: 0;
   text-shadow: 0 2px 8px rgba(0,0,0,0.5);
   line-height: 1.2;
+}
+
+/* Add white gradient background strip behind text for readability */
+.hero-title-wrap{
+  display: inline-block;
+  background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6), rgba(255,255,255,0));
+  color: #111827; /* Dark text on white strip */
+  padding: 6px 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.hero-title-wrap .hero-title{
+  color: #111827;
+  text-shadow: none;
 }
 
 /* Mobile responsive adjustments for hero image */
