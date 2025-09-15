@@ -15,6 +15,20 @@ const items = ref([])
 const error = ref('')
 const toast = ref('')
 
+function thumbFor(p){
+  if (!p) return placeholderForTitle('')
+  if (p.image_base64) {
+    const mime = p.image_mime_type || 'image/png'
+    return `data:${mime};base64,${p.image_base64}`
+  }
+  return p.image_url || p.hero_image || placeholderForTitle(p.title||'')
+}
+
+function placeholderForTitle(title){
+  const key = encodeURIComponent((title || 'travel landscape').toString())
+  return `https://source.unsplash.com/featured/400x300?${key}`
+}
+
 async function fetchPlans() {
   loading.value = true
   error.value = ''
@@ -97,6 +111,9 @@ onMounted(fetchPlans)
         role="button" 
         :aria-label="p.title"
       >
+        <div class="thumb">
+          <img :src="thumbFor(p)" :alt="(p.title||'旅行プラン') + 'の画像'" loading="lazy" />
+        </div>
         <div class="card-header">
           <div class="title">{{ p.title || '無題プラン' }}</div>
           <button 
@@ -408,6 +425,20 @@ onMounted(fetchPlans)
   contain: layout style;
   /* さらに厳密なカード幅制限 */
   min-width: 0; /* フレックスアイテムの最小幅をリセット */
+}
+
+.thumb {
+  width: calc(100% + 32px); /* 左右パディング分をはみ出して端まで表示 */
+  margin: -14px -16px 8px; /* カード内の上部に密着 */
+  height: 120px;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .card:active { transform: translateY(1px); }
