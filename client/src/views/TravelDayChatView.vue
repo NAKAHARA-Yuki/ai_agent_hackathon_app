@@ -3,7 +3,7 @@ import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { useActivePlanStore } from '@/stores/activePlanStore'
-import { agentChat } from '@/services/apiClient'
+import { agentChat, dayAdvice } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -86,26 +86,39 @@ async function sendMessage() {
   loading.value = true
   
   try {
-    // Send message with travel day context
-    const response = await agentChat({
-      message: userMessage,
-      user_id: auth.user?.id || 'u_local',
-      session_id: sessionId.value,
-      authHeader: auth.authHeader()
-    })
-    
+    // Primary: Use day_advice endpoint with current plan context
+    let response
+    try {
+      response = await dayAdvice({
+        plan: plan.value,
+        user_message: userMessage,
+        current_context: {},
+        session_id: sessionId.value,
+        authHeader: auth.authHeader()
+      })
+    } catch (e) {
+      // Fallback: standard chat if day_advice fails
+      response = await agentChat({
+        message: userMessage,
+        user_id: auth.user?.id || 'u_local',
+        session_id: sessionId.value,
+        authHeader: auth.authHeader()
+      })
+    }
+
     // Add AI response
     const aiMsg = {
       id: Date.now() + 1,
       type: 'assistant',
-      content: response.reply || 'お答えできませんでした。',
+      content: (response && (response.message || response.reply)) || 'お答えできませんでした。',
       timestamp: new Date(),
       places: response.places,
       citations: response.citations,
-      route_info: response.route_info
+      route_info: response.route_info,
+      suggestions: response.suggestions
     }
     messages.value.push(aiMsg)
-    
+
   } catch (error) {
     console.error('Chat error:', error)
     messages.value.push({
@@ -176,6 +189,17 @@ onMounted(loadPlan)
           <div class="message-content">
             <div class="message-text">{{ message.content }}</div>
             
+            <!-- Suggestions if provided (day_advice) -->
+            <div v-if="message.suggestions && message.suggestions.length" class="message-suggestions">
+              <h4>提案</h4>
+              <ul class="suggestions-list">
+                <li v-for="(s,i) in message.suggestions" :key="i">
+                  <strong>{{ s.title || s.type }}</strong>
+                  <span v-if="s.description" class="suggestion-desc"> — {{ s.description }}</span>
+                </li>
+              </ul>
+            </div>
+
             <!-- Places if provided -->
             <div v-if="message.places && message.places.length" class="message-places">
               <h4>おすすめスポット</h4>

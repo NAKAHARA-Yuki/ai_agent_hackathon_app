@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import { agentChat, createPlan, modifyPlan } from '@/services/apiClient'
+import { agentChat, createPlan, modifyPlan, dayAdvice } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +16,11 @@ const loading = ref(false)
 const chatContainer = ref(null)
 const sessionId = ref('')
 const saving = ref(false)
+// Day-of mode flag (?mode=day or ?day=1)
+const isDayMode = computed(() => {
+  const q = route.query || {}
+  return q.mode === 'day' || q.day === '1'
+})
 
 // Generate session ID for this chat
 function generateUUID() {
@@ -45,12 +50,10 @@ async function loadPlan() {
     currentPlan.value = { ...plan }
     
     // Add initial system message
-    messages.value.push({
-      id: Date.now(),
-      type: 'system',
-      content: `こんにちは！「${plan.title}」のプランをより良くするお手伝いをします。どのような変更をご希望ですか？`,
-      timestamp: new Date()
-    })
+    const greeting = isDayMode.value
+      ? `当日サポートモードです。「${plan.title}」に関する現在のご状況やご質問を教えてください。`
+      : `こんにちは！「${plan.title}」のプランをより良くするお手伝いをします。どのような変更をご希望ですか？`
+    messages.value.push({ id: Date.now(), type: 'system', content: greeting, timestamp: new Date() })
   } catch (e) {
     console.error('Failed to load plan:', e)
     router.push('/plans')
@@ -101,37 +104,59 @@ async function sendMessage() {
     // Create context message with current plan details
     const contextMessage = formatPlanContext(currentPlan.value, userMessage)
 
-    // まずはプラン修正エージェントを優先的に使用
+    // 当日モードでは day_advice を優先、それ以外は modify_plan を優先
     let response
-    try {
-      response = await modifyPlan({
-        plan: currentPlan.value,
-        change_requests: userMessage,
-        session_id: sessionId.value,
-        authHeader: auth.authHeader()
-      })
-    } catch (e) {
-      // フォールバックで従来のチャットを利用
-      response = await agentChat({
-        message: contextMessage,
-        user_id: auth.user?.id || 'u_local',
-        session_id: sessionId.value,
-        authHeader: auth.authHeader()
-      })
+    if (isDayMode.value) {
+      try {
+        response = await dayAdvice({
+          plan: currentPlan.value,
+          user_message: userMessage,
+          current_context: {},
+          session_id: sessionId.value,
+          authHeader: auth.authHeader()
+        })
+      } catch (e) {
+        // フォールバック: 通常のエージェントチャット
+        response = await agentChat({
+          message: contextMessage,
+          user_id: auth.user?.id || 'u_local',
+          session_id: sessionId.value,
+          authHeader: auth.authHeader()
+        })
+      }
+    } else {
+      try {
+        response = await modifyPlan({
+          plan: currentPlan.value,
+          change_requests: userMessage,
+          session_id: sessionId.value,
+          authHeader: auth.authHeader()
+        })
+      } catch (e) {
+        // フォールバックで従来のチャットを利用
+        response = await agentChat({
+          message: contextMessage,
+          user_id: auth.user?.id || 'u_local',
+          session_id: sessionId.value,
+          authHeader: auth.authHeader()
+        })
+      }
     }
     
     // Add AI response
     const aiMsg = {
       id: Date.now() + 1,
       type: 'assistant',
-      content: response.summary || 'プランを更新しました。',
+      content: (response && (response.summary || response.message)) || (isDayMode.value ? 'サポート結果を表示します。' : 'プランを更新しました。'),
       timestamp: new Date(),
-      plan: response
+      plan: response,
+      diff: response?.diff,
+      updated_plan: response?.updated_plan
     }
     messages.value.push(aiMsg)
     
     // Update current plan with new data while preserving existing data
-    if (response.updated_plan || response.summary || response.plans?.length || response.itinerary?.length || response.places?.length) {
+    if (response.updated_plan || response.summary || response.plans?.length || response.itinerary?.length || response.places?.length || response.suggestions?.length || response.route_info) {
       const updatedPlan = { ...currentPlan.value }
       // 新APIのスキーマに対応
       if (response.updated_plan && typeof response.updated_plan === 'object') {
@@ -148,6 +173,7 @@ async function sendMessage() {
       if (response.itinerary?.length) updatedPlan.itinerary = response.itinerary
       if (response.places?.length) updatedPlan.places = response.places
       if (response.suggestions?.length) updatedPlan.suggestions = response.suggestions
+      if (response.route_info) updatedPlan.route_info = response.route_info
       
       // Ensure itinerary is never lost - preserve from original if not in response
       if (!updatedPlan.itinerary || updatedPlan.itinerary.length === 0) {
