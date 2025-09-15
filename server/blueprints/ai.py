@@ -372,3 +372,79 @@ def agent_generate_plan():
     except Exception:
         logger.exception("agent_generate_plan error")
         return jsonify({"error": "internal_error"}), 500
+
+
+@ai_bp.post('/api/agent/modify_plan')
+def agent_modify_plan():
+    """Modify an existing travel plan via ADK agent (travel_modifier).
+    Expects JSON body with:
+      - plan: object (required)
+      - change_requests: string|object (required)
+      - constraints: object (optional)
+      - context: object (optional)
+      - session_id: string (optional)
+    Returns: strict JSON from agent (single object).
+    """
+    try:
+        claims = claims_or_dev()
+        if not claims:
+            return jsonify({"error": "auth_required"}), 401
+
+        body = request.get_json(silent=True) or {}
+        plan = body.get('plan')
+        change_requests = body.get('change_requests') or body.get('request')
+        constraints = body.get('constraints')
+        context_info = body.get('context')
+        session_id = (body.get('session_id') or 'plan-modifier').strip() or 'plan-modifier'
+
+        if not isinstance(plan, dict):
+            return jsonify({"error": "invalid_parameters", "message": "plan must be an object"}), 400
+        if change_requests is None or (isinstance(change_requests, str) and not change_requests.strip()):
+            return jsonify({"error": "invalid_parameters", "message": "change_requests is required"}), 400
+
+        # Prepare prefix targeted to travel_modifier
+        prefix_lines = [
+            "travel_modifier",
+            "current_plan:",
+            json.dumps(plan, ensure_ascii=False),
+            "change_requests:",
+            change_requests if isinstance(change_requests, str) else json.dumps(change_requests, ensure_ascii=False),
+        ]
+        if isinstance(constraints, (dict, list)) and constraints:
+            prefix_lines += ["constraints:", json.dumps(constraints, ensure_ascii=False)]
+        if isinstance(context_info, (dict, list)) and context_info:
+            prefix_lines += ["context:", json.dumps(context_info, ensure_ascii=False)]
+        prefix_text = "\n".join(prefix_lines) + "\n"
+
+        message = "(プラン修正リクエスト)"
+
+        user_id = claims['sub']
+        if LOG_PAYLOADS:
+            logger.info(f"agent_modify_plan user={user_id} session={session_id} plan_itins={len((plan or {}).get('itinerary') or [])}")
+
+        events = call_adk_agent_chat(
+            app_name='root_coordinator',
+            user_id=user_id,
+            session_id=session_id,
+            message_text=message,
+            timeout_sec=AGENT_HTTP_TIMEOUT,
+            base_url=AGENT_BASE_URL,
+            ensure_session=True,
+            prefix=prefix_text,
+        )
+
+        text = ''
+        if isinstance(events, list) and events:
+            final = events[-1] or {}
+            content = final.get('content') or {}
+            if content.get('role') == 'model':
+                text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+
+        if text:
+            return jsonify(extract_json_passthrough(text))
+        else:
+            return jsonify({"error": "agent_output_not_json"},{"request":prefix_text},{"response": events}), 502
+
+    except Exception:
+        logger.exception("agent_modify_plan error")
+        return jsonify({"error": "internal_error"}), 500

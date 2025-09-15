@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import { agentChat, createPlan } from '@/services/apiClient'
+import { agentChat, createPlan, modifyPlan } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -101,12 +101,24 @@ async function sendMessage() {
     // Create context message with current plan details
     const contextMessage = formatPlanContext(currentPlan.value, userMessage)
 
-    const response = await agentChat({
-      message: contextMessage,
-      user_id: auth.user?.id || 'u_local',
-      session_id: sessionId.value,
-      authHeader: auth.authHeader()
-    })
+    // まずはプラン修正エージェントを優先的に使用
+    let response
+    try {
+      response = await modifyPlan({
+        plan: currentPlan.value,
+        change_requests: userMessage,
+        session_id: sessionId.value,
+        authHeader: auth.authHeader()
+      })
+    } catch (e) {
+      // フォールバックで従来のチャットを利用
+      response = await agentChat({
+        message: contextMessage,
+        user_id: auth.user?.id || 'u_local',
+        session_id: sessionId.value,
+        authHeader: auth.authHeader()
+      })
+    }
     
     // Add AI response
     const aiMsg = {
@@ -119,9 +131,12 @@ async function sendMessage() {
     messages.value.push(aiMsg)
     
     // Update current plan with new data while preserving existing data
-    if (response.summary || response.plans?.length || response.itinerary?.length || response.places?.length) {
+    if (response.updated_plan || response.summary || response.plans?.length || response.itinerary?.length || response.places?.length) {
       const updatedPlan = { ...currentPlan.value }
-      
+      // 新APIのスキーマに対応
+      if (response.updated_plan && typeof response.updated_plan === 'object') {
+        Object.assign(updatedPlan, response.updated_plan)
+      }
       if (response.summary) updatedPlan.summary = response.summary
       if (response.plans?.length) {
         // Use first plan from suggestions

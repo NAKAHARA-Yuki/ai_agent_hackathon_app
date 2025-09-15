@@ -89,6 +89,30 @@ export async function agentChat({ message, user_id, session_id, authHeader }){
   return mockAgentReply(message)
 }
 
+export async function modifyPlan({ plan, change_requests, constraints, context, session_id, authHeader }){
+  if (!useMock) {
+    const payload = { plan, change_requests, constraints, context, session_id }
+    const data = await realFetch('/api/agent/modify_plan', { 
+      method:'POST', 
+      headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, 
+      body: JSON.stringify(payload) 
+    })
+    if (import.meta.env.DEV) {
+      try { console.log('[modifyPlan response]', data) } catch {}
+    }
+    return data
+  }
+  // Mock mode: return a lightly modified plan
+  await new Promise(r=>setTimeout(r, 500))
+  const updated = JSON.parse(JSON.stringify(plan||{}))
+  if (updated && typeof updated.title === 'string') updated.title = `${updated.title} (修正案)`
+  return {
+    summary: typeof change_requests === 'string' ? `要望: ${change_requests}` : 'プランを更新しました',
+    updated_plan: updated,
+    diff: { added: [], removed: [], changed: [{ field: 'title', from: plan?.title || '', to: updated.title || '', reason: 'ユーザー要望に基づく微調整' }] }
+  }
+}
+
 export async function listPlans(authHeader){
   if (!useMock) {
     try { return await realFetch('/api/plans', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } }) } catch(e){ throw e }
