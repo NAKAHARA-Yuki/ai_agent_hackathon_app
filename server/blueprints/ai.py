@@ -9,6 +9,7 @@ import requests
 from time import monotonic
 from flask import Blueprint, request, jsonify, g, current_app
 import base64
+import io
 
 from utils.ai_processing import (
     call_gemini_api, genai_configured, extract_trailing_json,
@@ -260,19 +261,24 @@ def _generate_image_with_vertex_rest(prompt: str, model_id: str, project: str, l
         content = cand and cand.get('content') or {}
         parts = content.get('parts') or []
         for part in parts:
-            if 'text' in part and part['text']:
-                texts.append(str(part['text']))
-            elif 'inline_data' in part and part['inline_data']:
-                inline = part['inline_data']
+            # Text part
+            if isinstance(part, dict) and part.get('text'):
+                texts.append(str(part.get('text')))
+                continue
+            # Image part (camelCase inlineData from REST, with snake_case fallback)
+            inline = None
+            if isinstance(part, dict):
+                inline = part.get('inlineData') or part.get('inline_data')
+            if inline:
                 data = inline.get('data')
                 if data:
-                    # heuristic: assume already base64 string
+                    # Assume base64; validate and fallback to encoding
                     try:
                         base64.b64decode(data, validate=True)
                         b64 = data
                     except Exception:
                         b64 = base64.b64encode(str(data).encode('utf-8')).decode('ascii')
-                m = inline.get('mime_type') or inline.get('mimeType')
+                m = inline.get('mimeType') or inline.get('mime_type')
                 if m:
                     mime = m
     except Exception:
@@ -281,6 +287,59 @@ def _generate_image_with_vertex_rest(prompt: str, model_id: str, project: str, l
     if not b64:
         raise RuntimeError('No image content returned by model')
     return b64, (mime or 'image/png'), ("\n".join([t for t in texts if t]) or None)
+
+
+def _compress_image_base64_if_needed(b64_data: str, mime_type: str | None, max_bytes: int = 1_000_000) -> tuple[str, str]:
+    """If decoded base64 exceeds max_bytes, reduce quality by re-encoding as JPEG.
+    Returns (b64, mime) of possibly re-encoded image. Falls back gracefully on errors.
+    """
+    try:
+        raw = base64.b64decode(b64_data)
+    except Exception:
+        # Invalid base64; return as-is
+        return b64_data, (mime_type or 'image/png')
+
+    if len(raw) <= max_bytes:
+        return b64_data, (mime_type or 'image/png')
+
+    try:
+        from PIL import Image
+    except Exception:
+        # Pillow not available; return original
+        logger.warning('Pillow not installed; cannot compress image. Returning original image.')
+        return b64_data, (mime_type or 'image/png')
+
+    try:
+        with Image.open(io.BytesIO(raw)) as im:
+            # Convert to RGB for JPEG (drop alpha on white background if needed)
+            if im.mode in ('RGBA', 'LA'):
+                bg = Image.new('RGB', im.size, (255, 255, 255))
+                bg.paste(im.convert('RGBA'), mask=im.split()[-1])
+                work = bg
+            else:
+                work = im.convert('RGB')
+
+            # Try decreasing quality steps
+            qualities = [85, 75, 65, 55, 45, 35, 25, 20, 15, 10, 5]
+            best_b = None
+            for q in qualities:
+                buf = io.BytesIO()
+                work.save(buf, format='JPEG', quality=q, optimize=True)
+                b = buf.getvalue()
+                if len(b) <= max_bytes:
+                    best_b = b
+                    break
+                # keep smallest so far
+                if best_b is None or len(b) < len(best_b):
+                    best_b = b
+            # Fallback to smallest even if still > max
+            if best_b is not None:
+                return base64.b64encode(best_b).decode('ascii'), 'image/jpeg'
+    except Exception:
+        logger.exception('Image compression failed')
+
+    # As last resort, return original
+    return b64_data, (mime_type or 'image/png')
 
 
 @ai_bp.post('/api/agent/chat')
@@ -712,6 +771,8 @@ def generate_plan_image():
             logger.info(f"generate_plan_image user={claims['sub']} model={model_id} loc={location} prompt_len={len(prompt)}")
 
         image_b64, mime, text_out = _generate_image_with_vertex_rest(prompt, model_id, project, location)
+        # Enforce max size ~1MB by lowering quality if necessary
+        image_b64, mime = _compress_image_base64_if_needed(image_b64, mime, 1_000_000)
 
         resp = {
             'image_base64': image_b64,
