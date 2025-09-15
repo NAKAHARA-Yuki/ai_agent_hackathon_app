@@ -14,8 +14,8 @@ const currentView = ref('input') // 'input' | 'loading' | 'suggestions' | 'detai
 const travelPlans = ref([])
 const selectedPlan = ref(null)
 const saving = ref(false)
-const progressing = ref({ saving: false, imaging: false })
-const progressText = ref('')
+const loadingTitle = ref('AIが旅行プランを生成中...')
+const loadingSubtitle = ref('最適なプランを考えています。少しお待ちください。')
 const auth = useAuthStore()
 const lastKeyword = ref('') // Store the last used keyword for regeneration
 
@@ -26,6 +26,8 @@ async function handleCreatePlan(keyword) {
   lastKeyword.value = keyword
   
   currentView.value = 'loading'
+  loadingTitle.value = 'AIが旅行プランを生成中...'
+  loadingSubtitle.value = '最適なプランを考えています。少しお待ちください。'
   try {
     // /api/generate_plan を使用
     const resp = await fetch('/api/agent/generate_plan', {
@@ -36,9 +38,38 @@ async function handleCreatePlan(keyword) {
     if (!resp.ok) throw new Error('Failed to generate plans')
     const data = await resp.json()
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
-    const mapped = plans.map((p, i) => {
+    // 画像生成の進捗表示に切替
+    loadingTitle.value = 'プラン画像を生成中...'
+    loadingSubtitle.value = `0/${plans.length} 件 完了`
+
+    const enriched = []
+    let done = 0
+    for (let i=0; i<plans.length; i++) {
+      const p = plans[i] || {}
+      // 画像生成（失敗しても続行）
+      try {
+        const img = await generatePlanImage({
+          plan: {
+            title: p.title || `プラン ${i+1}`,
+            summary: data?.summary || p.brief || p.description || '',
+            places: Array.isArray(p.places) ? p.places : [],
+            itinerary: Array.isArray(p.itinerary) ? p.itinerary : [],
+            route_info: p?.route_info ?? null
+          },
+          authHeader: auth.authHeader()
+        })
+        p.image_base64 = img?.image_base64 || null
+        p.image_mime_type = img?.image_mime_type || null
+      } catch (e) {
+        // 続行
+        // console.warn('image gen failed', e)
+      } finally {
+        done++
+        loadingSubtitle.value = `${done}/${plans.length} 件 完了`
+      }
+
       const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
-      return {
+      enriched.push({
         id: i+1,
         title: p?.title || `プラン ${i+1}`,
         tags: tagsStr,
@@ -47,11 +78,13 @@ async function handleCreatePlan(keyword) {
         places: Array.isArray(p?.places) ? p.places : [],
         route_info: p?.route_info ?? null,
         text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
+        image_base64: p.image_base64 || null,
+        image_mime_type: p.image_mime_type || null,
         __raw: p,
         __full: data
-      }
-    })
-    travelPlans.value = mapped.length ? mapped : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
+      })
+    }
+    travelPlans.value = enriched.length ? enriched : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
     console.error('wizard agent error', e)
@@ -81,6 +114,8 @@ function handleSelectPlan(p) {
     itinerary,
     places,
     route_info,
+  image_base64: raw.image_base64 || null,
+  image_mime_type: raw.image_mime_type || null,
     __raw: raw.__raw || null,
     __full: raw.__full || null,
   }
@@ -148,9 +183,35 @@ async function handleCreatePlanForRegeneration(keyword) {
     if (!resp.ok) throw new Error('Failed to regenerate plans')
     const data = await resp.json()
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
-    const mapped = plans.map((p, i) => {
+    loadingTitle.value = 'プラン画像を生成中...'
+    loadingSubtitle.value = `0/${plans.length} 件 完了`
+
+    const enriched = []
+    let done = 0
+    for (let i=0; i<plans.length; i++) {
+      const p = plans[i] || {}
+      try {
+        const img = await generatePlanImage({
+          plan: {
+            title: p.title || `プラン ${i+1}`,
+            summary: data?.summary || p.brief || p.description || '',
+            places: Array.isArray(p.places) ? p.places : [],
+            itinerary: Array.isArray(p.itinerary) ? p.itinerary : [],
+            route_info: p?.route_info ?? null
+          },
+          authHeader: auth.authHeader()
+        })
+        p.image_base64 = img?.image_base64 || null
+        p.image_mime_type = img?.image_mime_type || null
+      } catch (e) {
+        // 続行
+      } finally {
+        done++
+        loadingSubtitle.value = `${done}/${plans.length} 件 完了`
+      }
+
       const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
-      return {
+      enriched.push({
         id: i+1,
         title: p?.title || `プラン ${i+1}`,
         tags: tagsStr,
@@ -159,11 +220,13 @@ async function handleCreatePlanForRegeneration(keyword) {
         places: Array.isArray(p?.places) ? p.places : [],
         route_info: p?.route_info ?? null,
         text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
+        image_base64: p.image_base64 || null,
+        image_mime_type: p.image_mime_type || null,
         __raw: p,
         __full: data
-      }
-    })
-    travelPlans.value = mapped.length ? mapped : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
+      })
+    }
+    travelPlans.value = enriched.length ? enriched : [{ id:1, title: '旅行プラン', tags: '', brief: 'プランを生成できませんでした。', itinerary: [], __full: data }]
     currentView.value = 'suggestions'
   } catch(e){
     console.error('wizard regenerate error', e)
@@ -176,8 +239,6 @@ async function handleCreatePlanForRegeneration(keyword) {
 async function handleConfirm(plan){
   if (saving.value) return
   saving.value = true
-  progressing.value = { saving: true, imaging: true }
-  progressText.value = 'プランを保存中...'
   try {
     const full = plan.__full || {}
     const payload = { 
@@ -188,53 +249,17 @@ async function handleConfirm(plan){
       status: 'confirmed',
       summary: typeof full.summary === 'string' ? full.summary : null,
       suggestions: Array.isArray(full.suggestions) ? full.suggestions : [],
-      itinerary: Array.isArray(plan.itinerary) ? plan.itinerary : []
+      itinerary: Array.isArray(plan.itinerary) ? plan.itinerary : [],
+      image_base64: plan.image_base64 || null,
+      image_mime_type: plan.image_mime_type || null
     }
-
-    // Start both operations in parallel
-    const createPromise = createPlan(payload, auth.authHeader())
-    const imagePromise = generatePlanImage({
-      plan: {
-        title: plan.title,
-        summary: payload.summary || plan.brief || '',
-        places: payload.places,
-        itinerary: payload.itinerary,
-        route_info: payload.route_info
-      },
-      authHeader: auth.authHeader()
-    }).catch(e => ({ error: String(e) }))
-
-    // Wait for plan creation first (needed for PATCH id)
-    const created = await createPromise
-    progressing.value.saving = false
-    progressText.value = '画像を生成中...'
-
-    // Wait for image
-    const img = await imagePromise
-    progressing.value.imaging = false
-
-    // Attach image to the created plan if available
-    if (img && img.image_base64) {
-      try {
-        await fetch(`/api/plans/${created.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
-          body: JSON.stringify({ image_base64: img.image_base64, image_mime_type: img.image_mime_type || 'image/png' })
-        })
-      } catch (e) {
-        console.warn('Failed to attach image to plan:', e)
-      }
-    }
-
-    // Navigate after both done
+    await createPlan(payload, auth.authHeader())
     window.location.assign('/plans')
   } catch (e) {
     console.error('wizard save failed', e)
     alert('保存に失敗しました。時間をおいて再試行してください。')
   } finally {
     saving.value = false
-    progressing.value = { saving: false, imaging: false }
-    progressText.value = ''
   }
 }
 
@@ -283,30 +308,14 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
   <div ref="wrapEl" class="wizard-wrap wizard-bg text-slate-900" data-route="travel-wizard" :style="wrapStyle">
     <div class="wizard-inner">
       <InputScreen v-if="currentView==='input'" @create-plan="handleCreatePlan" />
-      <LoadingScreen v-else-if="currentView==='loading'" />
+      <LoadingScreen v-else-if="currentView==='loading'" :title-text="loadingTitle" :subtitle-text="loadingSubtitle" />
 
       <SuggestionScreen v-else-if="currentView==='suggestions'" :plans="travelPlans" :lastKeyword="lastKeyword" @select-plan="handleSelectPlan" @regenerate="handleRegenerate" />
 
   <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" @refine="handleRefine" />
     </div>
 
-    <!-- Progress Overlay -->
-    <div v-if="saving" class="progress-overlay">
-      <div class="progress-card">
-        <div class="progress-title">処理中...</div>
-        <div class="progress-text">{{ progressText }}</div>
-        <ul class="progress-steps">
-          <li>
-            <span class="icon" :class="{ done: !progressing.saving }">{{ progressing.saving ? '●' : '✔' }}</span>
-            プランを保存
-          </li>
-          <li>
-            <span class="icon" :class="{ done: !progressing.imaging }">{{ progressing.imaging ? '●' : '✔' }}</span>
-            画像を生成
-          </li>
-        </ul>
-      </div>
-    </div>
+    
   </div>
 </template>
 
@@ -335,31 +344,7 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
   padding:0 16px;
   box-sizing:border-box;
 }
-/* 進捗オーバーレイ */
-.progress-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-}
-.progress-card {
-  background: #fff;
-  color: #111827;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  width: 90%;
-  max-width: 420px;
-  padding: 20px 22px;
-}
-.progress-title { font-weight: 600; font-size: 16px; margin-bottom: 6px; }
-.progress-text { font-size: 14px; color: #4b5563; margin-bottom: 12px; }
-.progress-steps { list-style: none; padding: 0; margin: 0; }
-.progress-steps li { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; }
-.progress-steps .icon { display:inline-flex; width:18px; height:18px; align-items:center; justify-content:center; border-radius:50%; background:#e5e7eb; color:#374151; font-size:12px; }
-.progress-steps .icon.done { background:#10b981; color:#fff; }
+ 
 /* デスクトップでのパディング調整 */
 @media (min-width:600px){
   .wizard-inner { 

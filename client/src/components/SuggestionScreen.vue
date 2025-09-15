@@ -103,11 +103,12 @@ const enrichedPlans = computed(() => {
   return props.plans.map((p, idx) => {
     if (!p || typeof p !== 'object') return null
     
+    const base64Img = p.image_base64 ? `data:${p.image_mime_type||'image/png'};base64,${p.image_base64}` : null
     const key = encodeURIComponent(((p.title||'') + ' ' + keywords[idx % keywords.length]).trim())
     return { 
       raw: p, 
       id: p.id || idx, 
-      image: `https://source.unsplash.com/featured/400x300?${key}` 
+      image: base64Img || `https://source.unsplash.com/featured/400x300?${key}` 
     }
   }).filter(Boolean)
 })
