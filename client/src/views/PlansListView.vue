@@ -134,7 +134,9 @@ onMounted(fetchPlans)
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden; /* 横スクロール完全に無効化 */
-  max-width: 100vw; /* ビューポート幅を超えないよう制限 */
+  max-width: 100%; /* コンテナ幅を制限 */
+  /* より厳密な幅制限とオーバーフロー制御 */
+  contain: layout style;
 }
 
 /* モバイル対応: より適切なパディングとスクロール */
@@ -212,6 +214,7 @@ onMounted(fetchPlans)
   /* Prevent clipping on mobile */
   min-height: 120px;
   width: 100%;
+  max-width: 100%; /* 幅制限追加 */
   box-sizing: border-box;
 }
 
@@ -252,6 +255,8 @@ onMounted(fetchPlans)
 
 .banner-info {
   flex: 1;
+  min-width: 0; /* フレックスアイテムの縮小を許可 */
+  overflow: hidden; /* オーバーフロー制御 */
 }
 
 .banner-title {
@@ -259,6 +264,10 @@ onMounted(fetchPlans)
   font-weight: 700;
   margin-bottom: 6px;
   text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  /* 長いタイトルのオーバーフロー制御 */
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .banner-subtitle {
@@ -321,6 +330,8 @@ onMounted(fetchPlans)
   margin: 0 auto; /* Center the grid container */
   width: 100%;
   overflow-x: hidden; /* 横スクロール無効化 */
+  /* より厳密な幅制限 */
+  contain: layout;
 }
 
 /* モバイル対応: グリッドレイアウトの最適化 */
@@ -335,6 +346,8 @@ onMounted(fetchPlans)
     /* Prevent cards from clipping on the left */
     margin: 0;
     padding: 0;
+    /* より厳密な制約 */
+    min-width: 0;
   }
 }
 
@@ -367,6 +380,9 @@ onMounted(fetchPlans)
   width: 100%; /* 全幅使用 */
   max-width: 100%; /* 幅制限 */
   box-sizing: border-box; /* パディングを含めてサイズ計算 */
+  /* コンテンツオーバーフロー制御の強化 */
+  overflow: hidden;
+  contain: layout style;
 }
 
 .card:active { transform: translateY(1px); }
@@ -392,6 +408,10 @@ onMounted(fetchPlans)
   line-height: 1.3; 
   flex: 1;
   word-break: break-word;
+  /* 長いテキストのオーバーフロー制御強化 */
+  overflow-wrap: break-word;
+  hyphens: auto;
+  max-width: 100%;
 }
 
 .toggle-btn {
