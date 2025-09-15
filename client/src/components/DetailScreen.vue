@@ -6,9 +6,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <div class="hero-text">
-        <h1>{{ plan.title }}</h1>
-  <p class="tags">{{ plan.tags }}</p>
-  <p v-if="plan.brief" class="brief">{{ plan.brief }}</p>
+        <div class="hero-text-wrap">
+          <h1>{{ plan.title }}</h1>
+          <p class="tags">{{ plan.tags }}</p>
+          <p v-if="plan.brief" class="brief">{{ plan.brief }}</p>
+        </div>
       </div>
     </div>
     <div class="wizard-scroll body" aria-labelledby="itinerary-heading">
@@ -113,14 +115,15 @@ import { transportLabel, transportIcon, formatDuration, formatDistance } from '@
   align-items:flex-end;
 }
 @media (min-width:640px){ .hero { aspect-ratio:16/7; } }
-.hero-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.15)); }
+.hero-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.1)); }
 .back-btn { position:absolute; top:calc(10px + env(safe-area-inset-top)); left:10px; width:38px; height:38px; border:none; border-radius:12px; background:rgba(255,255,255,0.75); backdrop-filter:blur(6px); display:grid; place-items:center; cursor:pointer; color:#1f2937; box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:60; }
 .back-btn:hover { background:rgba(255,255,255,0.9); }
 .back-btn:active { transform:translateY(1px); }
-.hero-text { position:absolute; bottom:14px; left:14px; right:14px; color:#fff; text-shadow:0 2px 6px rgba(0,0,0,0.4); }
-.hero-text h1 { margin:0 0 4px; font-size:22px; line-height:1.2; font-weight:700; letter-spacing:-.5px; }
-.hero-text .tags { margin:0; font-size:12px; opacity:.9; }
-.hero-text .brief { margin:4px 0 0; font-size:11px; opacity:.95; max-width:90%; line-height:1.3; }
+.hero-text { position:absolute; bottom:14px; left:14px; right:14px; color:#fff; }
+.hero-text-wrap { background: rgba(0,0,0,0.45); backdrop-filter: blur(2px); padding: 10px 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.hero-text h1 { margin:0 0 4px; font-size:22px; line-height:1.2; font-weight:700; letter-spacing:-.5px; color:#fff; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+.hero-text .tags { margin:0; font-size:12px; opacity:.95; color:#fff; }
+.hero-text .brief { margin:4px 0 0; font-size:11px; opacity:.98; max-width:90%; line-height:1.3; color:#fff; }
 
 .body { 
   padding:18px 18px calc(20px + env(safe-area-inset-bottom)); 
