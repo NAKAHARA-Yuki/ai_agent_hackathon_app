@@ -134,9 +134,12 @@ onMounted(fetchPlans)
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden; /* 横スクロール完全に無効化 */
-  max-width: 100%; /* コンテナ幅を制限 */
+  max-width: 100vw; /* ビューポート幅を超えないよう制限 */
   /* より厳密な幅制限とオーバーフロー制御 */
   contain: layout style;
+  /* 確実にコンテナ幅を制限 */
+  margin: 0 auto;
+  position: relative;
 }
 
 /* モバイル対応: より適切なパディングとスクロール */
@@ -147,6 +150,9 @@ onMounted(fetchPlans)
     /* スクロール領域の最適化 */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    /* 確実にモバイルでビューポート幅制限 */
+    max-width: calc(100vw - 16px); /* App.vueの8px * 2を考慮 */
+    width: calc(100vw - 16px);
   }
 }
 
@@ -154,6 +160,9 @@ onMounted(fetchPlans)
   .plans-list {
     padding: 0 0 20px; /* 左右のパディングを削除 */
     gap: 10px;
+    /* 非常に小さな画面でのビューポート制限 */
+    max-width: calc(100vw - 8px); /* App.vueの4px * 2を考慮 */
+    width: calc(100vw - 8px);
   }
 }
 
@@ -167,12 +176,22 @@ onMounted(fetchPlans)
   box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
   margin-bottom: 8px;
   flex-shrink: 0; /* ヘッダーの収縮を防ぐ */
+  /* 確実にヘッダー幅を制限 */
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden; /* ヘッダーコンテンツのオーバーフロー防止 */
 }
 
 .header h1 { 
   font-size: 18px; 
   margin: 0; 
   flex: 1; 
+  /* タイトルのオーバーフロー制御 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* モバイル対応: ヘッダーサイズ調整 */
@@ -332,6 +351,8 @@ onMounted(fetchPlans)
   overflow-x: hidden; /* 横スクロール無効化 */
   /* より厳密な幅制限 */
   contain: layout;
+  /* 確実にカードコンテナを制限 */
+  box-sizing: border-box;
 }
 
 /* モバイル対応: グリッドレイアウトの最適化 */
@@ -348,6 +369,8 @@ onMounted(fetchPlans)
     padding: 0;
     /* より厳密な制約 */
     min-width: 0;
+    /* カードが確実にコンテナ内に収まるようにする */
+    contain: layout strict;
   }
 }
 
@@ -383,6 +406,8 @@ onMounted(fetchPlans)
   /* コンテンツオーバーフロー制御の強化 */
   overflow: hidden;
   contain: layout style;
+  /* さらに厳密なカード幅制限 */
+  min-width: 0; /* フレックスアイテムの最小幅をリセット */
 }
 
 .card:active { transform: translateY(1px); }
