@@ -243,3 +243,23 @@ export async function deletePlan(planId, authHeader) {
 }
 
 export function isMock(){ return useMock }
+
+// Generate image from a travel plan via server Vertex AI endpoint
+export async function generatePlanImage({ plan, style, modelId, authHeader }){
+  if (!useMock) {
+    const payload = { plan, style, model_id: modelId }
+    const data = await realFetch('/api/agent/generate_plan_image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(authHeader||{}) },
+      body: JSON.stringify(payload)
+    })
+    if (import.meta.env.DEV) {
+      try { console.log('[generatePlanImage response]', { mime: data.image_mime_type, text: data.text?.slice?.(0,120) }) } catch {}
+    }
+    return data
+  }
+  // Mock: return a tiny transparent PNG (1x1)
+  const transparentPngB64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII='
+  await new Promise(r=>setTimeout(r, 300))
+  return { image_base64: transparentPngB64, image_mime_type: 'image/png', text: 'mock image', model_id: modelId||'mock' }
+}

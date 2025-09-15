@@ -8,6 +8,7 @@ import re
 import requests
 from time import monotonic
 from flask import Blueprint, request, jsonify, g, current_app
+import base64
 
 from utils.ai_processing import (
     call_gemini_api, genai_configured, extract_trailing_json,
@@ -124,6 +125,114 @@ def call_agent_plan(persona: dict = None) -> dict:
         return resp.json()
     
     return retry_on_503(_make_request)
+
+
+# ===== Vertex AI (google.genai) helpers for image generation =====
+def _vertex_project_location() -> tuple[str, str]:
+    """Resolve GCP project and location from environment.
+    Uses GOOGLE_CLOUD_PROJECT or GCP_PROJECT_ID. Location defaults to 'global' or env VERTEX_LOCATION.
+    """
+    project = os.getenv('GOOGLE_CLOUD_PROJECT') or os.getenv('GCP_PROJECT_ID')
+    location = os.getenv('VERTEX_LOCATION') or 'global'
+    return project, location
+
+
+def _build_image_prompt_from_plan(plan: dict, style: str | None = None) -> str:
+    """Craft an English prompt for image generation from a travel plan dict."""
+    title = str(plan.get('title') or 'Japan Travel Plan')
+    summary = str(plan.get('summary') or '')
+    places = []
+    try:
+        for p in (plan.get('places') or []):
+            name = p.get('name') or p.get('title')
+            if name:
+                places.append(str(name))
+    except Exception:
+        pass
+    # Extract 3-5 key itinerary items for visual cues
+    items = []
+    try:
+        for day in (plan.get('itinerary') or [])[:3]:
+            for it in (day.get('items') or [])[:3]:
+                t = it.get('title') or it.get('name')
+                if t:
+                    items.append(str(t))
+            if len(items) >= 5:
+                break
+    except Exception:
+        pass
+
+    style_hint = style or 'high-quality photorealistic travel poster, vibrant, cinematic lighting'
+    bullets = []
+    if places:
+        bullets.append(f"Key places: {', '.join(places[:6])}.")
+    if items:
+        bullets.append(f"Activities: {', '.join(items[:6])}.")
+    if summary:
+        bullets.append(f"Trip vibe: {summary[:220]}")
+
+    prompt = (
+        f"Create an image for a Japanese travel plan titled '{title}'.\n"
+        f"Style: {style_hint}.\n"
+        "Focus on iconic scenery and mood matching the plan.\n"
+        + ("\n".join(bullets) if bullets else '')
+    )
+    return prompt
+
+
+def _generate_image_with_vertex(prompt: str, model_id: str, project: str, location: str):
+    """Call Vertex AI's google.genai SDK to generate an image and optional text.
+    Returns (base64_data, mime_type, text_output)
+    """
+    try:
+        from google import genai  # type: ignore
+        from google.genai.types import GenerateContentConfig  # type: ignore
+    except Exception as ie:
+        raise RuntimeError("google-genai is not installed. Add 'google-genai' to requirements.") from ie
+
+    client = genai.Client(vertexai=True, project=project, location=location)
+    cfg = GenerateContentConfig(
+        response_modalities=["TEXT", "IMAGE"],
+        candidate_count=1,
+    )
+
+    resp = client.models.generate_content(model=model_id, contents=prompt, config=cfg)
+
+    b64 = None
+    mime = None
+    text_out = []
+    try:
+        cand = (resp.candidates or [None])[0]
+        if cand and getattr(cand, 'content', None):
+            for part in (cand.content.parts or []):
+                # text
+                if getattr(part, 'text', None):
+                    try:
+                        text_out.append(str(part.text))
+                    except Exception:
+                        pass
+                # inline image data
+                elif getattr(part, 'inline_data', None):
+                    data = getattr(part.inline_data, 'data', None)
+                    if data:
+                        # data may already be bytes; ensure base64 string
+                        if isinstance(data, bytes):
+                            b64 = base64.b64encode(data).decode('ascii')
+                        else:
+                            # If the SDK already provides base64 str
+                            try:
+                                # Heuristic: if it decodes cleanly, accept
+                                base64.b64decode(data, validate=True)
+                                b64 = data
+                            except Exception:
+                                b64 = base64.b64encode(str(data).encode('utf-8')).decode('ascii')
+                        mime = getattr(part.inline_data, 'mime_type', None) or 'image/png'
+    except Exception:
+        pass
+
+    if not b64:
+        raise RuntimeError('No image content returned by model')
+    return b64, (mime or 'image/png'), ("\n".join([t for t in text_out if t]) or None)
 
 
 @ai_bp.post('/api/agent/chat')
@@ -519,4 +628,57 @@ def agent_day_advice():
 
     except Exception:
         logger.exception("agent_day_advice error")
+        return jsonify({"error": "internal_error"}), 500
+
+
+@ai_bp.post('/api/agent/generate_plan_image')
+def generate_plan_image():
+    """Generate an illustrative image from a travel plan via Vertex AI (Gemini image preview model).
+    Request JSON:
+      - plan: object (required)
+      - style: string (optional)  e.g., 'watercolor illustration', 'retro poster', 'photorealistic'
+      - model_id: string (optional) default 'gemini-2.5-flash-image-preview'
+    Response JSON on success:
+      { image_base64: str, image_mime_type: str, text: str|null, model_id: str }
+    """
+    try:
+        claims = claims_or_dev()
+        if not claims:
+            return jsonify({"error": "auth_required"}), 401
+
+        body = request.get_json(silent=True) or {}
+        plan = body.get('plan')
+        style = body.get('style')
+        model_id = (body.get('model_id') or os.getenv('PLAN_IMAGE_MODEL_ID') or 'gemini-2.5-flash-image-preview').strip()
+
+        if not isinstance(plan, dict):
+            return jsonify({"error": "invalid_parameters", "message": "plan must be an object"}), 400
+
+        project, location = _vertex_project_location()
+        if not project:
+            return jsonify({"error": "vertex_not_configured", "message": "Set GOOGLE_CLOUD_PROJECT or GCP_PROJECT_ID"}), 503
+
+        prompt = _build_image_prompt_from_plan(plan, style)
+
+        if LOG_PAYLOADS:
+            logger.info(f"generate_plan_image user={claims['sub']} model={model_id} loc={location} prompt_len={len(prompt)}")
+
+        image_b64, mime, text_out = _generate_image_with_vertex(prompt, model_id, project, location)
+
+        resp = {
+            'image_base64': image_b64,
+            'image_mime_type': mime,
+            'text': text_out,
+            'model_id': model_id,
+        }
+        tid = getattr(request, '_trace_id', None)
+        if tid:
+            resp['trace_id'] = tid
+        return jsonify(resp)
+
+    except RuntimeError as re:
+        logger.exception('generate_plan_image runtime error')
+        return jsonify({"error": "runtime_error", "message": str(re)}), 500
+    except Exception:
+        logger.exception('generate_plan_image error')
         return jsonify({"error": "internal_error"}), 500

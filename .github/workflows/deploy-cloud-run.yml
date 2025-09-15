@@ -178,7 +178,7 @@ jobs:
             --allow-unauthenticated \
             --port=8080 \
             --max-instances=3 \
-            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent.outputs.agent_url }}
+            --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent.outputs.agent_url }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
 
       - name: Resolve App URL
         id: resolve_app_url

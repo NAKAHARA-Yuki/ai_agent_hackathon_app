@@ -6,7 +6,7 @@ import LoadingScreen from '@/components/LoadingScreen.vue'
 import SuggestionScreen from '@/components/SuggestionScreen.vue'
 import DetailScreen from '@/components/DetailScreen.vue'
 import { useAuthStore } from '@/stores/authStore'
-import { createPlan } from '@/services/apiClient'
+import { createPlan, generatePlanImage } from '@/services/apiClient'
 
 const router = useRouter()
 
@@ -14,6 +14,8 @@ const currentView = ref('input') // 'input' | 'loading' | 'suggestions' | 'detai
 const travelPlans = ref([])
 const selectedPlan = ref(null)
 const saving = ref(false)
+const progressing = ref({ saving: false, imaging: false })
+const progressText = ref('')
 const auth = useAuthStore()
 const lastKeyword = ref('') // Store the last used keyword for regeneration
 
@@ -172,9 +174,11 @@ async function handleCreatePlanForRegeneration(keyword) {
 }
 
 async function handleConfirm(plan){
-  if(saving.value) return
+  if (saving.value) return
+  saving.value = true
+  progressing.value = { saving: true, imaging: true }
+  progressText.value = 'プランを保存中...'
   try {
-    saving.value = true
     const full = plan.__full || {}
     const payload = { 
       title: plan.title, 
@@ -186,10 +190,52 @@ async function handleConfirm(plan){
       suggestions: Array.isArray(full.suggestions) ? full.suggestions : [],
       itinerary: Array.isArray(plan.itinerary) ? plan.itinerary : []
     }
-    await createPlan(payload, auth.authHeader())
-    // 保存後ホーム（main）へ遷移 or 予定へ
+
+    // Start both operations in parallel
+    const createPromise = createPlan(payload, auth.authHeader())
+    const imagePromise = generatePlanImage({
+      plan: {
+        title: plan.title,
+        summary: payload.summary || plan.brief || '',
+        places: payload.places,
+        itinerary: payload.itinerary,
+        route_info: payload.route_info
+      },
+      authHeader: auth.authHeader()
+    }).catch(e => ({ error: String(e) }))
+
+    // Wait for plan creation first (needed for PATCH id)
+    const created = await createPromise
+    progressing.value.saving = false
+    progressText.value = '画像を生成中...'
+
+    // Wait for image
+    const img = await imagePromise
+    progressing.value.imaging = false
+
+    // Attach image to the created plan if available
+    if (img && img.image_base64) {
+      try {
+        await fetch(`/api/plans/${created.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
+          body: JSON.stringify({ image_base64: img.image_base64, image_mime_type: img.image_mime_type || 'image/png' })
+        })
+      } catch (e) {
+        console.warn('Failed to attach image to plan:', e)
+      }
+    }
+
+    // Navigate after both done
     window.location.assign('/plans')
-  } catch(e){ console.error('wizard save failed', e) } finally { saving.value=false }
+  } catch (e) {
+    console.error('wizard save failed', e)
+    alert('保存に失敗しました。時間をおいて再試行してください。')
+  } finally {
+    saving.value = false
+    progressing.value = { saving: false, imaging: false }
+    progressText.value = ''
+  }
 }
 
 // --- visualViewport ベースの実高さ制御 ----------------------------------
@@ -243,6 +289,24 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
 
   <DetailScreen v-else-if="currentView==='detail'" :plan="selectedPlan" @go-back="handleGoBack" @confirm="handleConfirm" @refine="handleRefine" />
     </div>
+
+    <!-- Progress Overlay -->
+    <div v-if="saving" class="progress-overlay">
+      <div class="progress-card">
+        <div class="progress-title">処理中...</div>
+        <div class="progress-text">{{ progressText }}</div>
+        <ul class="progress-steps">
+          <li>
+            <span class="icon" :class="{ done: !progressing.saving }">{{ progressing.saving ? '●' : '✔' }}</span>
+            プランを保存
+          </li>
+          <li>
+            <span class="icon" :class="{ done: !progressing.imaging }">{{ progressing.imaging ? '●' : '✔' }}</span>
+            画像を生成
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -271,6 +335,31 @@ const wrapStyle = computed(() => ({ '--vvh': viewportHeight.value ? Math.round(v
   padding:0 16px;
   box-sizing:border-box;
 }
+/* 進捗オーバーレイ */
+.progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.progress-card {
+  background: #fff;
+  color: #111827;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  width: 90%;
+  max-width: 420px;
+  padding: 20px 22px;
+}
+.progress-title { font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+.progress-text { font-size: 14px; color: #4b5563; margin-bottom: 12px; }
+.progress-steps { list-style: none; padding: 0; margin: 0; }
+.progress-steps li { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; }
+.progress-steps .icon { display:inline-flex; width:18px; height:18px; align-items:center; justify-content:center; border-radius:50%; background:#e5e7eb; color:#374151; font-size:12px; }
+.progress-steps .icon.done { background:#10b981; color:#fff; }
 /* デスクトップでのパディング調整 */
 @media (min-width:600px){
   .wizard-inner { 

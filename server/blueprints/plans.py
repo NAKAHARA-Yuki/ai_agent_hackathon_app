@@ -164,6 +164,9 @@ def plans_collection():
     status = status.lower()
     if status not in ('confirmed', 'draft'):
         status = 'confirmed'
+    # Optional image payload (base64)
+    image_base64 = payload.get('image_base64') if isinstance(payload.get('image_base64'), str) else None
+    image_mime_type = payload.get('image_mime_type') if isinstance(payload.get('image_mime_type'), str) else None
 
     if not title:
         # Fallback sensible title
@@ -184,6 +187,10 @@ def plans_collection():
         'source': 'chat',
         'status': status,
     }
+    if image_base64:
+        doc['image_base64'] = image_base64
+        if image_mime_type:
+            doc['image_mime_type'] = image_mime_type
     try:
         doc_ref = plans_ref.document()
         doc_ref.set(doc, timeout=5)
@@ -205,6 +212,8 @@ def plans_collection():
             'updated_at': saved.get('updated_at'),
             'status': saved.get('status') or status,
             'source': saved.get('source'),
+            'image_base64': saved.get('image_base64'),
+            'image_mime_type': saved.get('image_mime_type'),
         }
         return jsonify(out), 201
     except Exception as e:
@@ -212,7 +221,7 @@ def plans_collection():
         return jsonify({"error": "database_unavailable"}), 503
 
 
-@plans_bp.route('/api/plans/<plan_id>', methods=['GET', 'DELETE'])
+@plans_bp.route('/api/plans/<plan_id>', methods=['GET', 'PATCH', 'DELETE'])
 def plans_item(plan_id: str):
     """Individual travel plan management"""
     from flask import current_app
@@ -240,6 +249,35 @@ def plans_item(plan_id: str):
         except Exception as e:
             logger.exception("/api/plans/{id} GET error")
             return jsonify({}), 404
+
+    if request.method == 'PATCH':
+        try:
+            payload = request.get_json() or {}
+            updates = {}
+            # Only allow specific fields to be updated for safety
+            if isinstance(payload.get('image_base64'), str):
+                updates['image_base64'] = payload['image_base64']
+            if isinstance(payload.get('image_mime_type'), str):
+                updates['image_mime_type'] = payload['image_mime_type']
+            # Optionally allow title/summary minor updates (future-proof; keep minimal)
+            if isinstance(payload.get('title'), str):
+                updates['title'] = sanitize_title(payload['title'])
+            if isinstance(payload.get('summary'), str):
+                updates['summary'] = sanitize_text(payload['summary'])
+
+            if not updates:
+                return jsonify({'status': 'no_changes'}), 200
+
+            updates['updated_at'] = firestore.SERVER_TIMESTAMP
+            plan_ref.set(updates, merge=True, timeout=5)
+
+            snap = plan_ref.get(timeout=5)
+            data = snap.to_dict() or {}
+            data['id'] = plan_id
+            return jsonify(data)
+        except Exception:
+            logger.exception("/api/plans/{id} PATCH error")
+            return jsonify({"error": "database_unavailable"}), 503
     
     # DELETE
     try:
