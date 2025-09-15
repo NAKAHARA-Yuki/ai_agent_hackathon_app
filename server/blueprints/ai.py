@@ -127,7 +127,7 @@ def call_agent_plan(persona: dict = None) -> dict:
     return retry_on_503(_make_request)
 
 
-# ===== Vertex AI (google.genai) helpers for image generation =====
+# ===== Vertex AI (REST) helpers for image generation =====
 def _vertex_project_location() -> tuple[str, str]:
     """Resolve GCP project and location from environment.
     Uses GOOGLE_CLOUD_PROJECT or GCP_PROJECT_ID. Location defaults to 'global' or env VERTEX_LOCATION.
@@ -180,59 +180,107 @@ def _build_image_prompt_from_plan(plan: dict, style: str | None = None) -> str:
     return prompt
 
 
-def _generate_image_with_vertex(prompt: str, model_id: str, project: str, location: str):
-    """Call Vertex AI's google.genai SDK to generate an image and optional text.
+_token_cache = {"access_token": None, "exp": 0.0}
+
+
+def _get_access_token_via_metadata() -> str | None:
+    """Fetch an OAuth2 access token from Cloud Run/metadata server.
+    Caches token until near expiry. Returns None if not available.
+    """
+    # Env override (useful for local/dev)
+    env_token = os.getenv('GCP_ACCESS_TOKEN')
+    if env_token:
+        return env_token
+
+    # Cache valid token
+    now = time.time()
+    if _token_cache.get('access_token') and now < (_token_cache.get('exp', 0) - 60):
+        return _token_cache['access_token']
+
+    try:
+        meta_url = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token'
+        h = {'Metadata-Flavor': 'Google'}
+        r = requests.get(meta_url, headers=h, timeout=3)
+        if r.status_code == 200:
+            data = r.json()
+            token = data.get('access_token')
+            expires_in = float(data.get('expires_in') or 0)
+            if token:
+                _token_cache['access_token'] = token
+                _token_cache['exp'] = now + max(0.0, expires_in)
+                return token
+    except Exception:
+        # Not on Cloud Run / metadata not reachable
+        pass
+    return None
+
+
+def _generate_image_with_vertex_rest(prompt: str, model_id: str, project: str, location: str):
+    """Call Vertex AI REST to generate image and optional text.
     Returns (base64_data, mime_type, text_output)
     """
-    try:
-        from google import genai  # type: ignore
-        from google.genai.types import GenerateContentConfig  # type: ignore
-    except Exception as ie:
-        raise RuntimeError("google-genai is not installed. Add 'google-genai' to requirements.") from ie
+    access_token = _get_access_token_via_metadata()
+    if not access_token:
+        raise RuntimeError('No access token available. On Cloud Run, ensure default service account and metadata server access. For local dev, set GCP_ACCESS_TOKEN.')
 
-    client = genai.Client(vertexai=True, project=project, location=location)
-    cfg = GenerateContentConfig(
-        response_modalities=["TEXT", "IMAGE"],
-        candidate_count=1,
+    url = (
+        f"https://aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/"
+        f"publishers/google/models/{model_id}:generateContent"
     )
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json',
+    }
+    # Vertex expects array contents with role+parts
+    body = {
+        'contents': [
+            {
+                'role': 'user',
+                'parts': [ { 'text': str(prompt) } ],
+            }
+        ],
+        'generation_config': {
+            'response_modalities': ['TEXT', 'IMAGE'],
+            'candidate_count': 1,
+        }
+    }
 
-    resp = client.models.generate_content(model=model_id, contents=prompt, config=cfg)
+    r = requests.post(url, headers=headers, json=body, timeout=60)
+    if r.status_code >= 300:
+        # Log minimal detail; return clean error
+        logger.warning('Vertex REST error %s: %s', r.status_code, snip_text(r.text))
+        raise RuntimeError(f'Vertex REST error: HTTP {r.status_code}')
 
+    resp = r.json()
     b64 = None
     mime = None
-    text_out = []
+    texts = []
     try:
-        cand = (resp.candidates or [None])[0]
-        if cand and getattr(cand, 'content', None):
-            for part in (cand.content.parts or []):
-                # text
-                if getattr(part, 'text', None):
+        cand = (resp.get('candidates') or [None])[0]
+        content = cand and cand.get('content') or {}
+        parts = content.get('parts') or []
+        for part in parts:
+            if 'text' in part and part['text']:
+                texts.append(str(part['text']))
+            elif 'inline_data' in part and part['inline_data']:
+                inline = part['inline_data']
+                data = inline.get('data')
+                if data:
+                    # heuristic: assume already base64 string
                     try:
-                        text_out.append(str(part.text))
+                        base64.b64decode(data, validate=True)
+                        b64 = data
                     except Exception:
-                        pass
-                # inline image data
-                elif getattr(part, 'inline_data', None):
-                    data = getattr(part.inline_data, 'data', None)
-                    if data:
-                        # data may already be bytes; ensure base64 string
-                        if isinstance(data, bytes):
-                            b64 = base64.b64encode(data).decode('ascii')
-                        else:
-                            # If the SDK already provides base64 str
-                            try:
-                                # Heuristic: if it decodes cleanly, accept
-                                base64.b64decode(data, validate=True)
-                                b64 = data
-                            except Exception:
-                                b64 = base64.b64encode(str(data).encode('utf-8')).decode('ascii')
-                        mime = getattr(part.inline_data, 'mime_type', None) or 'image/png'
+                        b64 = base64.b64encode(str(data).encode('utf-8')).decode('ascii')
+                m = inline.get('mime_type') or inline.get('mimeType')
+                if m:
+                    mime = m
     except Exception:
         pass
 
     if not b64:
         raise RuntimeError('No image content returned by model')
-    return b64, (mime or 'image/png'), ("\n".join([t for t in text_out if t]) or None)
+    return b64, (mime or 'image/png'), ("\n".join([t for t in texts if t]) or None)
 
 
 @ai_bp.post('/api/agent/chat')
@@ -663,7 +711,7 @@ def generate_plan_image():
         if LOG_PAYLOADS:
             logger.info(f"generate_plan_image user={claims['sub']} model={model_id} loc={location} prompt_len={len(prompt)}")
 
-        image_b64, mime, text_out = _generate_image_with_vertex(prompt, model_id, project, location)
+        image_b64, mime, text_out = _generate_image_with_vertex_rest(prompt, model_id, project, location)
 
         resp = {
             'image_base64': image_b64,
