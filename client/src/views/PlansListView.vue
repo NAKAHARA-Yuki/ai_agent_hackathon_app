@@ -128,7 +128,7 @@ onMounted(fetchPlans)
   flex-direction: column; 
   gap: 12px; 
   width: 100%; 
-  padding: 0 16px 20px;
+  padding: 0 0 20px; /* 左右のパディングを削除。App.vueのcontentが既にパディングを提供 */
   box-sizing: border-box;
   min-height: 100%;
   height: 100%;
@@ -140,7 +140,7 @@ onMounted(fetchPlans)
 /* モバイル対応: より適切なパディングとスクロール */
 @media (max-width: 768px) {
   .plans-list {
-    padding: 0 16px 24px; /* 左右のパディングを増やして見切れを防止 */
+    padding: 0 0 24px; /* 左右のパディングを削除。App.vueのcontentが既にパディングを提供 */
     gap: 12px;
     /* スクロール領域の最適化 */
     -webkit-overflow-scrolling: touch;
@@ -150,7 +150,7 @@ onMounted(fetchPlans)
 
 @media (max-width: 480px) {
   .plans-list {
-    padding: 0 8px 20px;
+    padding: 0 0 20px; /* 左右のパディングを削除 */
     gap: 10px;
   }
 }
@@ -160,7 +160,7 @@ onMounted(fetchPlans)
   align-items: center; 
   gap: 12px; 
   background: rgba(255,255,255,0.9); 
-  padding: 8px 10px; 
+  padding: 8px 12px; /* 内部パディングは維持 */
   border-radius: 12px; 
   box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
   margin-bottom: 8px;
@@ -176,7 +176,7 @@ onMounted(fetchPlans)
 /* モバイル対応: ヘッダーサイズ調整 */
 @media (max-width: 768px) {
   .header {
-    padding: 12px 14px;
+    padding: 12px 16px; /* モバイルでは適度な内部パディングを維持 */
     gap: 12px;
     border-radius: 10px;
     margin-bottom: 12px;
@@ -189,7 +189,7 @@ onMounted(fetchPlans)
 
 @media (max-width: 480px) {
   .header {
-    padding: 10px 12px;
+    padding: 10px 14px;
     gap: 10px;
   }
   
