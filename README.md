@@ -11,6 +11,7 @@ AIを活用した旅行診断・プランニングアプリケーションです
 - **マップ統合**: Google Maps連携による視覚的な旅行ルート表示
 - **輸送情報表示**: 移動手段のアイコン・ラベル・所要時間・距離の詳細表示
 - **マルチプラン提案**: 複数の旅行プランの比較・選択機能
+- **レスポンシブUI**: モバイルファーストなレスポンシブデザインとタッチ操作最適化
 
 ## 🏗️ システム構成
 
@@ -160,6 +161,13 @@ ai_agent_hackathon_app/
 - `DetailScreen.vue` - 詳細画面
 - `InputScreen.vue` - 入力画面
 - `SuggestionScreen.vue` - 提案画面
+
+**モバイルUI最適化**
+- **レスポンシブデザイン**: モバイルファーストアプローチによる全画面最適化
+- **タッチ操作対応**: WCAG AA準拠の44px最小タッチターゲット実装
+- **カード表示改善**: PlansListViewでのカードクリッピング防止とレイアウト最適化
+- **ビューポート対応**: 動的ビューポート高さ（100dvh）とセーフエリア考慮
+- **横スクロール防止**: 厳密な幅制限によるモバイル表示の安定性向上
 
 **サービス層（services/）**
 - `apiClient.js` - バックエンドAPI通信クライアント（axios使用）
@@ -659,6 +667,44 @@ pytest -v                 # 詳細出力
 - **データベース**: Google Firestore
 - **外部API**: Google Maps API, Gemini API
 
+#### モバイルUI技術詳細
+
+**レスポンシブデザイン実装（PlansListView.vue）**
+```css
+/* モバイル対応: 横スクロール防止とカード幅制限 */
+@media (max-width: 768px) {
+  .plans-list {
+    max-width: calc(100vw - 16px); /* App.vueの8px * 2を考慮 */
+    overflow-x: hidden; /* 横スクロール完全に無効化 */
+  }
+  
+  .cards { 
+    grid-template-columns: 1fr; /* 1列レイアウト */
+    contain: layout strict; /* 厳密なレイアウト制約 */
+  }
+}
+
+/* WCAG AA準拠のタッチターゲット */
+.toggle-btn {
+  min-width: 44px; /* モバイル最小タッチサイズ */
+  min-height: 44px;
+}
+```
+
+**動的ビューポート対応（App.vue）**
+```css
+#app-container { 
+  height: 100dvh; /* 動的ビューポート高さ */
+  padding: calc(14px + env(safe-area-inset-left)); /* セーフエリア対応 */
+}
+```
+
+**主要改善点**
+- **カードクリッピング防止**: アクティブプランバナーの最小高さ設定（140px）
+- **タッチ操作最適化**: ボタンサイズ44px以上でアクセシビリティ向上
+- **レイアウト安定性**: `contain: layout strict` による厳密な制約
+- **横スクロール排除**: ビューポート幅制限とオーバーフロー制御
+
 ### テスト・品質保証
 - **Frontend**: Jest 29.7.0 + @vue/test-utils
 - **Backend**: pytest 7.4.4 + pytest-flask
@@ -798,6 +844,7 @@ GitHub Actions ワークフローにより自動デプロイ：
 ### 最新更新 (2025年9月15日)
 - ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、7個のBlueprintと3個のユーティリティモジュールに分割
 - ✅ **エージェント実装ドキュメント化**: ADK統合・マルチエージェント詳細仕様書
+- ✅ **モバイルUI最適化**: PlansListView.vue でのカードクリッピング修正、レスポンシブレイアウト改善
 - ✅ 輸送情報表示機能の追加（移動手段のアイコン・ラベル・所要時間・距離）
 - ✅ ドキュメント構造の整理・統合
 - ✅ コンポーネント情報の正確性向上

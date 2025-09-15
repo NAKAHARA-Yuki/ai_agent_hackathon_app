@@ -14,10 +14,14 @@
 ### 🏗️ コンポーネント情報
 コンポーネントの詳細情報は以下に記載されています：
 - **[メイン README](../README.md)** - 全コンポーネントの概要（15個のビュー、10個のUIコンポーネント）
+  - **モバイルUI最適化**: レスポンシブデザイン、タッチ操作対応、カードクリッピング修正
 - **agent/** - エージェント関連ドキュメント（`../agent/` 内に配置）
   - `agent/README.md` - ADKエージェントサービスの詳細
   - `agent/AGENT_FIX_NOTES.md` - エージェント設定修正履歴
   - `agent/tools/README.md` - エージェントツール説明
+
+### 📱 フロントエンド技術仕様
+- **[async_plan_technical_specs.md](async_plan_technical_specs.md)** - モバイルUIレスポンシブ設計・テスト仕様含む
 
 ## 🚀 クイックスタート
 

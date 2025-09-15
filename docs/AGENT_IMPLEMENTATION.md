@@ -218,6 +218,81 @@ tools=[MCPToolset(
 - `directions` - 経路案内
 - `elevation` - 標高取得
 
+## フロントエンドUI統合
+
+### モバイル対応レスポンシブデザイン
+
+**PlansListView.vue における最適化**:
+```vue
+<template>
+  <!-- カードクリッピング防止のアクティブプランバナー -->
+  <div v-if="activePlanStore.isActive" class="active-plan-banner">
+    <div class="banner-content">
+      <!-- レスポンシブコンテンツ -->
+    </div>
+  </div>
+  
+  <!-- モバイル最適化されたカードグリッド -->
+  <div class="cards" v-auto-animate>
+    <div v-for="p in items" :key="p.id" class="card">
+      <!-- カード内容 -->
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* モバイル対応: 横スクロール防止 */
+@media (max-width: 768px) {
+  .plans-list {
+    max-width: calc(100vw - 16px);
+    overflow-x: hidden;
+  }
+  
+  .cards { 
+    grid-template-columns: 1fr; /* 1列レイアウト */
+    contain: layout strict; /* 厳密なレイアウト制約 */
+  }
+  
+  /* WCAG AA準拠 44px最小タッチターゲット */
+  .toggle-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* アクティブプランバナーのクリッピング防止 */
+.active-plan-banner {
+  min-height: 140px; /* モバイルでの最小高さ確保 */
+  overflow: hidden;
+  box-sizing: border-box;
+}
+</style>
+```
+
+**App.vue における基盤最適化**:
+```vue
+<style scoped>
+#app-container { 
+  height: 100dvh; /* 動的ビューポート高さ */
+  padding: calc(14px + env(safe-area-inset-left)); /* セーフエリア対応 */
+}
+
+/* モバイル対応コンテンツエリア */
+@media (max-width: 768px) {
+  .content {
+    padding: 8px;
+    align-items: flex-start; /* 上寄せレイアウト */
+  }
+}
+</style>
+```
+
+**主要改善点**:
+- **カードクリッピング修正**: アクティブプランバナーとカードの表示問題解決
+- **レスポンシブグリッド**: デスクトップ複数列 → モバイル1列の適応的レイアウト
+- **タッチ操作最適化**: 44px最小サイズでアクセシビリティ向上
+- **ビューポート対応**: 100dvh + セーフエリア考慮の堅牢な表示
+
 ## ADK統合パターン
 
 ### セッション管理

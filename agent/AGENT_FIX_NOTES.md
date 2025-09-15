@@ -65,6 +65,35 @@ All tests pass:
 - **Improved**: More stable and maintainable agent structure
 - **Compatible**: Works with ADK api_server expectations
 
+## Frontend UI Integration Fixes
+
+### Mobile UI Optimization (September 2025)
+
+**Issue**: Cards clipping on mobile devices in PlansListView, poor responsive behavior
+
+**Solutions Applied**:
+
+1. **Card Layout Fixes**
+   - Implemented strict width constraints: `max-width: calc(100vw - 16px)`
+   - Added `overflow-x: hidden` to prevent horizontal scrolling
+   - Applied `contain: layout strict` for stable rendering
+
+2. **Touch Target Compliance**
+   - Upgraded button sizes to WCAG AA standards (44px minimum)
+   - Optimized touch interaction areas for mobile devices
+
+3. **Viewport Compatibility**  
+   - Implemented dynamic viewport height (`100dvh`)
+   - Added safe area inset support for modern mobile devices
+   - Enhanced responsive grid: desktop multi-column → mobile single-column
+
+4. **Active Plan Banner Optimization**
+   - Fixed banner clipping with minimum height constraints
+   - Improved content overflow handling
+   - Enhanced mobile-specific layout adjustments
+
+**Result**: Significantly improved mobile user experience with stable, accessible UI
+
 ---
 
 **最終更新**: 2025年9月15日

@@ -480,6 +480,56 @@ describe('JobPollingService', () => {
 })
 ```
 
+#### モバイルUI（Responsive Design）
+```javascript
+// mobileUI.test.js - レスポンシブデザインテスト
+describe('Mobile UI Optimization', () => {
+  test('PlansListView should prevent card clipping on mobile', async () => {
+    // モバイルビューポート設定
+    Object.defineProperty(window, 'innerWidth', { value: 375 })
+    Object.defineProperty(window, 'innerHeight', { value: 667 })
+    
+    const wrapper = mount(PlansListView)
+    
+    // カードコンテナの横スクロール防止を確認
+    const cards = wrapper.find('.cards')
+    expect(cards.classes()).toContain('overflow-x-hidden')
+    
+    // グリッドレイアウトが1列になることを確認
+    expect(getComputedStyle(cards.element).gridTemplateColumns).toBe('1fr')
+  })
+
+  test('Touch targets should meet WCAG AA standards', () => {
+    const wrapper = mount(PlansListView)
+    const toggleButton = wrapper.find('.toggle-btn')
+    
+    // 最小44px タッチターゲットサイズを確認
+    const computedStyle = getComputedStyle(toggleButton.element)
+    expect(parseInt(computedStyle.minWidth)).toBeGreaterThanOrEqual(44)
+    expect(parseInt(computedStyle.minHeight)).toBeGreaterThanOrEqual(44)
+  })
+
+  test('Dynamic viewport height should be supported', () => {
+    const wrapper = mount(App)
+    const container = wrapper.find('#app-container')
+    
+    // 動的ビューポート高さの使用を確認
+    expect(getComputedStyle(container.element).height).toContain('100dvh')
+  })
+
+  test('Safe area insets should be properly handled', () => {
+    // Safe area inset環境変数を模擬
+    document.documentElement.style.setProperty('--safe-area-inset-left', '20px')
+    
+    const wrapper = mount(App)
+    const header = wrapper.find('.site-header')
+    
+    // セーフエリア対応パディングを確認
+    expect(getComputedStyle(header.element).paddingLeft).toContain('calc')
+  })
+})
+```
+
 ### 統合テスト
 
 #### エンドツーエンドフロー
