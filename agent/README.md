@@ -56,3 +56,7 @@ docker run --rm -p 8082:8080 \
 補足（依存関係の最小化）:
 - ランタイムは ADK Web を使用するため、FastAPI/uvicorn/pydantic などの依存は削除しています。
 - `requirements.txt` は `google-adk` と `httpx` のみです。
+
+---
+
+**最終更新**: 2025年9月15日
