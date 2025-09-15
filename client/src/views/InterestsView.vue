@@ -70,12 +70,17 @@ onMounted(async () => {
   place-items:center; 
   min-height:100%; 
   height: 100vh;
-  height: 100dvh; /* Use dynamic viewport height for mobile */
   padding:16px; 
   width:100%; 
   overflow-y: auto; /* Ensure vertical scrolling is enabled */
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   box-sizing: border-box;
+}
+
+@supports (height: 100dvh) {
+  .interests {
+    height: 100dvh; /* Use dynamic viewport height for mobile */
+  }
 }
 .panel { width:min(920px,100%); background:white; padding:20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 h1 { margin: 0 0 8px; font-size: 1.6rem; color:#1f2937; }

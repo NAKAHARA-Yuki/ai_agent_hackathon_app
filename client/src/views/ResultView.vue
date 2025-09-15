@@ -441,9 +441,10 @@ p {
   padding: 0 16px;
 }
 
-button.primary { 
-  background: var(--color-primary); 
-  color:#fff; 
+/* Button styles with shared properties */
+button.primary, 
+button.secondary { 
+  /* Shared button properties */
   border:none; 
   padding:12px 24px; 
   border-radius:8px; 
@@ -456,19 +457,15 @@ button.primary {
   max-width: 280px;
 }
 
+button.primary { 
+  background: var(--color-primary); 
+  color:#fff; 
+}
+
 button.secondary { 
   background: #f8f9fa; 
   color: #6c757d; 
   border: 1px solid #dee2e6; 
-  padding:12px 24px; 
-  border-radius:8px; 
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 44px;
-  width: 100%;
-  max-width: 280px;
 }
 
 button.primary:hover {
