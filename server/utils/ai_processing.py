@@ -110,13 +110,13 @@ def call_gemini_api(prompt: str, model_name: str = 'gemini-2.5-flash') -> Dict[s
         raise Exception("GEMINI_API_KEY is not configured.")
 
     def _make_request():
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+        url = f"https://aiplatform.googleapis.com/v1/publishers/google/models/{model_name}:generateContent?key={api_key}"
         headers = {
             'Content-Type': 'application/json',
-            'x-goog-api-key': api_key
         }
         data = {
             "contents": [{
+                "role": "user",
                 "parts": [{"text": prompt}]
             }],
             "generationConfig": {

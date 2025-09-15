@@ -78,6 +78,10 @@ def create_persona():
                 # ユーザーの趣味（旅行で重視するテーマや体験）
                 {json.dumps(user_hobbies, ensure_ascii=False)}
                 """
+                logger.info("Generated system_prompt:", system_prompt)
+                logger.info("User hobbies:", user_hobbies)
+                logger.info("Profile:", prompt)
+                
                 api_response = call_gemini_api(prompt)
                 system_prompt = api_response['candidates'][0]['content']['parts'][0]['text'].strip()
             except Exception as e:
@@ -85,6 +89,9 @@ def create_persona():
                 system_prompt = (
                     "ユーザーの診断結果および趣味の傾向を尊重し、日本国内の旅行計画を丁寧に提案・調整すること。"
                 )
+
+    # Save persona to Firestore
+    
 
     personas_ref = db.collection('users').document(claims['sub']).collection('personas')
     doc_ref = personas_ref.document()
