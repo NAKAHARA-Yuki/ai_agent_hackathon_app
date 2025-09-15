@@ -23,7 +23,7 @@ def create_persona():
     if db is None:
         return jsonify({"error": "Database not configured"}), 500
     
-    claims = require_auth(request)
+    claims = claims_or_dev()
     if not claims:
         return jsonify({"error": "unauthorized"}), 401
     

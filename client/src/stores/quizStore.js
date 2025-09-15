@@ -410,14 +410,21 @@ export const useQuizStore = defineStore('quiz', () => {
   // 診断プロフィールをサーバーに保存し、ペルソナのシステムプロンプトを生成
   async function savePersonaProfile() {
     try {
-      const current = finalResult.value;
+      let current = finalResult.value;
       if (!current) {
-        console.warn('No final result available for persona profile saving');
+        // finalResult の反映タイミングに備えて短時間ポーリング
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 100));
+          if (finalResult.value) { current = finalResult.value; break }
+        }
+      }
+      if (!current) {
+        console.warn('No final result available for persona profile saving (skipped)');
         return;
       }
       const auth = useAuthStore();
     // hobbies を同時送信（サーバー側でプロンプトに反映される）
-    const opts = Array.isArray(likesOptions.value) ? likesOptions.value : []
+    const opts = Array.isArray(likesOptionsState.value) ? likesOptionsState.value : []
     const hobbies = (selectedLikes.value || []).map(id => opts.find(o => o.id === id)?.label || String(id)).filter(Boolean).slice(0, 10)
       const payload = {
         profile: {
@@ -427,7 +434,8 @@ export const useQuizStore = defineStore('quiz', () => {
       hobbies
         }
       };
-      const resp = await fetch('/api/persona', {
+  console.debug('POST /api/persona payload:', payload)
+  const resp = await fetch('/api/persona', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
         body: JSON.stringify(payload)
