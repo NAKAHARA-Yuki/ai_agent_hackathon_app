@@ -74,6 +74,59 @@ async function executeDelete() {
   }
 }
 
+// Transport helpers (similar to DetailScreen.vue)
+const MODE_LABEL = {
+  walking: '徒歩',
+  transit: '公共交通',
+  driving: '車',
+  bus: 'バス',
+  train: '電車',
+  taxi: 'タクシー',
+  bicycle: '自転車',
+  cycling: '自転車',
+  flight: '飛行機',
+  boat: '船',
+  ferry: 'フェリー'
+}
+
+function transportLabel(mode) {
+  const m = String(mode || '').toLowerCase()
+  return MODE_LABEL[m] || '移動'
+}
+
+function transportIcon(mode) {
+  const m = String(mode || '').toLowerCase()
+  switch (m) {
+    case 'walking': return '🚶'
+    case 'bus': return '🚌'
+    case 'train': return '🚆'
+    case 'transit': return '🚌'
+    case 'driving': return '🚗'
+    case 'taxi': return '🚕'
+    case 'bicycle':
+    case 'cycling': return '🚲'
+    case 'flight': return '✈️'
+    case 'boat':
+    case 'ferry': return '⛴️'
+    default: return '➡️'
+  }
+}
+
+function formatDuration(val) {
+  if (val === null || val === undefined) return ''
+  if (typeof val === 'number' && isFinite(val)) return `${Math.round(val)}分`
+  if (typeof val === 'string') return val
+  return ''
+}
+
+function formatDistance(km) {
+  if (km === null || km === undefined) return ''
+  const n = Number(km)
+  if (!isFinite(n)) return ''
+  if (n === 0) return '0 km'
+  return n < 1 ? `${n.toFixed(1)} km` : `${n.toFixed(1)} km`
+}
+
 function handleImageError() {
   // Use reactive pattern instead of direct DOM manipulation
   imageLoadError.value = true
@@ -122,6 +175,15 @@ function handleImageError() {
               <span class="time" v-if="it.time">{{ it.time }}</span>
               <span class="item-title">{{ it.title }}</span>
               <span class="item-detail" v-if="it.detail"> — {{ it.detail }}</span>
+              <!-- transport info -->
+              <div v-if="it.transport" class="transport">
+                <span class="t-icon">{{ transportIcon(it.transport?.mode) }}</span>
+                <span class="t-label">{{ transportLabel(it.transport?.mode) }}</span>
+                <span v-if="formatDuration(it.transport?.estimated_duration)" class="t-sep">•</span>
+                <span v-if="formatDuration(it.transport?.estimated_duration)" class="t-duration">{{ formatDuration(it.transport?.estimated_duration) }}</span>
+                <span v-if="formatDistance(it.transport?.distance_km)" class="t-sep">•</span>
+                <span v-if="formatDistance(it.transport?.distance_km)" class="t-distance">{{ formatDistance(it.transport?.distance_km) }}</span>
+              </div>
             </li>
           </ul>
         </div>
@@ -410,6 +472,22 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
   overflow: visible; /* Ensure individual items are not clipped */
 }
 .items .time{ font-weight:600; min-width:52px; color:#0f172a; }
+
+/* Transport info styles (similar to DetailScreen.vue) */
+.items .transport { 
+  display:flex; 
+  align-items:center; 
+  gap:6px; 
+  width:100%; 
+  margin-top:2px; 
+  font-size:12px; 
+  color:#64748b; 
+}
+.items .transport .t-icon { font-size:14px; }
+.items .transport .t-label { font-weight:500; }
+.items .transport .t-duration,
+.items .transport .t-distance { font-size:11px; }
+.items .transport .t-sep { opacity:.6; }
 
 /* 本文 */
 .raw-text pre{ white-space:pre-wrap; font-size:12.5px; line-height:1.55; background:#f1f5f9; padding:12px 14px; border-radius:14px; border:1px solid #e2e8f0; overflow:auto; max-height:480px; scrollbar-width:thin; }

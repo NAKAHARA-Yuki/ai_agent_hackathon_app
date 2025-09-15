@@ -65,7 +65,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.interests { display:grid; place-items:center; height:100%; padding:16px; width:100%; overflow:auto; }
+.interests { 
+  display:grid; 
+  place-items:center; 
+  min-height:100%; 
+  height: 100vh;
+  height: 100dvh; /* Use dynamic viewport height for mobile */
+  padding:16px; 
+  width:100%; 
+  overflow-y: auto; /* Ensure vertical scrolling is enabled */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  box-sizing: border-box;
+}
 .panel { width:min(920px,100%); background:white; padding:20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
 h1 { margin: 0 0 8px; font-size: 1.6rem; color:#1f2937; }
 .lead { color:#5a6b86; margin: 0 0 16px; }
@@ -84,6 +95,13 @@ h1 { margin: 0 0 8px; font-size: 1.6rem; color:#1f2937; }
   .interests { 
     padding: 0; 
     place-items: stretch;
+    /* Ensure proper scrolling on mobile */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    /* Fix viewport issues */
+    height: 100vh;
+    height: 100dvh;
   }
   .panel { 
     width: 100%; 
@@ -93,16 +111,35 @@ h1 { margin: 0 0 8px; font-size: 1.6rem; color:#1f2937; }
     box-shadow: none; 
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: 24px;
+    justify-content: flex-start; /* Change from center to flex-start to prevent top clipping */
+    padding: calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px);
     box-sizing: border-box;
+    overflow-y: auto; /* Allow scrolling within the panel */
+    -webkit-overflow-scrolling: touch;
   }
 }
 @media (max-width: 600px) {
-  .panel { padding:14px; box-sizing: border-box; }
+  .panel { 
+    padding: calc(env(safe-area-inset-top) + 16px) 14px calc(env(safe-area-inset-bottom) + 16px); 
+    box-sizing: border-box; 
+    /* Ensure content is scrollable */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .grid { grid-template-columns: repeat(2, 1fr); gap:8px; }
   .tile { padding:12px; border-radius:12px; }
   .tile .emoji { font-size:24px; }
   .tile .label { font-size: 13px; }
+  
+  /* Add margin to prevent button from being hidden */
+  .actions {
+    margin-top: 20px;
+    padding-bottom: 20px;
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+  }
 }
 </style>
