@@ -396,7 +396,8 @@ def agent_chat():
                     'reply': 'AIサービスでエラーが発生しました。しばらく待ってから再試行してください。'
                 }), 500
         
-        # Attach structured agent output if available
+        # Prepare response container and attach structured agent output if available
+        resp = {}
         try:
             struct = getattr(g, 'agent_struct', None)
             if isinstance(struct, dict):
@@ -414,7 +415,11 @@ def agent_chat():
             pass
         
         if LOG_PAYLOADS:
-            logger.info(f"/api/agent/chat response body: {snip_json(resp)} trace={tid}")
+            try:
+                logger.info(f"/api/agent/chat response body: {snip_json(resp)} trace={tid}")
+            except Exception:
+                # Be robust to any logging/snip failures
+                logger.info(f"/api/agent/chat response body: <unavailable> trace={tid}")
         if tid:
             resp['trace_id'] = tid
         
