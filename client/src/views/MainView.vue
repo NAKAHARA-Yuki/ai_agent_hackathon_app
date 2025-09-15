@@ -3,10 +3,12 @@ import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
+import { useActivePlanStore } from '@/stores/activePlanStore'
 
 const router = useRouter()
 const auth = useAuthStore()
 const quiz = useQuizStore()
+const activePlanStore = useActivePlanStore()
 const persona = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -71,6 +73,8 @@ async function loadRecentPlans() {
 onMounted(() => {
   loadLatestPersona()
   loadRecentPlans()
+  // Fetch active plan for travel day mode
+  activePlanStore.fetchActivePlan()
 })
 
 function goResults() {
@@ -79,6 +83,12 @@ function goResults() {
 
 function restart() {
   router.push({ name: 'home' })
+}
+
+function openTravelDayChat() {
+  if (activePlanStore.activePlanId) {
+    router.push({ name: 'travel-day-chat', params: { id: activePlanStore.activePlanId } })
+  }
 }
 
 </script>
@@ -90,6 +100,22 @@ function restart() {
   <h1>メインページ</h1>
       <p class="lead">あなたの診断に基づき、パーソナライズされた旅の提案を続けられます。</p>
 
+      <!-- Active Plan Quick Access (Travel Day Mode) -->
+      <div v-if="activePlanStore.isActive" class="active-plan-banner">
+        <div class="banner-content">
+          <div class="banner-info">
+            <div class="banner-title">{{ activePlanStore.activePlanTitle }}</div>
+            <div class="banner-subtitle">旅行当日モード中</div>
+          </div>
+          <button @click="openTravelDayChat" class="chat-btn" aria-label="旅行当日チャット">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+            チャット
+          </button>
+        </div>
+      </div>
+
       <div v-if="loading">読み込み中...</div>
       <div v-else-if="error" class="error">
         <p>エラーが発生しました: {{ error }}</p>
@@ -100,6 +126,16 @@ function restart() {
           <h3>現在のタイプ: {{ persona.profile.title }}</h3>
           <p>{{ persona.profile.description || '詳細情報は現在利用できません。' }}</p>
           <div v-if="persona.profile?.traitScores && Object.keys(persona.profile.traitScores).length > 0" class="trait-summary">
+            <h4>📊 あなたの特性</h4>
+            <div class="trait-compact-list">
+              <div v-for="(score, trait) in persona.profile.traitScores" :key="trait" class="trait-compact-item">
+                <span class="trait-compact-name">{{ trait }}</span>
+                <div class="trait-compact-bar">
+                  <div class="trait-compact-fill" :style="{ width: (score / 4) * 100 + '%' }"></div>
+                  <span class="trait-compact-score">{{ score }}</span>
+                </div>
+              </div>
+            </div>
             <small class="muted">診断結果に基づいてパーソナライズされています</small>
           </div>
         </div>
@@ -149,6 +185,21 @@ function restart() {
 .panel { width:min(920px,100%); background:white; padding:24px 20px; border-radius:14px; box-shadow:0 10px 24px rgba(0,0,0,0.06); border:1px solid #eef2f7; }
 .lead { color:#5a6b86; margin: 0 0 16px; }
 .muted { color:#6b7280; }
+
+/* モバイルでの適切な表示 */
+@media (max-width: 768px) {
+  .main { 
+    padding: 16px; 
+  }
+  .panel { 
+    width: 100%; 
+    border-radius: var(--radius-lg); 
+    box-shadow: var(--shadow-md); 
+    border: 1px solid var(--color-border);
+    padding: 16px;
+    box-sizing: border-box;
+  }
+}
 .error { 
   color: #dc2626; 
   padding: 16px; 
@@ -170,8 +221,73 @@ function restart() {
   background: #b91c1c; 
 }
 .trait-summary {
-  margin-top: 8px;
+  margin-top: 16px;
 }
+
+.trait-summary h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.trait-compact-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.trait-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.trait-compact-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.trait-compact-bar {
+  flex: 1;
+  position: relative;
+  background: #e0e7ff;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.trait-compact-fill {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.5s ease;
+  min-width: 12px;
+}
+
+.trait-compact-score {
+  position: absolute;
+  right: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1px 3px;
+  border-radius: 3px;
+  min-width: 12px;
+  text-align: center;
+}
+
 .trait-summary small {
   font-size: 12px;
   color: #9ca3af;
@@ -278,5 +394,94 @@ function restart() {
 
 .recent-plans.loading { 
   color: #9ca3af; 
+}
+
+/* Active Plan Banner */
+.active-plan-banner {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  margin-bottom: 16px;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.banner-info {
+  flex: 1;
+}
+
+.banner-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.banner-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.chat-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 600px){ 
+  .banner-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .chat-btn {
+    align-self: stretch;
+    justify-content: center;
+    padding: 10px 18px;
+    font-size: 15px;
+    min-height: 44px; /* タッチフレンドリーなサイズ */
+  }
+}
+
+/* さらに小さな画面用の追加調整 */
+@media (max-width: 480px) {
+  .banner-title {
+    font-size: 15px;
+  }
+  
+  .banner-subtitle {
+    font-size: 11px;
+  }
+  
+  .chat-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+    min-height: 48px;
+  }
 }
 </style>

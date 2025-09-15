@@ -8,14 +8,14 @@ import { useAuthStore } from '@/stores/authStore'
 import QuestionView from '../views/QuestionView.vue'
 import ResultView from '../views/ResultView.vue'
 import MyPageView from '../views/MyPageView.vue'
-import PlannerView from '../views/PlannerView.vue'
 import PlansListView from '../views/PlansListView.vue'
 import TravelPlanWizardView from '../views/TravelPlanWizardView.vue'
 import InterestsView from '../views/InterestsView.vue'
 import TasksView from '../views/TasksView.vue'
-import ScheduleView from '../views/ScheduleView.vue'
+
 import PlanDetailView from '../views/PlanDetailView.vue'
 import PlanChatView from '../views/PlanChatView.vue'
+import TravelDayChatView from '../views/TravelDayChatView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -58,9 +58,10 @@ const router = createRouter({
   { path: '/plans', name: 'plans', component: PlansListView }
   ,{ path: '/travel-wizard', name: 'travel-wizard', component: TravelPlanWizardView }
   ,{ path: '/tasks', name: 'tasks', component: TasksView }
-  ,{ path: '/schedule', name: 'schedule', component: ScheduleView }
+
   ,{ path: '/plans/:id', name: 'plan-detail', component: PlanDetailView }
   ,{ path: '/plans/:id/chat', name: 'plan-chat', component: PlanChatView }
+  ,{ path: '/travel-day/:id', name: 'travel-day-chat', component: TravelDayChatView }
   ]
 })
 

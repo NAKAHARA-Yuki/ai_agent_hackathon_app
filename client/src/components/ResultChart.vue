@@ -50,6 +50,7 @@ const chartData = computed(() => {
     ? props.traitsOrder.filter(t => Object.prototype.hasOwnProperty.call(props.traitScores, t))
     : Object.keys(props.traitScores).sort()
   const data = labels.map(l => Number(props.traitScores[l] ?? 0))
+  
   return {
     labels,
     datasets: [

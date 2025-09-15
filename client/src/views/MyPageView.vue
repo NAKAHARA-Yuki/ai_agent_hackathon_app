@@ -54,8 +54,23 @@ async function loadProfile() {
 async function loadLatestPersona() {
   try {
     const resp = await fetch('/api/persona/latest', { headers: { ...auth.authHeader() } })
-    if (resp.ok) latestPersona.value = await resp.json()
-  } catch {}
+    if (resp.ok) {
+      const data = await resp.json()
+      // Validate persona data structure
+      if (data && data.profile && data.profile.title) {
+        latestPersona.value = data
+      } else {
+        console.warn('Invalid persona data received:', data)
+        latestPersona.value = null
+      }
+    } else {
+      console.log('No persona data found (HTTP', resp.status + ')')
+      latestPersona.value = null
+    }
+  } catch (e) {
+    console.error('Failed to load persona:', e)
+    latestPersona.value = null
+  }
 }
 
 function addTag(e) {
@@ -225,10 +240,16 @@ onMounted(async () => {
           <p v-if="error" class="error">{{ error }}</p>
         </form>
 
-        <div class="persona" v-if="latestPersona?.profile">
+        <div class="persona">
           <h3>最新の診断</h3>
-          <p class="muted">タイプ: {{ latestPersona.profile.title }}</p>
-          <p>{{ latestPersona.profile.description }}</p>
+          <div v-if="latestPersona?.profile">
+            <p class="muted">タイプ: {{ latestPersona.profile.title || '不明' }}</p>
+            <p>{{ latestPersona.profile.description || '詳細情報が利用できません。' }}</p>
+          </div>
+          <div v-else class="muted">
+            <p>診断結果がまだありません。</p>
+            <p>性格診断を完了すると、ここに結果が表示されます。</p>
+          </div>
         </div>
       </div>
     </section>
@@ -256,6 +277,27 @@ button.primary { background:#2563eb; color:#fff; border:none; padding:10px 16px;
 .toast { position: sticky; top: 8px; background:#16a34a; color:#fff; padding:6px 10px; border-radius: 8px; display:inline-block; margin-left: 8px; }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* モバイルでの全画面対応 */
+@media (max-width: 768px) {
+  .mypage { 
+    padding: 0; 
+    place-items: stretch;
+  }
+  .panel { 
+    width: 100%; 
+    min-height: 100vh;
+    min-height: 100dvh;
+    border-radius: 0; 
+    box-shadow: none; 
+    padding: 24px;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+  .grid { 
+    grid-template-columns: 1fr; 
+  }
+}
 .segmented { display:inline-flex; background:#f3f4f6; border-radius:10px; padding:2px; gap:2px; }
 .segmented.compact { padding:1px; gap:2px; }
 .seg-btn { border:none; background:transparent; padding:4px 8px; border-radius:6px; cursor:pointer; color:#374151; font-size: 12px; line-height: 1.1; }

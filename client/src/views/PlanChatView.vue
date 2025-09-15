@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import { agentChat, createPlan } from '@/services/apiClient'
+import { agentChat, createPlan, modifyPlan, dayAdvice } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +16,11 @@ const loading = ref(false)
 const chatContainer = ref(null)
 const sessionId = ref('')
 const saving = ref(false)
+// Day-of mode flag (?mode=day or ?day=1)
+const isDayMode = computed(() => {
+  const q = route.query || {}
+  return q.mode === 'day' || q.day === '1'
+})
 
 // Generate session ID for this chat
 function generateUUID() {
@@ -45,12 +50,10 @@ async function loadPlan() {
     currentPlan.value = { ...plan }
     
     // Add initial system message
-    messages.value.push({
-      id: Date.now(),
-      type: 'system',
-      content: `こんにちは！「${plan.title}」のプランをより良くするお手伝いをします。どのような変更をご希望ですか？`,
-      timestamp: new Date()
-    })
+    const greeting = isDayMode.value
+      ? `当日サポートモードです。「${plan.title}」に関する現在のご状況やご質問を教えてください。`
+      : `こんにちは！「${plan.title}」のプランをより良くするお手伝いをします。どのような変更をご希望ですか？`
+    messages.value.push({ id: Date.now(), type: 'system', content: greeting, timestamp: new Date() })
   } catch (e) {
     console.error('Failed to load plan:', e)
     router.push('/plans')
@@ -101,38 +104,72 @@ async function sendMessage() {
     // Create context message with current plan details
     const contextMessage = formatPlanContext(currentPlan.value, userMessage)
 
-    const response = await agentChat({
-      message: contextMessage,
-      user_id: auth.user?.id || 'u_local',
-      session_id: sessionId.value,
-      authHeader: auth.authHeader()
-    })
+    // 当日モードでは day_advice を優先、それ以外は modify_plan を優先
+    let response
+    if (isDayMode.value) {
+      // 当日モード: day_advice のみ使用
+      response = await dayAdvice({
+        plan: currentPlan.value,
+        user_message: userMessage,
+        current_context: {},
+        session_id: sessionId.value,
+        authHeader: auth.authHeader()
+      })
+    } else {
+      try {
+        response = await modifyPlan({
+          plan: currentPlan.value,
+          change_requests: userMessage,
+          session_id: sessionId.value,
+          authHeader: auth.authHeader()
+        })
+      } catch (e) {
+        // フォールバックで従来のチャットを利用
+        response = await agentChat({
+          message: contextMessage,
+          user_id: auth.user?.id || 'u_local',
+          session_id: sessionId.value,
+          authHeader: auth.authHeader()
+        })
+      }
+    }
     
     // Add AI response
     const aiMsg = {
       id: Date.now() + 1,
       type: 'assistant',
-      content: response.reply || 'プランを更新しました。',
+      content: (response && (response.summary || response.message)) || (isDayMode.value ? 'サポート結果を表示します。' : 'プランを更新しました。'),
       timestamp: new Date(),
-      plan: response
+      plan: response,
+      diff: response?.diff,
+      updated_plan: response?.updated_plan
     }
     messages.value.push(aiMsg)
     
-    // Update current plan with new data
-    if (response.summary || response.plans?.length || response.itinerary?.length || response.places?.length) {
+    // Update current plan with new data while preserving existing data
+    if (response.updated_plan || response.summary || response.plans?.length || response.itinerary?.length || response.places?.length || response.suggestions?.length || response.route_info) {
       const updatedPlan = { ...currentPlan.value }
-      
+      // 新APIのスキーマに対応
+      if (response.updated_plan && typeof response.updated_plan === 'object') {
+        Object.assign(updatedPlan, response.updated_plan)
+      }
       if (response.summary) updatedPlan.summary = response.summary
       if (response.plans?.length) {
         // Use first plan from suggestions
         const firstPlan = response.plans[0]
         if (firstPlan.title) updatedPlan.title = firstPlan.title
-        if (firstPlan.itinerary) updatedPlan.itinerary = firstPlan.itinerary
-        if (firstPlan.places) updatedPlan.places = firstPlan.places
+        if (firstPlan.itinerary?.length) updatedPlan.itinerary = firstPlan.itinerary
+        if (firstPlan.places?.length) updatedPlan.places = firstPlan.places
       }
       if (response.itinerary?.length) updatedPlan.itinerary = response.itinerary
       if (response.places?.length) updatedPlan.places = response.places
       if (response.suggestions?.length) updatedPlan.suggestions = response.suggestions
+      if (response.route_info) updatedPlan.route_info = response.route_info
+      
+      // Ensure itinerary is never lost - preserve from original if not in response
+      if (!updatedPlan.itinerary || updatedPlan.itinerary.length === 0) {
+        updatedPlan.itinerary = originalPlan.value.itinerary || []
+      }
       
       currentPlan.value = updatedPlan
     }
@@ -156,14 +193,17 @@ async function savePlan() {
   
   saving.value = true
   try {
+    // Ensure itinerary is preserved from either current or original plan
+    const preservedItinerary = currentPlan.value.itinerary || originalPlan.value.itinerary || []
+    
     const planData = {
       title: currentPlan.value.title + ' (改善版)',
       text: currentPlan.value.text || currentPlan.value.summary || '',
       summary: currentPlan.value.summary,
-      itinerary: currentPlan.value.itinerary || [],
-      places: currentPlan.value.places || [],
-      route_info: currentPlan.value.route_info,
-      suggestions: currentPlan.value.suggestions || [],
+      itinerary: preservedItinerary,
+      places: currentPlan.value.places || originalPlan.value.places || [],
+      route_info: currentPlan.value.route_info || originalPlan.value.route_info,
+      suggestions: currentPlan.value.suggestions || originalPlan.value.suggestions || [],
       status: 'confirmed'
     }
     
@@ -201,6 +241,17 @@ const hasChanges = computed(() => {
   return JSON.stringify(currentPlan.value) !== JSON.stringify(originalPlan.value)
 })
 
+// Modal state for detailed view
+const showDetailModal = ref(false)
+
+function openDetailModal() {
+  showDetailModal.value = true
+}
+
+function closeDetailModal() {
+  showDetailModal.value = false
+}
+
 onMounted(loadPlan)
 </script>
 
@@ -219,11 +270,16 @@ onMounted(loadPlan)
       </div>
     </div>
 
-    <!-- Current Plan Preview -->
-    <div v-if="currentPlan" class="plan-preview">
+    <!-- Current Plan Preview - Clickable Card -->
+    <div v-if="currentPlan" class="plan-preview" @click="openDetailModal">
       <div class="plan-header">
         <h2>{{ currentPlan.title }}</h2>
-        <span v-if="hasChanges" class="modified-badge">更新済み</span>
+        <div class="header-right">
+          <span v-if="hasChanges" class="modified-badge">更新済み</span>
+          <svg class="tap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
       </div>
       
       <div v-if="currentPlan.itinerary?.length" class="mini-itinerary">
@@ -240,6 +296,8 @@ onMounted(loadPlan)
           +{{ currentPlan.itinerary.length - 2 }}日間
         </div>
       </div>
+      
+      <div class="tap-hint">タップして詳細を表示</div>
     </div>
 
     <!-- Chat Messages -->
@@ -248,6 +306,38 @@ onMounted(loadPlan)
         <div v-for="message in messages" :key="message.id" class="message" :class="message.type">
           <div class="message-content">
             <div class="message-text">{{ message.content }}</div>
+            <div v-if="message.type==='assistant' && (message.diff || message.updated_plan)" class="assistant-result">
+              <div v-if="message.diff" class="diff-block">
+                <div v-if="message.diff.added && message.diff.added.length" class="diff-section added">
+                  <h4>追加</h4>
+                  <ul>
+                    <li v-for="(a,i) in message.diff.added" :key="'add-'+i">{{ a }}</li>
+                  </ul>
+                </div>
+                <div v-if="message.diff.removed && message.diff.removed.length" class="diff-section removed">
+                  <h4>削除</h4>
+                  <ul>
+                    <li v-for="(r,i) in message.diff.removed" :key="'rem-'+i">{{ r }}</li>
+                  </ul>
+                </div>
+                <div v-if="message.diff.changed && message.diff.changed.length" class="diff-section changed">
+                  <h4>変更</h4>
+                  <ul>
+                    <li v-for="(c,i) in message.diff.changed" :key="'chg-'+i">
+                      <div class="change-row">
+                        <strong>{{ c.field }}</strong>
+                        <div class="change-detail">
+                          <span v-if="c.from != null" class="from">{{ String(c.from) }}</span>
+                          <span class="arrow">→</span>
+                          <span v-if="c.to != null" class="to">{{ String(c.to) }}</span>
+                        </div>
+                        <div v-if="c.reason" class="reason">理由: {{ c.reason }}</div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="message-time">{{ message.timestamp.toLocaleTimeString() }}</div>
           </div>
         </div>
@@ -300,6 +390,66 @@ onMounted(loadPlan)
         </button>
       </div>
     </div>
+
+    <!-- Detailed Plan Modal -->
+    <div v-if="showDetailModal" class="modal-overlay" @click="closeDetailModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2>{{ currentPlan?.title }}</h2>
+          <button class="close-btn" @click="closeDetailModal" aria-label="閉じる">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div v-if="currentPlan">
+            <div v-if="hasChanges" class="update-notice">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12l2 2 4-4"/>
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
+              このプランはブラッシュアップにより更新されました
+            </div>
+            
+            <p v-if="currentPlan.summary" class="summary">{{ currentPlan.summary }}</p>
+            
+            <div v-if="currentPlan.suggestions && currentPlan.suggestions.length" class="suggestions">
+              <h3>候補</h3>
+              <ul>
+                <li v-for="(s,i) in currentPlan.suggestions" :key="i">
+                  <strong>{{ s.title }}</strong>
+                  <span v-if="s.tags && s.tags.length" class="tags"> — {{ s.tags.join(' / ') }}</span>
+                  <span v-if="s.brief" class="brief"> {{ s.brief }}</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div v-if="currentPlan.itinerary && currentPlan.itinerary.length" class="itinerary">
+              <h3>日程</h3>
+              <div v-for="(d,idx) in currentPlan.itinerary" :key="idx" class="day">
+                <h4>Day {{ d.day || (idx+1) }}</h4>
+                <ul class="items">
+                  <li v-for="(it,i2) in d.items" :key="i2">
+                    <span class="time" v-if="it.time">{{ it.time }}</span>
+                    <span class="item-title">{{ it.title }}</span>
+                    <span class="item-detail" v-if="it.detail"> — {{ it.detail }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+            <div v-if="currentPlan.places && currentPlan.places.length" class="places">
+              <h3>場所</h3>
+              <ul>
+                <li v-for="(p,i) in currentPlan.places" :key="i">{{ p.name }}<small v-if="p.note"> — {{ p.note }}</small></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -318,10 +468,13 @@ onMounted(loadPlan)
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px 16px;
   background: white;
   border-bottom: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .back-btn {
@@ -355,21 +508,34 @@ onMounted(loadPlan)
   color: #64748b;
 }
 
-/* Plan Preview - Compact version for better screen utilization */
+/* Plan Preview - Enhanced as clickable card */
 .plan-preview {
   background: white;
   margin: 4px 16px 8px 16px;
-  padding: 12px;
-  border-radius: 12px;
+  padding: 16px;
+  border-radius: 16px;
   border: 1px solid #e2e8f0;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.plan-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  border-color: #3b82f6;
+}
+
+.plan-preview:active {
+  transform: translateY(-1px);
 }
 
 .plan-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .plan-header h2 {
@@ -377,32 +543,52 @@ onMounted(loadPlan)
   font-size: 16px;
   font-weight: 600;
   color: #1e293b;
+  flex: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .modified-badge {
   background: #10b981;
   color: white;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 12px;
   font-weight: 500;
+}
+
+.tap-icon {
+  width: 18px;
+  height: 18px;
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.plan-preview:hover .tap-icon {
+  color: #3b82f6;
 }
 
 .mini-itinerary {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .mini-day {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .mini-day strong {
-  font-size: 12px;
+  font-size: 13px;
   color: #475569;
+  font-weight: 600;
 }
 
 .mini-items {
@@ -415,15 +601,34 @@ onMounted(loadPlan)
   background: #f1f5f9;
   color: #475569;
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-weight: 500;
 }
 
 .more-days {
-  font-size: 11px;
+  font-size: 12px;
   color: #64748b;
   text-align: center;
+  padding: 6px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.tap-hint {
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
   padding: 4px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.plan-preview:hover .tap-hint {
+  color: #3b82f6;
 }
 
 /* Chat Container - Optimized for single screen */
@@ -492,6 +697,19 @@ onMounted(loadPlan)
   opacity: 0.7;
   margin-top: 4px;
 }
+
+/* Assistant result blocks */
+.assistant-result { margin-top: 8px; }
+.diff-block { margin-top: 6px; border-top: 1px dashed #e5e7eb; padding-top: 8px; }
+.diff-section { margin: 6px 0; }
+.diff-section h4 { margin: 0 0 4px; font-size: 13px; color: #334155; }
+.diff-section.added ul li::before { content: '+'; color: #059669; margin-right: 6px; }
+.diff-section.removed ul li::before { content: '-'; color: #dc2626; margin-right: 6px; }
+.diff-section.changed ul li::before { content: '•'; color: #475569; margin-right: 6px; }
+.change-row { display:flex; flex-direction:column; gap:2px; }
+.change-detail { display:flex; align-items:center; gap:6px; color:#334155; }
+.change-detail .arrow { color:#64748b; }
+.reason { color:#64748b; font-size:12px; }
 
 /* Typing indicator */
 .typing-indicator {
@@ -627,6 +845,304 @@ onMounted(loadPlan)
   
   .message-content {
     max-width: 70%;
+  }
+}
+
+/* Enhanced mobile optimizations */
+@media (max-width: 480px) {
+  .chat-header {
+    padding: 12px 16px;
+  }
+  
+  .chat-header h1 {
+    font-size: 16px;
+  }
+  
+  .plan-preview {
+    margin: 4px 12px 8px 12px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+  
+  .plan-header h2 {
+    font-size: 15px;
+  }
+  
+  .mini-day strong {
+    font-size: 12px;
+  }
+  
+  .mini-item, .more {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  .message-content {
+    max-width: 90%;
+    padding: 10px 14px;
+  }
+  
+  .message-text {
+    font-size: 13px;
+  }
+  
+  .chat-input {
+    padding: 8px 12px;
+  }
+  
+  .message-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 10px 14px;
+  }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  max-width: 90vw;
+  max-height: 90vh;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Enhanced mobile modal optimization */
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+  
+  .modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+  
+  .modal-header {
+    padding: 16px 20px;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+}
+
+.close-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #f1f5f9;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.update-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #bbf7d0;
+}
+
+.update-notice svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.modal-body .summary {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.6;
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.modal-body .suggestions,
+.modal-body .itinerary,
+.modal-body .places {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.modal-body h3 {
+  font-size: 16px;
+  margin: 0 0 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.modal-body h4 {
+  font-size: 14px;
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.modal-body .suggestions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-body .suggestions li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #475569;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.modal-body .suggestions .tags {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.modal-body .suggestions .brief {
+  color: #475569;
+  font-size: 12px;
+}
+
+.modal-body .itinerary .day {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.modal-body .itinerary .day:last-child {
+  margin-bottom: 0;
+}
+
+.modal-body .items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-body .items li {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.modal-body .items .time {
+  font-weight: 600;
+  min-width: 60px;
+  color: #0f172a;
+}
+
+.modal-body .items .item-title {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.modal-body .items .item-detail {
+  color: #64748b;
+}
+
+.modal-body .places ul {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.modal-body .places li small {
+  color: #64748b;
+  margin-left: 4px;
+}
+
+@media (min-width: 640px) {
+  .modal-content {
+    max-width: 600px;
   }
 }
 </style>

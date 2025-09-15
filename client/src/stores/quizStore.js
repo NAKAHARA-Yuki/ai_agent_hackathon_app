@@ -232,7 +232,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
     const finalResult = computed(() => {
-    if (isAnalyzing.value || Object.keys(userAnswers.value).length !== totalQuestions.value) {
+    if (isAnalyzing.value || Object.keys(userAnswers.value).length === 0 || totalQuestions.value === 0 || Object.keys(userAnswers.value).length !== totalQuestions.value) {
       return null;
     }
 
@@ -377,11 +377,22 @@ export const useQuizStore = defineStore('quiz', () => {
       // 3) プラン生成とプロフィール保存を並列に実行
       processingStage.value = 'parallel'
       isSavingProfile.value = true
-      await Promise.all([
+      
+      const [
+        generateAIPlansResult,
+        savePersonaProfileResult,
+        saveUserHobbiesResult
+      ] = await Promise.allSettled([
         (async () => { await generateAIPlans() })(),
         (async () => { try { await savePersonaProfile() } finally { isSavingProfile.value = false } })(),
         (async () => { try { await saveUserHobbies() } catch(_) {} })()
       ])
+      
+      // Check if persona saving failed
+      if (savePersonaProfileResult.status === 'rejected') {
+        console.warn('Persona saving failed, but continuing with quiz completion:', savePersonaProfileResult.reason)
+        // Note: We don't throw here to allow the user to see results even if saving failed
+      }
 
   // 完了
   processingStage.value = 'done'
@@ -399,11 +410,21 @@ export const useQuizStore = defineStore('quiz', () => {
   // 診断プロフィールをサーバーに保存し、ペルソナのシステムプロンプトを生成
   async function savePersonaProfile() {
     try {
-      const current = finalResult.value;
-      if (!current) return;
+      let current = finalResult.value;
+      if (!current) {
+        // finalResult の反映タイミングに備えて短時間ポーリング
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 100));
+          if (finalResult.value) { current = finalResult.value; break }
+        }
+      }
+      if (!current) {
+        console.warn('No final result available for persona profile saving (skipped)');
+        return;
+      }
       const auth = useAuthStore();
     // hobbies を同時送信（サーバー側でプロンプトに反映される）
-    const opts = Array.isArray(likesOptions.value) ? likesOptions.value : []
+    const opts = Array.isArray(likesOptionsState.value) ? likesOptionsState.value : []
     const hobbies = (selectedLikes.value || []).map(id => opts.find(o => o.id === id)?.label || String(id)).filter(Boolean).slice(0, 10)
       const payload = {
         profile: {
@@ -413,17 +434,22 @@ export const useQuizStore = defineStore('quiz', () => {
       hobbies
         }
       };
-      const resp = await fetch('/api/persona', {
+  console.debug('POST /api/persona payload:', payload)
+  const resp = await fetch('/api/persona', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...auth.authHeader() },
         body: JSON.stringify(payload)
       });
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
+        const err = await resp.json().catch(() => ({ error: 'Unknown error' }));
         console.error('savePersonaProfile failed:', err);
+        throw new Error(`Failed to save persona: ${err.error || 'Server error'}`);
+      } else {
+        console.log('Persona profile saved successfully');
       }
     } catch (e) {
       console.error('savePersonaProfile error:', e);
+      throw e; // Re-throw to allow parent error handling
     }
   }
 

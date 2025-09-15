@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  agent-and-mcp-dev:
+  agent-dev:
     if: github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
-    name: Build and Deploy Agent + MCP (dev)
+    name: Build and Deploy Agent
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -73,60 +73,29 @@ jobs:
             echo "Artifact Registry repo exists: ${REPO_NAME} (${REGION})"
           fi
 
-      - name: Build and push images (Agent + MCP dev)
+      - name: Build and push images (Agent)
         env:
           REGION: ${{ env.REGION }}
           REPO_PATH: ${{ env.REPO_AGENT }}
         run: |
           set -e
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/travel-agent-service-dev:${GITHUB_SHA}
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${REPO_PATH}/maps-mcp-service-dev:${GITHUB_SHA}
           docker build -t ${AGENT_IMAGE} agent
-          docker build -t ${MCP_IMAGE} mcp
           docker push ${AGENT_IMAGE}
-          docker push ${MCP_IMAGE}
 
-      - name: Deploy MCP (dev)
-        env:
-          REGION: ${{ env.REGION }}
-        run: |
-          MCP_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/maps-mcp-service-dev:${GITHUB_SHA}
-          gcloud run deploy maps-mcp-service-dev \
-            --image ${MCP_IMAGE} \
-            --region ${REGION} \
-            --platform managed \
-            --port 3000 \
-            --set-env-vars=APP_ENV=development
 
       - name: Deploy Agent (dev)
         env:
           REGION: ${{ env.REGION }}
         run: |
           AGENT_IMAGE=${REGION}-docker.pkg.dev/${{ env.REPO_AGENT }}/travel-agent-service-dev:${GITHUB_SHA}
-          MCP_URL=$(gcloud run services describe maps-mcp-service-dev --region ${REGION} --format 'value(status.url)')
-          MCP_TOOL_ENDPOINT="${MCP_URL}/tools/retrieve-google-maps-platform-docs"
           gcloud run deploy travel-agent-service-dev \
             --image ${AGENT_IMAGE} \
             --region ${REGION} \
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro,MAPS_MCP_ENDPOINT_URL=${MCP_TOOL_ENDPOINT},MAPS_MCP_AUDIENCE=${MCP_URL}
-
-      - name: Grant Agent SA invoker on MCP service (dev)
-        env:
-          REGION: ${{ env.REGION }}
-          PROJECT_ID: ${{ env.PROJECT_ID }}
-        run: |
-          AGENT_SA=$(gcloud run services describe travel-agent-service-dev --region ${REGION} --format 'value(spec.template.spec.serviceAccountName)')
-          if [ -z "$AGENT_SA" ]; then
-            PN=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
-            AGENT_SA="${PN}-compute@developer.gserviceaccount.com"
-          fi
-          gcloud run services add-iam-policy-binding maps-mcp-service-dev \
-            --region ${REGION} \
-            --member serviceAccount:${AGENT_SA} \
-            --role roles/run.invoker
+            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-pro,GOOGLE_GENAI_USE_VERTEXAI=TRUE,VITE_GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       - name: Resolve Agent URL (dev)
         id: resolve_agent_url
@@ -138,7 +107,7 @@ jobs:
           echo "agent_url=${URL}" >> $GITHUB_OUTPUT
 
   build-and-deploy-dev:
-    needs: agent-and-mcp-dev
+    needs: agent-dev
     if: github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
     name: Build and Deploy App (dev)
     runs-on: ubuntu-latest
@@ -148,9 +117,9 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: ${{ secrets.CLOUD_RUN_REGION }}
-      SERVICE: travel-quiz-app-dev
+      SERVICE: izatabi-app-dev
       REPO: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}
-      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/travel-quiz-app-dev:${{ github.sha }}
+      IMAGE: ${{ secrets.ARTIFACT_REGISTRY_REPO_APP }}/izatabi-app-dev:${{ github.sha }}
       APP_ENV: development
     steps:
       - name: Checkout
@@ -213,7 +182,7 @@ jobs:
             --allow-unauthenticated \
             --port=8080 \
             --max-instances=2 \
-            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-and-mcp-dev.outputs.agent_url }}
+            --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-dev.outputs.agent_url }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
 
       - name: Resolve App URL (dev)
         id: resolve_app_url

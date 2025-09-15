@@ -82,7 +82,11 @@ const props = defineProps({
     type: Array, 
     required: true,
     validator: (value) => Array.isArray(value) && value.every(item => item && typeof item === 'object')
-  } 
+  },
+  lastKeyword: {
+    type: String,
+    default: ''
+  }
 })
 const emit = defineEmits(['select-plan', 'regenerate'])
 
@@ -99,11 +103,12 @@ const enrichedPlans = computed(() => {
   return props.plans.map((p, idx) => {
     if (!p || typeof p !== 'object') return null
     
+    const base64Img = p.image_base64 ? `data:${p.image_mime_type||'image/png'};base64,${p.image_base64}` : null
     const key = encodeURIComponent(((p.title||'') + ' ' + keywords[idx % keywords.length]).trim())
     return { 
       raw: p, 
       id: p.id || idx, 
-      image: `https://source.unsplash.com/featured/400x300?${key}` 
+      image: base64Img || `https://source.unsplash.com/featured/400x300?${key}` 
     }
   }).filter(Boolean)
 })
@@ -116,7 +121,8 @@ const isKeywordValid = computed(() => {
 
 function showRegenerateForm() {
   showRegenerateInput.value = true
-  regenerateKeyword.value = ''
+  // Pre-fill with the last keyword
+  regenerateKeyword.value = props.lastKeyword || ''
   errorMessage.value = ''
 }
 
@@ -159,12 +165,54 @@ async function handleRegenerate() {
 </script>
 
 <style scoped>
-.suggestions-screen { padding:16px 16px 24px; display:flex; flex-direction:column; gap:16px; }
-.header h1 { margin:4px 0 0; font-size:20px; font-weight:700; letter-spacing:-.5px; text-align:center; }
-.header .tagline { margin:4px 0 4px; text-align:center; font-size:12px; color:var(--color-text-subtle); }
+.suggestions-screen { 
+  padding:16px 16px 24px; 
+  display:flex; 
+  flex-direction:column; 
+  gap:16px; 
+  overflow-y: auto; /* 縦スクロール有効化 */
+  overflow-x: hidden; /* 横スクロール無効化 */
+  max-width: 100vw; /* ビューポート幅制限 */
+  margin: 0 auto; /* センタリング追加 */
+  width: 100%;
+}
+.header h1 { 
+  margin:4px 0 0; 
+  font-size:20px; 
+  font-weight:700; 
+  letter-spacing:-.5px; 
+  text-align:center; 
+}
+.header .tagline { 
+  margin:4px 0 4px; 
+  text-align:center; 
+  font-size:12px; 
+  color:var(--color-text-subtle); 
+}
 /* 縦一列表示 */
-.cards { display:flex; flex-direction:column; gap:18px; padding:4px 2px 20px; }
-.card { position:relative; width:100%; height:180px; border-radius:18px; overflow:hidden; cursor:pointer; isolation:isolate; background:#ddd; display:flex; }
+.cards { 
+  display:flex; 
+  flex-direction:column; 
+  gap:18px; 
+  padding:4px 2px 20px; 
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+  margin: 0 auto; /* カードコンテナもセンタリング */
+}
+.card { 
+  position:relative; 
+  width:100%; 
+  height:160px; 
+  border-radius:18px; 
+  overflow:hidden; 
+  cursor:pointer; 
+  isolation:isolate; 
+  background:#ddd; 
+  display:flex;
+  max-width: 100%; /* 幅制限 */
+  box-sizing: border-box;
+}
 .card::before { content:""; position:absolute; inset:0; background:var(--bg-img) center/cover no-repeat; filter:brightness(1) saturate(1.1); transition:transform .6s ease; }
 .card-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.05)); mix-blend-mode:multiply; }
 .card-content { position:relative; z-index:2; margin-top:auto; padding:14px 16px 14px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:6px; }
@@ -182,6 +230,10 @@ async function handleRegenerate() {
   border-radius: 16px; 
   border: 1px solid rgba(0, 0, 0, 0.08);
   text-align: center;
+  max-width: 480px; /* 最大幅制限追加 */
+  margin-left: auto; /* センタリング追加 */
+  margin-right: auto; /* センタリング追加 */
+  width: 100%;
 }
 
 .regenerate-text { 
@@ -366,8 +418,136 @@ async function handleRegenerate() {
   border: 0;
 }
 
+/* モバイルでの適切な表示 - カードの伸縮を防止とセンタリング */
+@media (max-width: 768px) {
+  .suggestions-screen { 
+    flex: 1; 
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px; 
+    margin: 0 auto; /* センタリング追加 */
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
+    max-width: 100%; /* 幅制限 */
+    width: 100%;
+  }
+  
+  .header h1 {
+    font-size: 18px;
+  }
+  
+  .header .tagline {
+    font-size: 13px;
+  }
+  
+  .cards {
+    padding: 4px 0 20px; /* 左右のpaddingを削除 */
+    gap: 14px; /* カード間の間隔を少し広げる */
+    margin: 0 auto; /* カードコンテナもセンタリング */
+    max-width: 100%;
+  }
+  
+  .card {
+    height: 140px; /* モバイルでは少し低く */
+    border-radius: 14px;
+    margin: 0 auto; /* 個別カードもセンタリング */
+    max-width: 100%;
+  }
+  
+  .card-content {
+    padding: 12px 14px;
+  }
+  
+  .title {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  
+  .tags {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  
+  .regenerate-section {
+    margin: 12px auto 0; /* 上下マージンとセンタリング */
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    max-width: 100%; /* 幅制限 */
+  }
+  
+  .regenerate-text {
+    font-size: 13px;
+  }
+  
+  .regenerate-button {
+    padding: 14px 20px;
+    font-size: 15px;
+    min-height: 48px; /* タッチフレンドリーなサイズ */
+    margin: 0 auto; /* ボタンもセンタリング */
+    display: inline-flex; /* インラインフレックスでセンタリング */
+  }
+  
+  .regenerate-form {
+    max-width: 100%; /* モバイルでは全幅使用 */
+    margin: 0 auto; /* フォームもセンタリング */
+  }
+  
+  .regenerate-input {
+    padding: 14px 16px;
+    font-size: 15px;
+    min-height: 48px;
+    box-sizing: border-box;
+  }
+  
+  .regenerate-buttons {
+    gap: 10px;
+    justify-content: center; /* ボタンをセンタリング */
+  }
+  
+  .regenerate-submit,
+  .regenerate-cancel {
+    padding: 12px 20px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+}
+
+/* 非常に小さな画面用の追加調整とセンタリング */
+@media (max-width: 480px) {
+  .suggestions-screen {
+    padding: 10px;
+    margin: 0 auto; /* センタリング確保 */
+  }
+  
+  .card {
+    height: 120px;
+    margin: 0 auto; /* 個別カードセンタリング */
+  }
+  
+  .regenerate-section {
+    margin: 10px auto 0; /* センタリング */
+    padding: 12px;
+  }
+  
+  .regenerate-buttons {
+    flex-direction: column; /* 縦並びでより使いやすく */
+    gap: 8px;
+    align-items: center; /* ボタンをセンター揃え */
+  }
+  
+  .regenerate-submit,
+  .regenerate-cancel {
+    width: 100%;
+    min-height: 48px;
+    max-width: 280px; /* 最大幅制限でセンタリング効果 */
+  }
+}
+
 @media (min-width:640px){
-  .card { height:200px; }
+  .card { height:180px; }
   .title { font-size:18px; }
   .regenerate-form { max-width: 500px; }
 }

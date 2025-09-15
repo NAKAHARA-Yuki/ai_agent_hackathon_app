@@ -1,39 +1,125 @@
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
 import { useQuizStore } from '@/stores/quizStore'
+import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
 import ResultChart from '@/components/ResultChart.vue'
 import BackButton from '@/components/BackButton.vue'
 
 const store = useQuizStore()
+const auth = useAuthStore()
 const router = useRouter()
 const showScoreDetails = ref(false)
+const personaData = ref(null)
+const loading = ref(false)
 
-const chartData = computed(() => {
-  if (!store.finalResult?.scoreDetails?.traitScores) {
-    return { labels: [], datasets: [] };
-  }
-  const labels = Object.keys(store.finalResult.scoreDetails.traitScores);
-  const data = Object.values(store.finalResult.scoreDetails.traitScores);
-  return {
-    labels,
-    datasets: [
-      {
-        label: 'あなたの特性スコア',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        borderColor: 'rgb(54, 162, 235)',
-        pointBackgroundColor: 'rgb(54, 162, 235)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgb(54, 162, 235)',
-        data,
+// Check if quiz store has valid data
+function shouldLoadPersonaData() {
+  return !store.finalResult || !store.finalResult.scoreDetails || isNaN(parseFloat(store.finalResult.scoreDetails.average))
+}
+
+// Load persona data from API if quiz store doesn't have results
+async function loadPersonaData() {
+  if (personaData.value) return // Already loaded
+  try {
+    loading.value = true
+    console.log('Loading persona data from API...')
+    const resp = await fetch('/api/persona/latest', { headers: { ...auth.authHeader() } })
+    console.log('Persona API response status:', resp.status)
+    
+    if (resp.ok) {
+      const data = await resp.json()
+      console.log('Persona API data:', data)
+      
+      if (data?.profile) {
+        // Validate the profile data
+        const profile = data.profile
+        if (!profile.title || !profile.description) {
+          console.warn('Persona profile missing title or description:', profile)
+        }
+        personaData.value = data
+        console.log('Persona data loaded successfully')
+      } else {
+        console.warn('No profile found in persona data')
       }
-    ]
+    } else {
+      console.warn('Persona API returned non-OK status:', resp.status)
+    }
+  } catch (e) {
+    console.error('Failed to load persona data:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Sanitize and validate text content
+function sanitizeText(text) {
+  if (!text) return ''
+  const cleaned = String(text).trim()
+  // Check for placeholder characters or corrupted text
+  if (/^[◯○〇\u25CB\u25CF\u25EF]+$/.test(cleaned)) {
+    console.warn('Detected placeholder characters in text:', cleaned)
+    return ''
+  }
+  return cleaned
+}
+
+// Memoized persona-based result calculation
+const personaBasedResult = computed(() => {
+  if (!personaData.value?.profile) return null
+  
+  const profile = personaData.value.profile
+  const traitScores = profile.traitScores || {}
+  
+  // Calculate average score
+  const scores = Object.values(traitScores).filter(score => !isNaN(score))
+  const average = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0
+  
+  // Sanitize title and description
+  const title = sanitizeText(profile.title) || '診断結果'
+  const description = sanitizeText(profile.description) || '診断結果の詳細情報を読み込み中です。'
+  
+  return {
+    title,
+    description,
+    plans: [], // No plans from persona data
+    scoreDetails: {
+      average: average.toFixed(2),
+      traitScores: traitScores,
+      answers: [] // No individual answers from persona data
+    }
   }
 })
 
+// Combined result data - use quiz store if available, otherwise use persona API data
+const displayResult = computed(() => {
+  // If quiz store has fresh results and average is valid, use those
+  if (!shouldLoadPersonaData()) {
+    return store.finalResult
+  }
+  
+  // Otherwise, use the memoized persona-based result
+  const result = personaBasedResult.value
+  
+  // Extra defensive check: ensure we always have displayable content
+  if (result && (!result.title || !result.description)) {
+    console.warn('DisplayResult has missing content, using fallbacks')
+    return {
+      ...result,
+      title: result.title || personaData.value?.profile?.title || '診断結果',
+      description: result.description || personaData.value?.profile?.description || '診断結果を読み込み中です。'
+    }
+  }
+  
+  return result
+})
+
 const traitsOrder = computed(() => {
-  // 設問定義順に trait を列挙（重複除去）
+  // If we have persona data, use the trait keys from there
+  if (personaData.value?.profile?.traitScores) {
+    return Object.keys(personaData.value.profile.traitScores)
+  }
+  // Otherwise use questions data (for fresh quiz results)
   const order = []
   const seen = new Set()
   for (const q of store.questions || []) {
@@ -46,6 +132,27 @@ const traitsOrder = computed(() => {
 })
 
 const traitDescriptions = computed(() => {
+  // For persona data, provide fallback descriptions since we don't have questions
+  if (personaData.value?.profile?.traitScores) {
+    const fallbackDescriptions = {
+      '新規性追求': '未知や型にはまらない体験をどれだけ求めるか（冒険型〜安定志向の連続）。',
+      '旅程密度': '1日の予定をどれだけ詰め込むか（行動満載〜余白重視）。',
+      '予算哲学': '価格・コスパ重視か、体験の質を優先するか。',
+      '社会的志向性': '現地の人／他の旅行者との交流をどれだけ望むか。',
+      '主な興味関心': '旅行の中心テーマ（例：グルメ、自然、文化・歴史、リラクゼーション）。',
+      '計画志向性': '事前に緻密に計画するか、現地で柔軟に決めるか。',
+      '快適性水準': '宿・移動における快適さ・アメニティの重視度。',
+      '活動レベル': '旅行中の身体的アクティビティの強度。',
+      '安全性の閾値': '治安・医療など安全面をどの程度重視するか。',
+      'デジタル統合度': '計画から共有までテクノロジーをどれだけ活用するか。'
+    }
+    const map = {}
+    Object.keys(personaData.value.profile.traitScores).forEach(trait => {
+      map[trait] = fallbackDescriptions[trait] || `${trait}に関する特性スコア`
+    })
+    return map
+  }
+  // Otherwise use questions data (for fresh quiz results)
   if (!store.questions?.length) return {}
   const map = {}
   for (const q of store.questions) {
@@ -56,8 +163,11 @@ const traitDescriptions = computed(() => {
   return map
 })
 
-onMounted(() => {
-  // 画面到達時点ではAI処理は完了済みの想定（ストア側で完了してから遷移）
+onMounted(async () => {
+  // Load persona data if quiz store doesn't have valid results
+  if (shouldLoadPersonaData()) {
+    await loadPersonaData()
+  }
 })
 
 function restartQuiz() {
@@ -78,39 +188,49 @@ function goMain() {
   <main class="result-view">
   <div class="card result-card">
   <BackButton />
-    <div v-if="store.isAnalyzing || store.isGeneratingPlans || store.isProcessing">
+    <div v-if="loading">
+      <h1>読み込み中...</h1>
+      <p>診断結果を読み込んでいます。</p>
+      <div class="spinner"></div>
+    </div>
+    <div v-else-if="store.isAnalyzing || store.isGeneratingPlans || store.isProcessing">
       <h1>診断中...</h1>
       <p>AIがあなたの回答全体を解析し、旅行タイプとおすすめプランを生成しています。少々お待ちください。</p>
       <div class="spinner"></div>
     </div>
-    <div v-else-if="store.finalResult && store.finalResult.scoreDetails">
+    <div v-else-if="displayResult && displayResult.scoreDetails">
       <div class="result-section result-summary">
         <h2>🎉 診断結果 🎉</h2>
-        <h3>あなたの旅行タイプは... <strong>{{ store.finalResult.title }}</strong> です！</h3>
-        <p>{{ store.finalResult.description }}</p>
-        <p><strong>総合平均スコア: {{ store.finalResult.scoreDetails.average }}</strong></p>
+        <h3>あなたの旅行タイプは... <strong class="travel-type-title">{{ displayResult.title || '取得中...' }}</strong> です！</h3>
+        <p class="travel-type-description">{{ displayResult.description || '詳細情報を読み込んでいます...' }}</p>
+        <p><strong>総合平均スコア: {{ displayResult.scoreDetails.average || '計算中...' }}</strong></p>
       </div>
 
             <div class="result-section chart-section">
-         <ResultChart
-           v-if="store.finalResult?.scoreDetails?.traitScores"
-           :traitScores="store.finalResult.scoreDetails.traitScores"
-           :traitDescriptions="traitDescriptions"
-           :traitsOrder="traitsOrder"
-         />
+         <h3>📊 あなたの旅行特性バランス</h3>
+         <div class="traits-grid">
+           <div v-for="trait in traitsOrder" :key="trait" class="trait-item">
+             <div class="trait-name">{{ trait }}</div>
+             <div class="trait-score-bar">
+               <div class="trait-score-fill" :style="{ width: (displayResult.scoreDetails.traitScores[trait] / 4) * 100 + '%' }"></div>
+               <span class="trait-score-value">{{ displayResult.scoreDetails.traitScores[trait] }}</span>
+             </div>
+             <div class="trait-description">{{ traitDescriptions[trait] }}</div>
+           </div>
+         </div>
       </div>
 
-      <div class="result-section travel-plans">
+      <div class="result-section travel-plans" v-if="displayResult.plans && displayResult.plans.length > 0">
         <h3>✈️ おすすめの旅行プラン</h3>
         <div v-if="store.isGeneratingPlans">AIがあなた向けの国内プランを作成中です…</div>
         <ul v-else>
-          <li v-for="(plan, index) in store.finalResult.plans" :key="index">
+          <li v-for="(plan, index) in displayResult.plans" :key="index">
             <strong>{{ plan.title }}</strong>: {{ plan.description }}
           </li>
         </ul>
       </div>
 
-      <div class="result-section score-details">
+      <div class="result-section score-details" v-if="displayResult.scoreDetails.answers && displayResult.scoreDetails.answers.length > 0">
         <h3 @click="toggleScoreDetails" class="collapsible-header">
           📝 回答ごとのスコア詳細
           <span class="toggle-icon">{{ showScoreDetails ? '▲' : '▼' }}</span>
@@ -128,7 +248,7 @@ function goMain() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(answer, index) in store.finalResult.scoreDetails.answers" :key="index">
+                  <tr v-for="(answer, index) in displayResult.scoreDetails.answers" :key="index">
                     <td>{{ answer.question }}</td>
                     <td>{{ answer.finalScore.toFixed(2) }}</td>
                     <td>{{ answer.explanation }}</td>
@@ -141,19 +261,31 @@ function goMain() {
       </div>
       <div class="result-actions">
         <button class="primary" @click="goMain">メインページへ進む</button>
+        <button class="secondary" @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
       </div>
     </div>
     <div v-else>
       <h1>結果</h1>
-      <p>結果を計算中です...</p>
+      <p>診断結果が見つかりません。診断を開始してください。</p>
+      <div class="result-actions">
+        <button class="primary" @click="restartQuiz">診断を開始する</button>
+      </div>
     </div>
-      <button @click="restartQuiz" :disabled="store.isAnalyzing">もう一度診断する</button>
     </div>
   </main>
 </template>
 
 <style scoped>
-.result-view { display:grid; place-items:center; height:100%; padding:16px; overflow:auto; width: 100%; }
+.result-view { 
+  display:flex; 
+  flex-direction:column; 
+  align-items:center; 
+  min-height:100vh; 
+  padding: calc(80px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom)); 
+  overflow-y:auto; 
+  width: 100%; 
+  box-sizing: border-box;
+}
 .result-card {
   width: min(960px, 100%);
   box-sizing: border-box;
@@ -299,8 +431,125 @@ p {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
-.result-actions { display:flex; justify-content:center; margin-top: 12px; }
-button.primary { background: var(--color-primary); color:#fff; border:none; padding:10px 16px; border-radius:8px; }
+.result-actions { 
+  display:flex; 
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center; 
+  margin-top: 24px;
+  padding: 0 16px;
+}
+
+/* Button styles with shared properties */
+button.primary, 
+button.secondary { 
+  /* Shared button properties */
+  border:none; 
+  padding:12px 24px; 
+  border-radius:8px; 
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  width: 100%;
+  max-width: 280px;
+}
+
+button.primary { 
+  background: var(--color-primary); 
+  color:#fff; 
+}
+
+button.secondary { 
+  background: #f8f9fa; 
+  color: #6c757d; 
+  border: 1px solid #dee2e6; 
+}
+
+button.primary:hover {
+  background: var(--color-primary-hover, #1d4ed8);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+button.secondary:hover {
+  background: #e9ecef;
+  border-color: #ced4da;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.traits-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.trait-item {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.trait-name {
+  font-weight: 600;
+  color: #1a237e;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.trait-score-bar {
+  position: relative;
+  background: #e0e7ff;
+  height: 32px;
+  border-radius: 16px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  border: 1px solid #c7d2fe;
+}
+
+.trait-score-fill {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  height: 100%;
+  border-radius: 16px;
+  transition: width 0.8s ease;
+  min-width: 30px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.trait-score-value {
+  position: absolute;
+  right: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.trait-description {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
 
 /* モバイル向け微調整 */
 @media (max-width: 600px) {
@@ -309,7 +558,40 @@ button.primary { background: var(--color-primary); color:#fff; border:none; padd
   .result-section { padding: 16px; }
   .travel-plans li { padding: 12px; }
   .score-details th, .score-details td { padding: 10px 12px; }
-  .result-actions { padding: 0 4px; }
-  button.primary { width: 100%; padding: 12px; }
+  
+  .result-actions { 
+    padding: 0 8px;
+    gap: 20px;
+    margin-top: 32px;
+  }
+  
+  button.primary, button.secondary { 
+    width: 100%; 
+    padding: 14px 24px;
+    font-size: 16px;
+    min-height: 48px;
+    max-width: none;
+  }
+}
+
+/* Ensure proper font rendering for Japanese text */
+.travel-type-title, .travel-type-description {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.travel-type-title {
+  color: #ff4b2b !important;
+  font-weight: 700 !important;
+  font-size: inherit !important;
+  display: inline !important;
+}
+
+.travel-type-description {
+  font-size: 1.1rem !important;
+  line-height: 1.7 !important;
+  color: #444 !important;
 }
 </style>

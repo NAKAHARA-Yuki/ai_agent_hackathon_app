@@ -51,4 +51,24 @@ const stageText = computed(() => {
 .steps li.active { background:#e8f0ff; color:#2d7ef7; border-color:#cfe0ff; }
 .spinner { border: 5px solid rgba(0, 0, 0, 0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: #2d7ef7; margin: 12px auto 0; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* モバイルでの全画面対応 */
+@media (max-width: 768px) {
+  .processing { 
+    padding: 0; 
+    place-items: stretch;
+  }
+  .panel { 
+    width: 100%; 
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0; 
+    box-shadow: none; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+}
 </style>

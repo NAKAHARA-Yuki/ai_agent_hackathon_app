@@ -9,7 +9,7 @@ const active = computed(() => {
   return {
     home: p.startsWith('/main'),
     plan: p.startsWith('/travel-wizard'),
-    schedule: p.startsWith('/schedule'),
+    schedule: p.startsWith('/plans'),
     tasks: p.startsWith('/tasks')
   }
 })
@@ -33,7 +33,7 @@ function go(name){ if(route.name!==name) router.push({ name }) }
       </svg>
       <span class="label">プラン</span>
     </button>
-    <button class="nav-item" :class="{active:active.schedule}" @click="go('schedule')" aria-label="旅行予定">
+    <button class="nav-item" :class="{active:active.schedule}" @click="go('plans')" aria-label="旅行予定">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
         <line x1="16" y1="2" x2="16" y2="6" />
@@ -59,10 +59,68 @@ function go(name){ if(route.name!==name) router.push({ name }) }
 </template>
 
 <style scoped>
-.footer-nav { width:100%; display:flex; justify-content:space-between; align-items:stretch; background:rgba(255,255,255,0.95); backdrop-filter:blur(12px); border-top:1px solid rgba(0,0,0,0.08); padding:0 0 env(safe-area-inset-bottom); box-sizing:border-box; box-shadow:0 -2px 8px rgba(0,0,0,0.08); }
-.nav-item { flex:1 1 0; background:transparent; border:none; padding:6px 4px 4px; border-radius:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--color-text-subtle); font-size:11px; font-weight:600; letter-spacing:.3px; cursor:pointer; position:relative; min-height:56px; }
-.nav-item .icon { width:22px; height:22px; }
-.nav-item.active { color: var(--color-primary); background:linear-gradient(to top, #eef4ff, rgba(238,244,255,0)); }
+.footer-nav { 
+  width: 100%; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: stretch; 
+  background: rgba(255,255,255,0.95); 
+  backdrop-filter: blur(12px); 
+  border-top: 1px solid rgba(0,0,0,0.08); 
+  padding: 0 0 env(safe-area-inset-bottom); 
+  box-sizing: border-box; 
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.08); 
+  position: sticky; 
+  bottom: 0; 
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.nav-item { 
+  flex: 1 1 0; 
+  background: transparent; 
+  border: none; 
+  padding: 6px 4px 4px; 
+  border-radius: 0; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 2px; 
+  color: var(--color-text-subtle); 
+  font-size: 11px; 
+  font-weight: 600; 
+  letter-spacing: .3px; 
+  cursor: pointer; 
+  position: relative; 
+  min-height: 56px; 
+}
+
+.nav-item .icon { width: 22px; height: 22px; }
+
+.nav-item.active { 
+  color: var(--color-primary); 
+  background: linear-gradient(to top, #eef4ff, rgba(238,244,255,0)); 
+}
+
 .nav-item:not(.active):hover { background: rgba(0,0,0,0.05); }
+
 .nav-item:active { transform: translateY(1px); }
+
+/* モバイルでのタッチフレンドリーな調整 */
+@media (max-width: 768px) {
+  .nav-item {
+    min-height: 60px;
+    padding: 8px 4px 6px;
+  }
+  
+  .nav-item .icon {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .nav-item {
+    font-size: 12px;
+  }
+}
 </style>

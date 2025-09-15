@@ -56,6 +56,18 @@ body { margin:0; font-family: var(--font-family-base); background: var(--color-b
 /* 汎用カード */
 .card { background: var(--color-surface); padding: var(--space-6); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 600px; max-width: 96%; border:1px solid #eef2f7; }
 
+/* モバイルでの適切なカード表示 */
+@media (max-width: 768px) {
+  .card { 
+    width: 100%; 
+    max-width: 100%; 
+    margin: 16px;
+    border-radius: var(--radius-lg); 
+    box-shadow: var(--shadow-md); 
+    border: 1px solid var(--color-border);
+  }
+}
+
 h1 { color: var(--color-text); font-size: var(--font-size-xl); font-weight:700; text-align:center; margin:0 0 var(--space-4); letter-spacing:-.5px; }
 
 /* プライマリボタン (リセット + トークン適用) */
@@ -81,4 +93,60 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (max-width:600px){
   .card { padding: var(--space-5); }
   button { font-size:14px; }
+}
+
+/* モバイル向け全画面対応 */
+@media (max-width: 768px) {
+  html, body, #app { 
+    height: 100vh; 
+    height: 100dvh; /* 動的ビューポート高さを使用（対応ブラウザのみ） */
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  
+  body {
+    /* モバイルでのスクロールバウンスを防止 */
+    overscroll-behavior: none;
+    /* ピンチズームを無効化（必要に応じて） */
+    touch-action: manipulation;
+    /* フォントサイズの自動調整を防止 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  /* すべての要素でbox-sizingを確実にborder-boxに */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  
+  /* タッチターゲットの最小サイズ確保 */
+  button, [role="button"], input, select, textarea {
+    min-height: var(--tap-min);
+  }
+  
+  /* フォーカスインジケータをより目立たせる */
+  button:focus-visible, 
+  a:focus-visible, 
+  input:focus-visible, 
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* 小さな画面での追加の調整 */
+@media (max-width: 480px) {
+  :root {
+    --font-size-base: 14px;
+    --space-4: 12px;
+    --space-6: 20px;
+  }
+  
+  button {
+    padding: 14px 20px;
+    font-size: 15px;
+    min-height: 48px;
+  }
 }

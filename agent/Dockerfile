@@ -10,14 +10,17 @@ WORKDIR /app
 
 # System deps
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    ca-certificates tini && rm -rf /var/lib/apt/lists/*
+    ca-certificates tini curl gnupg && \
+    # Install Node.js (for npx to run MCP server)
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ADK api_server will load agents from ./agents
 COPY agents ./agents
-COPY tools ./tools
 # shared（リポジトリ上位）に依存しない設計へ戻す
 ENV PYTHONPATH=/app
 

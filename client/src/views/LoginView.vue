@@ -83,4 +83,18 @@ async function submit() {
 .error { color:#c0392b; }
 button.primary { background:#2d7ef7; color:white; border:none; padding:12px 16px; border-radius:10px; }
 .muted { color:#6b7280; font-size:14px; margin: 8px 0 0; }
+
+/* モバイルでの適切な表示 */
+@media (max-width: 768px) {
+  .auth { 
+    padding: 16px; 
+  }
+  .panel { 
+    width: 100%; 
+    border-radius: var(--radius-lg); 
+    box-shadow: var(--shadow-md); 
+    padding: 20px;
+    box-sizing: border-box;
+  }
+}
 </style>
