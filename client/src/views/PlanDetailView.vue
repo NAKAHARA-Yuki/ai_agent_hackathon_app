@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { planDetail, deletePlan } from '@/services/apiClient'
@@ -15,6 +15,16 @@ const toast = ref('')
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
 const imageLoadError = ref(false)
+
+const heroImageSrc = computed(() => {
+  const p = plan.value
+  if (!p) return null
+  if (p.image_base64) {
+    const mime = p.image_mime_type || 'image/png'
+    return `data:${mime};base64,${p.image_base64}`
+  }
+  return p.image_url || p.hero_image || null
+})
 
 async function load(){
   loading.value = true
@@ -90,9 +100,9 @@ function handleImageError() {
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="plan" class="content">
       <!-- Hero Image Section -->
-      <div v-if="(plan.image_url || plan.hero_image) && !imageLoadError" class="hero-image">
+    <div v-if="heroImageSrc && !imageLoadError" class="hero-image">
         <img 
-          :src="plan.image_url || plan.hero_image" 
+      :src="heroImageSrc" 
           :alt="plan.title || '旅行プラン画像'"
           @error="handleImageError"
           class="hero-img"

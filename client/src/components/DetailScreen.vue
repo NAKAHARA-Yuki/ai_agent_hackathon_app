@@ -69,8 +69,21 @@ const props = defineProps({
   plan: { type: Object, required: true, default: () => ({ title:'', tags:'', itinerary:[] }) }
 })
 defineEmits(['go-back', 'confirm', 'refine'])
-// ヒーロー画像: タイトルベースで Unsplash プレースホルダ
-const heroUrl = computed(() => `url(https://source.unsplash.com/featured/800x600?${encodeURIComponent(props.plan.title||'travel landscape')})`)
+// ヒーロー画像: plan.image_base64 / image_url / hero_image を優先し、なければ Unsplash プレースホルダ
+const heroUrl = computed(() => {
+  const p = props.plan || {}
+  if (p.image_base64) {
+    const mime = p.image_mime_type || 'image/png'
+    return `url(data:${mime};base64,${p.image_base64})`
+  }
+  if (p.image_url) {
+    return `url(${p.image_url})`
+  }
+  if (p.hero_image) {
+    return `url(${p.hero_image})`
+  }
+  return `url(https://source.unsplash.com/featured/800x600?${encodeURIComponent(p.title||'travel landscape')})`
+})
 
 // Transport helpers (shared utility)
 import { transportLabel, transportIcon, formatDuration, formatDistance } from '@/utils/transportHelpers'
