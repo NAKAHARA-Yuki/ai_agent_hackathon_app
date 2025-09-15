@@ -289,6 +289,38 @@ onMounted(loadPlan)
         <div v-for="message in messages" :key="message.id" class="message" :class="message.type">
           <div class="message-content">
             <div class="message-text">{{ message.content }}</div>
+            <div v-if="message.type==='assistant' && (message.diff || message.updated_plan)" class="assistant-result">
+              <div v-if="message.diff" class="diff-block">
+                <div v-if="message.diff.added && message.diff.added.length" class="diff-section added">
+                  <h4>追加</h4>
+                  <ul>
+                    <li v-for="(a,i) in message.diff.added" :key="'add-'+i">{{ a }}</li>
+                  </ul>
+                </div>
+                <div v-if="message.diff.removed && message.diff.removed.length" class="diff-section removed">
+                  <h4>削除</h4>
+                  <ul>
+                    <li v-for="(r,i) in message.diff.removed" :key="'rem-'+i">{{ r }}</li>
+                  </ul>
+                </div>
+                <div v-if="message.diff.changed && message.diff.changed.length" class="diff-section changed">
+                  <h4>変更</h4>
+                  <ul>
+                    <li v-for="(c,i) in message.diff.changed" :key="'chg-'+i">
+                      <div class="change-row">
+                        <strong>{{ c.field }}</strong>
+                        <div class="change-detail">
+                          <span v-if="c.from != null" class="from">{{ String(c.from) }}</span>
+                          <span class="arrow">→</span>
+                          <span v-if="c.to != null" class="to">{{ String(c.to) }}</span>
+                        </div>
+                        <div v-if="c.reason" class="reason">理由: {{ c.reason }}</div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="message-time">{{ message.timestamp.toLocaleTimeString() }}</div>
           </div>
         </div>
@@ -648,6 +680,19 @@ onMounted(loadPlan)
   opacity: 0.7;
   margin-top: 4px;
 }
+
+/* Assistant result blocks */
+.assistant-result { margin-top: 8px; }
+.diff-block { margin-top: 6px; border-top: 1px dashed #e5e7eb; padding-top: 8px; }
+.diff-section { margin: 6px 0; }
+.diff-section h4 { margin: 0 0 4px; font-size: 13px; color: #334155; }
+.diff-section.added ul li::before { content: '+'; color: #059669; margin-right: 6px; }
+.diff-section.removed ul li::before { content: '-'; color: #dc2626; margin-right: 6px; }
+.diff-section.changed ul li::before { content: '•'; color: #475569; margin-right: 6px; }
+.change-row { display:flex; flex-direction:column; gap:2px; }
+.change-detail { display:flex; align-items:center; gap:6px; color:#334155; }
+.change-detail .arrow { color:#64748b; }
+.reason { color:#64748b; font-size:12px; }
 
 /* Typing indicator */
 .typing-indicator {
