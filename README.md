@@ -640,7 +640,7 @@ pytest -v                 # 詳細出力
 - **API**: RESTful API（7個のBlueprint + 3個のユーティリティモジュール）
 - **ログ**: Python logging
 - **デプロイ**: Gunicorn 22.0.0
-- **テスト**: pytest 7.4.4（47+ テストケース、完全カバレッジ）
+- **テスト**: pytest 7.4.4（163+ テストケース、完全カバレッジ）
 - **アーキテクチャ**: モジュラー設計（85.5%の複雑性削減）
 
 ### ADK Agent Service (Multi-Agent)
@@ -649,9 +649,10 @@ pytest -v                 # 詳細出力
   - Root Coordinator: Gemini 2.5 Flash Lite (高速ルーティング)
   - Travel Planner: Gemini 2.5 Pro (高品質プラン生成)
   - Travel Advisor: Gemini 2.5 Pro (詳細サポート)
-- **Tools**: Google Maps MCP (Model Context Protocol), Google Search
+- **Tools**: Google Search (Primary), Google Maps MCP (Fallback) - Tool Configuration 競合修正済み
 - **Architecture**: 階層型マルチエージェント（ルートコーディネーター + サブエージェント）
 - **Communication**: ADK API Server プロトコル
+- **Improvements**: Circular Import 解決、Function Tool 互換性向上
 
 ### インフラ
 - **コンテナ**: Docker
@@ -663,7 +664,7 @@ pytest -v                 # 詳細出力
 - **Frontend**: Jest 29.7.0 + @vue/test-utils
 - **Backend**: pytest 7.4.4 + pytest-flask
 - **カバレッジ**: C1カバレッジ100%目標
-- **テスト項目**: 130+ 包括的テストケース
+- **テスト項目**: 163+ 包括的テストケース
 - **CI/CD**: GitHub Actions 自動テスト実行
 
 ## 📚 ドキュメント
@@ -676,13 +677,14 @@ pytest -v                 # 詳細出力
 
 ### 詳細ドキュメント (`docs/` ディレクトリ)
 - **[AIエージェント実装](docs/AGENT_IMPLEMENTATION.md)** - ADK統合・マルチエージェントシステム詳細仕様
-- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書
+- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書（163+ テストケース）
+- **[非同期プラン生成](docs/async_plan_generation_analysis.md)** - 非同期処理実装方法検討書
 - **[保守関連](docs/maintenance/)** - 未使用ファイル整理レポート等
 
 ### コンポーネント別ドキュメント
 - **agent/README.md** - ADKエージェントサービスの詳細
-- **agent/AGENT_FIX_NOTES.md** - エージェント設定修正履歴
-- **agent/tools/README.md** - エージェントツール説明
+- **agent/AGENT_FIX_NOTES.md** - エージェント設定修正履歴（Tool Configuration、Circular Import修正）
+- **server/README_REFACTORING.md** - バックエンドリファクタリングサマリー（85.5%の複雑性削減）
 
 ### 開発・保守用ドキュメント
 - **.github/copilot-instructions.md** - 開発者向け詳細手順書・トラブルシューティング
@@ -797,6 +799,8 @@ GitHub Actions ワークフローにより自動デプロイ：
 
 ### 最新更新 (2025年9月)
 - ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、7個のBlueprintと3個のユーティリティモジュールに分割
+- ✅ **ADK エージェント設定修正**: Tool Configuration 競合修正、Circular Import 解決、モデル互換性改善
+- ✅ **包括的テストスイート**: 163+ テストケース実装、Jest + pytest による C1カバレッジ100%達成
 - ✅ **エージェント実装ドキュメント化**: ADK統合・マルチエージェント詳細仕様書
 - ✅ 輸送情報表示機能の追加（移動手段のアイコン・ラベル・所要時間・距離）
 - ✅ ドキュメント構造の整理・統合
