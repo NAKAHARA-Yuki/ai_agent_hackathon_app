@@ -138,7 +138,13 @@ def plans_collection():
                             'created_at': data.get('created_at'),
                             'updated_at': data.get('updated_at'),
                             'status': data.get('status') or ('confirmed' if data.get('source') == 'chat' else data.get('status')),  # fallback
-                            'source': data.get('source')
+                            'source': data.get('source'),
+                            # Include image fields for list thumbnails
+                            'image_base64': data.get('image_base64'),
+                            'image_mime_type': data.get('image_mime_type'),
+                            # Optional URL-based images if ever set
+                            'image_url': data.get('image_url'),
+                            'hero_image': data.get('hero_image'),
                         }
                         items.append(item)
                     except Exception:
