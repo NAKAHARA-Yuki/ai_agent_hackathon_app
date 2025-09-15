@@ -124,7 +124,7 @@ async function sendMessage() {
     const aiMsg = {
       id: Date.now() + 1,
       type: 'assistant',
-      content: response.reply || 'プランを更新しました。',
+      content: response.summary || 'プランを更新しました。',
       timestamp: new Date(),
       plan: response
     }
