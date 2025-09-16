@@ -26,6 +26,13 @@ const heroImageSrc = computed(() => {
   return p.image_url || p.hero_image || null
 })
 
+// Summary falls back to raw text when summary is missing
+const summaryText = computed(() => {
+  const p = plan.value || {}
+  // return p.summary || p.text || ''
+  return p.text || ''
+})
+
 async function load(){
   loading.value = true
   error.value = ''
@@ -95,11 +102,10 @@ function handleImageError() {
 
 <template>
   <div class="plan-detail-screen">
-    <button class="back" @click="goBack" aria-label="戻る">← 戻る</button>
     <div v-if="loading" class="loading">読み込み中...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="plan" class="content">
-      <!-- Hero Image Section -->
+      <!-- Hero Image Section (first) -->
       <div v-if="heroImageSrc && !imageLoadError" class="hero-image">
         <img 
       :src="heroImageSrc" 
@@ -116,8 +122,11 @@ function handleImageError() {
       
       <!-- Title for plans without image -->
       <h1 v-else class="title">{{ plan.title }}</h1>
+
+      <!-- Back button placed below hero/title -->
+      <button class="back" @click="goBack" aria-label="戻る">← 戻る</button>
       
-      <p v-if="plan.summary" class="summary">{{ plan.summary }}</p>
+      <p v-if="summaryText" class="summary">{{ summaryText }}</p>
       <div v-if="plan.suggestions && plan.suggestions.length" class="suggestions">
         <h2>候補</h2>
         <ul>
@@ -150,10 +159,7 @@ function handleImageError() {
           </ul>
         </div>
       </div>
-      <div v-if="plan.text" class="raw-text">
-        <h2>本文</h2>
-        <pre>{{ plan.text }}</pre>
-      </div>
+      
       <div v-if="plan.places && plan.places.length" class="places">
         <h2>場所</h2>
         <ul>
@@ -224,7 +230,7 @@ function handleImageError() {
   position: relative;
   width: 100%;
   max-height: 300px;
-  margin: -20px -16px 24px; /* Extend to edges, add bottom margin */
+  margin: 0 -16px 24px; /* Extend to edges horizontally, no top offset */
   border-radius: 0 0 20px 20px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
@@ -272,7 +278,7 @@ function handleImageError() {
 /* Mobile responsive adjustments for hero image */
 @media (max-width: 768px) {
   .hero-image {
-    margin: -8px -8px 20px;
+  margin: 0 -8px 20px;
     border-radius: 0 0 16px 16px;
   }
   
@@ -383,7 +389,6 @@ function handleImageError() {
 }
 .content > .suggestions,
 .content > .itinerary,
-.content > .raw-text,
 .content > .places{ 
   background:#fff; 
   border:1px solid #e2e8f0; 
@@ -400,7 +405,6 @@ function handleImageError() {
   
   .content > .suggestions,
   .content > .itinerary,
-  .content > .raw-text,
   .content > .places {
     border-radius: 12px;
     padding: 14px 16px 16px;
@@ -464,10 +468,7 @@ h3{ font-size:13px; margin:0 0 6px; font-weight:600; color:#0f172a; }
 .items .transport .t-distance { font-size:11px; }
 .items .transport .t-sep { opacity:.6; }
 
-/* 本文 */
-.raw-text pre{ white-space:pre-wrap; font-size:12.5px; line-height:1.55; background:#f1f5f9; padding:12px 14px; border-radius:14px; border:1px solid #e2e8f0; overflow:auto; max-height:480px; scrollbar-width:thin; }
-.raw-text pre::-webkit-scrollbar{ height:8px; width:8px; }
-.raw-text pre::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px; }
+/* 本文セクションは削除 */
 
 /* 場所 */
 .places ul{ list-style:disc; padding-left:20px; margin:0; display:flex; flex-direction:column; gap:4px; font-size:12.5px; color:#475569; }
