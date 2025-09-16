@@ -40,7 +40,7 @@ onMounted(async () => {
     <section class="panel">
       <BackButton :icon-only="true" />
       <h1>好きなことを教えてください</h1>
-      <p class="lead">Spotifyのアーティスト選択のように、直感的に選んでください。最低{{ minRequired }}個は選択してください。</p>
+      <p class="lead">直感的に選んでください。最低{{ minRequired }}個は選択してください。</p>
       <div class="grid">
         <button
           v-for="opt in options"
