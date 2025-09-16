@@ -126,8 +126,7 @@ onMounted(fetchPlans)
             :title="isActivePlan(p.id) ? '旅行当日モードを解除' : '旅行当日モードを有効化'"
             :aria-pressed="isActivePlan(p.id) ? 'true' : 'false'"
           >
-            <v-icon :name="isActivePlan(p.id) ? 'check' : 'plus'" :size="16" aria-label="トグル" />
-            <span class="toggle-label">{{ isActivePlan(p.id) ? '当日モード解除' : '当日モードにする' }}</span>
+            <v-icon name="chat-outline" :size="16" aria-label="トグル" />
           </button>
         </div>
         <div class="card-content">
@@ -556,7 +555,7 @@ onMounted(fetchPlans)
 }
 .toggle-btn:active { transform: translateY(0); }
 .toggle-btn svg { width: 16px; height: 16px; stroke: currentColor; }
-.toggle-label { font-size: 12px; font-weight: 700; line-height: 1; }
+/* .toggle-label removed as icon-only */
 .toggle-btn.active {
   background: linear-gradient(135deg, #10b981, #059669);
   color: #ffffff;

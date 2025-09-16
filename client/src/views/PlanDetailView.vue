@@ -14,16 +14,21 @@ const error = ref('')
 const toast = ref('')
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
-const imageLoadError = ref(false)
-
-const heroImageSrc = computed(() => {
-  const p = plan.value
-  if (!p) return null
+// Hero background image CSS value: prefers base64 -> image_url -> hero_image -> Unsplash fallback
+const heroUrl = computed(() => {
+  const p = plan.value || {}
   if (p.image_base64) {
     const mime = p.image_mime_type || 'image/png'
-    return `data:${mime};base64,${p.image_base64}`
+    return `url(data:${mime};base64,${p.image_base64})`
   }
-  return p.image_url || p.hero_image || null
+  if (p.image_url) {
+    return `url(${p.image_url})`
+  }
+  if (p.hero_image) {
+    return `url(${p.hero_image})`
+  }
+  // Fallback to Unsplash if nothing available
+  return `url(https://source.unsplash.com/featured/800x600?${encodeURIComponent(p.title||'travel landscape')})`
 })
 
 // Summary falls back to raw text when summary is missing
@@ -94,10 +99,6 @@ async function executeDelete() {
 // Transport helpers (shared with DetailScreen.vue)
 import { transportLabel, transportIcon, formatDuration, formatDistance } from '@/utils/transportHelpers'
 
-function handleImageError() {
-  // Use reactive pattern instead of direct DOM manipulation
-  imageLoadError.value = true
-}
 </script>
 
 <template>
@@ -105,28 +106,20 @@ function handleImageError() {
     <div v-if="loading" class="loading">読み込み中...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="plan" class="content">
-      <!-- Hero Image Section (first) -->
-      <div v-if="heroImageSrc && !imageLoadError" class="hero-image">
-        <img 
-      :src="heroImageSrc" 
-          :alt="plan.title || '旅行プラン画像'"
-          @error="handleImageError"
-          class="hero-img"
-        />
-        <div class="hero-overlay">
+      <!-- Hero (CSS background, overlay, text wrap) -->
+      <div class="hero" :style="{ '--hero-img': heroUrl }">
+        <div class="hero-overlay"></div>
+        <button class="back-btn" @click="goBack" aria-label="戻る">
+          <v-icon name="chevron-left" :size="20" aria-label="戻る" />
+        </button>
+        <div class="hero-text">
           <div class="hero-text-wrap">
             <h1 class="hero-title">{{ plan.title }}</h1>
           </div>
         </div>
       </div>
       
-      <!-- Title for plans without image -->
-      <h1 v-else class="title">{{ plan.title }}</h1>
-
-      <!-- Back button placed below hero/title -->
-      <button class="back" @click="goBack" aria-label="戻る">← 戻る</button>
-      
-      <p v-if="summaryText" class="summary">{{ summaryText }}</p>
+  <p v-if="summaryText" class="summary">{{ summaryText }}</p>
       <div v-if="plan.suggestions && plan.suggestions.length" class="suggestions">
         <h2>候補</h2>
         <ul>
@@ -209,75 +202,29 @@ function handleImageError() {
 </template>
 
 <style scoped>
-/* Hero Image Section */
-.hero-image {
-  position: relative;
-  width: 100%;
-  max-height: 300px;
-  margin: 0 -16px 24px; /* Extend to edges horizontally, no top offset */
-  border-radius: 0 0 20px 20px;
-  overflow: hidden;
+/* Hero Section (aligned with DetailScreen) */
+.hero { 
+  position:relative; 
+  width:100%; 
+  aspect-ratio:16/9; 
+  min-height:200px;
+  max-height:40vh; 
+  background:var(--hero-img) center/cover no-repeat; 
+  border-bottom-left-radius:24px; 
+  border-bottom-right-radius:24px; 
+  overflow:hidden; 
+  display:flex;
+  align-items:flex-end;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
-
-.hero-img {
-  width: 100%;
-  height: 250px;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-}
-
-.hero-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
-  padding: 40px 20px 20px;
-  color: white;
-}
-
-.hero-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-  line-height: 1.2;
-}
-
-/* Semi-transparent dark panel behind hero title for readability */
-.hero-text-wrap{
-  display: inline-block;
-  background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(2px);
-  padding: 8px 12px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-.hero-text-wrap .hero-title{
-  color: #fff;
-}
-
-/* Mobile responsive adjustments for hero image */
-@media (max-width: 768px) {
-  .hero-image {
-  margin: 0 -8px 20px;
-    border-radius: 0 0 16px 16px;
-  }
-  
-  .hero-img {
-    height: 200px;
-  }
-  
-  .hero-overlay {
-    padding: 30px 16px 16px;
-  }
-  
-  .hero-title {
-    font-size: 20px;
-  }
-}
+@media (min-width:640px){ .hero { aspect-ratio:16/7; } }
+.hero-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.1)); }
+.back-btn { position:absolute; top:calc(10px + env(safe-area-inset-top)); left:10px; width:38px; height:38px; border:none; border-radius:12px; background:rgba(255,255,255,0.75); backdrop-filter:blur(6px); display:grid; place-items:center; cursor:pointer; color:#1f2937; box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:60; }
+.back-btn:hover { background:rgba(255,255,255,0.9); }
+.back-btn:active { transform:translateY(1px); }
+.hero-text { position:absolute; bottom:14px; left:14px; right:14px; color:#fff; }
+.hero-text-wrap { background: rgba(0,0,0,0.45); backdrop-filter: blur(2px); padding: 10px 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.hero-title { margin:0 0 0; font-size:22px; line-height:1.2; font-weight:700; letter-spacing:-.5px; color:#fff; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 
 /* 全体: 余白 + 中央寄せカラム。height/overflow排除で二重スクロール崩れ防止 */
 /* ヘッダー固定による見切れ防止として top-padding を十分に確保 */
@@ -304,26 +251,7 @@ function handleImageError() {
     margin: 0;
   }
 }
-.back{ 
-  align-self: flex-start; 
-  background: #fff; 
-  border: 1px solid #e2e8f0; 
-  padding: 6px 12px; /* Reduced padding to make smaller */
-  border-radius: 10px; /* Slightly smaller radius */
-  cursor: pointer; 
-  font-size: 12px; 
-  line-height: 1; 
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
-  transition: background .2s, border-color .2s;
-  min-height: 36px; /* Smaller minimum height */
-  max-width: 120px; /* Limit maximum width */
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap; /* Prevent text wrapping */
-}
-.back:hover{ background:#f1f5f9; }
-.back:active{ transform: translateY(1px); }
+/* back button moved into hero as .back-btn */
 
 .title{ 
   font-size:22px; 
