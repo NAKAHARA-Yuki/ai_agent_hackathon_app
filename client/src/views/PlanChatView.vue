@@ -260,9 +260,7 @@ onMounted(loadPlan)
     <!-- Header -->
     <div class="chat-header">
       <button class="back-btn" @click="goBack" aria-label="戻る">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M15 18l-6-6 6-6"/>
-        </svg>
+  <v-icon name="chevron-left" :size="20" aria-label="戻る" />
       </button>
       <div class="header-content">
         <h1>プランをブラッシュアップ</h1>
@@ -276,9 +274,7 @@ onMounted(loadPlan)
         <h2>{{ currentPlan.title }}</h2>
         <div class="header-right">
           <span v-if="hasChanges" class="modified-badge">更新済み</span>
-          <svg class="tap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
+          <v-icon class="tap-icon" name="chevron-right" :size="18" aria-label="詳細" />
         </div>
       </div>
       
@@ -371,10 +367,7 @@ onMounted(loadPlan)
           class="send-btn"
           aria-label="送信"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M2 12l20-8-8 8-12 0z"/>
-            <path d="M14 12l8-8-8 8z"/>
-          </svg>
+          <v-icon name="send" :size="20" aria-label="送信" />
         </button>
       </div>
       
@@ -397,19 +390,14 @@ onMounted(loadPlan)
         <div class="modal-header">
           <h2>{{ currentPlan?.title }}</h2>
           <button class="close-btn" @click="closeDetailModal" aria-label="閉じる">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
+            <v-icon name="close" :size="20" aria-label="閉じる" />
           </button>
         </div>
         
         <div class="modal-body">
           <div v-if="currentPlan">
             <div v-if="hasChanges" class="update-notice">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 12l2 2 4-4"/>
-                <circle cx="12" cy="12" r="10"/>
-              </svg>
+              <v-icon name="check-circle" :size="20" aria-label="更新" />
               このプランはブラッシュアップにより更新されました
             </div>
             

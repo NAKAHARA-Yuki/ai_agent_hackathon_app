@@ -170,17 +170,7 @@ function handleImageError() {
       <!-- Action Buttons -->
       <div class="action-buttons">
         <button class="refine-btn" @click="startRefinement" aria-label="プランをブラッシュアップ">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 2v4"></path>
-            <path d="M16 2v4"></path>
-            <rect width="18" height="18" x="3" y="4" rx="2"></rect>
-            <path d="M3 10h18"></path>
-            <path d="M8 14h.01"></path>
-            <path d="M12 14h.01"></path>
-            <path d="M16 14h.01"></path>
-            <path d="M8 18h.01"></path>
-            <path d="M12 18h.01"></path>
-          </svg>
+          <v-icon name="calendar" :size="18" aria-label="カレンダー" />
           ブラッシュアップ
         </button>
         
@@ -190,13 +180,7 @@ function handleImageError() {
           :disabled="deleting"
           aria-label="プランを削除"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 6h18"></path>
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-            <line x1="10" x2="10" y1="11" y2="17"></line>
-            <line x1="14" x2="14" y1="11" y2="17"></line>
-          </svg>
+          <v-icon name="trash-can-outline" :size="18" aria-label="削除" />
           {{ deleting ? '削除中...' : 'プランを削除' }}
         </button>
       </div>

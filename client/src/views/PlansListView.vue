@@ -97,9 +97,7 @@ onMounted(fetchPlans)
           <div class="banner-subtitle">旅行当日モード中</div>
         </div>
   <button @click="openTravelDayChat" class="chat-btn" aria-label="当日チャットを開く">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-          </svg>
+          <v-icon name="chat" :size="20" color="#065f46" aria-label="チャット" />
           当日チャットを開く
         </button>
       </div>
@@ -128,12 +126,7 @@ onMounted(fetchPlans)
             :title="isActivePlan(p.id) ? '旅行当日モードを解除' : '旅行当日モードを有効化'"
             :aria-pressed="isActivePlan(p.id) ? 'true' : 'false'"
           >
-            <svg v-if="isActivePlan(p.id)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M20 6L9 17l-5-5"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M12 5v14m-7-7h14"/>
-            </svg>
+            <v-icon :name="isActivePlan(p.id) ? 'check' : 'plus'" :size="16" aria-label="トグル" />
             <span class="toggle-label">{{ isActivePlan(p.id) ? '当日モード解除' : '当日モードにする' }}</span>
           </button>
         </div>

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useActivePlanStore } from '@/stores/activePlanStore'
+import VIcon from '@/components/v-icon.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -108,9 +109,7 @@ function openTravelDayChat() {
             <div class="banner-subtitle">旅行当日モード中</div>
           </div>
           <button @click="openTravelDayChat" class="chat-btn" aria-label="旅行当日チャット">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-            </svg>
+            <VIcon name="chat" :size="20" aria-label="チャット" />
             チャット
           </button>
         </div>
