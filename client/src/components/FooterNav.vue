@@ -24,7 +24,7 @@ function go(name){ if(route.name!==name) router.push({ name }) }
       <span class="label">ホーム</span>
     </button>
     <button class="nav-item" :class="{active:active.plan}" @click="go('travel-wizard')" aria-label="プラン">
-  <v-icon class="icon" name="calendar" :size="22" aria-label="プラン" />
+  <v-icon class="icon" name="wallet-travel" :size="22" aria-label="プラン" />
       <span class="label">プラン</span>
     </button>
     <button class="nav-item" :class="{active:active.schedule}" @click="go('plans')" aria-label="旅行予定">
