@@ -96,11 +96,11 @@ onMounted(fetchPlans)
           <div class="banner-title">{{ activePlanStore.activePlanTitle }}</div>
           <div class="banner-subtitle">旅行当日モード中</div>
         </div>
-        <button @click="openTravelDayChat" class="chat-btn" aria-label="旅行当日チャット">
+  <button @click="openTravelDayChat" class="chat-btn" aria-label="当日チャットを開く">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
           </svg>
-          チャット
+          当日チャットを開く
         </button>
       </div>
     </div>
@@ -124,14 +124,17 @@ onMounted(fetchPlans)
             @click="toggleActivePlan($event, p)" 
             class="toggle-btn" 
             :class="{ active: isActivePlan(p.id) }"
-            :aria-label="isActivePlan(p.id) ? 'プランを無効化' : 'プランを有効化'"
+            :aria-label="isActivePlan(p.id) ? '旅行当日モードを解除' : '旅行当日モードを有効化'"
+            :title="isActivePlan(p.id) ? '旅行当日モードを解除' : '旅行当日モードを有効化'"
+            :aria-pressed="isActivePlan(p.id) ? 'true' : 'false'"
           >
-            <svg v-if="isActivePlan(p.id)" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            <svg v-if="isActivePlan(p.id)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M20 6L9 17l-5-5"/>
             </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 5v14m-7-7h14"/>
             </svg>
+            <span class="toggle-label">{{ isActivePlan(p.id) ? '当日モード解除' : '当日モードにする' }}</span>
           </button>
         </div>
         <div class="card-content">
@@ -333,35 +336,42 @@ onMounted(fetchPlans)
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.25);
-  color: white;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: #ffffff;
+  color: #065f46; /* dark green text */
+  border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 14px;
-  padding: 12px 20px;
-  font-size: 15px;
-  font-weight: 600;
+  padding: 14px 22px;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-  min-height: 48px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: all 0.25s ease;
+  text-shadow: none;
+  min-height: 52px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 2px rgba(255,255,255,0.4) inset;
 }
 
 .chat-btn:hover {
-  background: rgba(255, 255, 255, 0.35);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.28), 0 0 0 2px rgba(255,255,255,0.5) inset;
 }
 
 .chat-btn:active {
   transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 0 2px rgba(255,255,255,0.5) inset;
+}
+
+.chat-btn:focus-visible {
+  outline: 3px solid rgba(255,255,255,0.9);
+  outline-offset: 2px;
 }
 
 .chat-btn svg {
   width: 20px;
   height: 20px;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
+  filter: none;
+  color: #065f46;
+  stroke: currentColor;
 }
 
 .state { padding:20px; text-align:center; color:#374151; }
@@ -374,6 +384,7 @@ onMounted(fetchPlans)
   max-width: 100%; /* Prevent horizontal scrolling */
   margin: 0 auto; /* Center the grid container */
   width: 100%;
+  padding: 0 8px; /* 左右のガターを明示的に確保 */
   overflow-x: hidden; /* 横スクロール無効化 */
   /* より厳密な幅制限 */
   contain: layout;
@@ -389,10 +400,10 @@ onMounted(fetchPlans)
     max-width: 100%; /* 横スクロール防止 */
     width: 100%;
     justify-items: stretch; /* カードを全幅に拡張 */
-    overflow-x: hidden; /* 確実に横スクロール無効 */
+  overflow-x: hidden; /* 確実に横スクロール無効 */
     /* Prevent cards from clipping on the left */
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0 8px; /* モバイルでも左右対称の余白を維持 */
     /* より厳密な制約 */
     min-width: 0;
     /* カードが確実にコンテナ内に収まるようにする */
@@ -409,7 +420,8 @@ onMounted(fetchPlans)
 /* 非常に小さな画面用の調整 */
 @media (max-width: 480px) {
   .cards { 
-    gap: 8px;
+  gap: 8px;
+  padding: 0 6px; /* 極小画面では少し細めの余白 */
   }
 }
 
@@ -423,6 +435,9 @@ onMounted(fetchPlans)
   cursor: pointer;
   box-shadow: 0 6px 14px rgba(0,0,0,0.08);
   transition: transform .2s ease, box-shadow .2s ease;
+  /* カード端のクリップ対策としてコンテナ内に少し収める */
+  margin-left: 2px;
+  margin-right: 2px;
 }
 .card::before{
   content:"";
@@ -472,19 +487,20 @@ onMounted(fetchPlans)
 }
 
 .toggle-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 50%;
-  display: flex;
+  border: 1.5px solid rgba(255,255,255,0.95);
+  background: #ffffff;
+  color: #065f46; /* dark green */
+  border-radius: 999px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   cursor: pointer;
-  color: #9ca3af;
   transition: all 0.2s ease;
-  flex-shrink: 0;
-  min-width: 24px;
+  padding: 8px 12px;
+  min-height: 36px;
+  min-width: 44px; /* touch target */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
 }
 
 /* モバイル対応: カードとボタンの改善 */
@@ -507,12 +523,7 @@ onMounted(fetchPlans)
     line-height: 1.4;
   }
   
-  .toggle-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    /* WCAG AA準拠の44px最小タッチターゲット */
-  }
+  .toggle-btn { padding: 10px 14px; min-height: 44px; }
   
   .card-header {
     gap: 14px;
@@ -546,22 +557,19 @@ onMounted(fetchPlans)
 }
 
 .toggle-btn:hover {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.22);
 }
-
+.toggle-btn:active { transform: translateY(0); }
+.toggle-btn svg { width: 16px; height: 16px; stroke: currentColor; }
+.toggle-label { font-size: 12px; font-weight: 700; line-height: 1; }
 .toggle-btn.active {
-  color: #10b981;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.95);
 }
-
-.toggle-btn.active:hover {
-  background: #ecfdf5;
-}
-
-.toggle-btn svg {
-  width: 16px;
-  height: 16px;
-}
+.toggle-btn.active:hover { filter: brightness(1.05); }
 
 .card .meta { font-size:11px; color:#6b7280; }
 
