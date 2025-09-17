@@ -7,7 +7,7 @@ from mcp import StdioServerParameters
 
 log = logging.getLogger("agent.day_advice")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 log.info(f"Day Advice Agent model: {MODEL}")
 
 google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY")
