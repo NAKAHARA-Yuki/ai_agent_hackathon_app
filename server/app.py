@@ -271,6 +271,7 @@ from blueprints.quiz import quiz_bp
 from blueprints.maps import maps_bp
 from blueprints.personas import personas_bp
 from blueprints.plans import plans_bp
+from blueprints.memories import memories_bp
 from blueprints.ai import ai_bp
 
 app.register_blueprint(health_bp)
@@ -280,6 +281,7 @@ app.register_blueprint(maps_bp)
 app.register_blueprint(personas_bp)
 app.register_blueprint(plans_bp)
 app.register_blueprint(ai_bp)
+app.register_blueprint(memories_bp)
 
 # SPA history fallback (serve index.html for non-API routes)
 @app.route('/', defaults={'path': ''})

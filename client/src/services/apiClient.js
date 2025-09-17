@@ -242,6 +242,33 @@ export async function planDetail(planId, authHeader) {
   return plan
 }
 
+// Memories API
+export async function listMemories(authHeader){
+  if (!useMock) {
+    return await realFetch('/api/memories', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } })
+  }
+  const data = lsGet('mockMemories', [])
+  return { items: data }
+}
+
+export async function createMemory(payload, authHeader){
+  if (!useMock) {
+    const resp = await fetch('/api/memories', { method:'POST', headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, body: JSON.stringify(payload) })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    return await resp.json()
+  }
+  const items = lsGet('mockMemories', [])
+  const now = new Date().toISOString()
+  const images = Array.isArray(payload.images)? payload.images.slice(0,3).map(img=>({
+    image_base64: img.image_base64||null,
+    image_mime_type: img.image_mime_type||'image/png'
+  })) : []
+  const doc = { id: randomId(), plan_id: payload.plan_id, images, created_at: now, updated_at: now }
+  items.push(doc)
+  lsSet('mockMemories', items)
+  return doc
+}
+
 export async function deletePlan(planId, authHeader) {
   if (!useMock) {
     const resp = await fetch(`/api/plans/${planId}`, { 
