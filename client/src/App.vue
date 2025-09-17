@@ -14,7 +14,7 @@ const route = useRoute()
 const showFooter = computed(() => {
   if(!isAuthed.value) return false
   const p = route.path
-  return p === '/' || p.startsWith('/main') || p.startsWith('/travel-wizard') || p.startsWith('/tasks') || p.startsWith('/plans') || p.startsWith('/results')
+  return p === '/' || p.startsWith('/main') || p.startsWith('/travel-wizard') || p.startsWith('/tasks') || p.startsWith('/memories') || p.startsWith('/plans') || p.startsWith('/results')
 })
 const showMenu = ref(false)
 const menuRoot = ref(null)

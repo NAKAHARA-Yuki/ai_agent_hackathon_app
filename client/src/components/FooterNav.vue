@@ -10,7 +10,7 @@ const active = computed(() => {
     home: p.startsWith('/main'),
     plan: p.startsWith('/travel-wizard'),
     schedule: p.startsWith('/plans'),
-    tasks: p.startsWith('/tasks')
+  memories: p.startsWith('/memories') || p.startsWith('/tasks')
   }
 })
 
@@ -31,9 +31,9 @@ function go(name){ if(route.name!==name) router.push({ name }) }
   <v-icon class="icon" name="calendar" :size="22" aria-label="旅行予定" />
       <span class="label">予定</span>
     </button>
-    <button class="nav-item" :class="{active:active.tasks}" @click="go('tasks')" aria-label="タスク">
-  <v-icon class="icon" name="check" :size="22" aria-label="タスク" />
-      <span class="label">タスク</span>
+  <button class="nav-item" :class="{active:active.memories}" @click="go('memories')" aria-label="思い出">
+  <v-icon class="icon" name="image-multiple" :size="22" aria-label="思い出" />
+      <span class="label">思い出</span>
     </button>
   </nav>
 </template>
