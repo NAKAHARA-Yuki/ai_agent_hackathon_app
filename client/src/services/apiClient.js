@@ -146,7 +146,13 @@ export async function listPlans(authHeader){
     try { return await realFetch('/api/plans', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } }) } catch(e){ throw e }
   }
   const data = lsGet('mockPlans', [])
-  return { items: data.map(p=>({ id:p.id, title:p.title, created_at:p.created_at, updated_at:p.updated_at })) }
+  return { items: data.map(p=>({ 
+    id:p.id, title:p.title, created_at:p.created_at, updated_at:p.updated_at,
+    // include image fields for UI parity
+    image_base64: p.image_base64||null, image_mime_type: p.image_mime_type||null,
+    image_url: p.image_url||null, hero_image: p.hero_image||null,
+    status: p.status||'confirmed'
+  })) }
 }
 
 export async function createPlan(payload, authHeader){
@@ -157,7 +163,24 @@ export async function createPlan(payload, authHeader){
   }
   const plans = lsGet('mockPlans', [])
   const now = new Date().toISOString()
-  const doc = { id: randomId(), title: payload.title || '旅行プラン', text: payload.text||'', places: payload.places||[], route_info: payload.route_info||null, summary: payload.summary||null, suggestions: payload.suggestions||[], itinerary: payload.itinerary||[], created_at: now, updated_at: now, status: payload.status || 'confirmed' }
+  const doc = { 
+    id: randomId(), 
+    title: payload.title || '旅行プラン', 
+    text: payload.text||'', 
+    places: payload.places||[], 
+    route_info: payload.route_info||null, 
+    summary: payload.summary||null, 
+    suggestions: payload.suggestions||[], 
+    itinerary: payload.itinerary||[], 
+    // hero image fields
+    image_base64: payload.image_base64||null,
+    image_mime_type: payload.image_mime_type||null,
+    image_url: payload.image_url||null,
+    hero_image: payload.hero_image||null,
+    created_at: now, 
+    updated_at: now, 
+    status: payload.status || 'confirmed' 
+  }
   plans.push(doc)
   lsSet('mockPlans', plans)
   return doc

@@ -170,9 +170,11 @@ def plans_collection():
     status = status.lower()
     if status not in ('confirmed', 'draft'):
         status = 'confirmed'
-    # Optional image payload (base64)
+    # Optional image payload (base64 or URL-based)
     image_base64 = payload.get('image_base64') if isinstance(payload.get('image_base64'), str) else None
     image_mime_type = payload.get('image_mime_type') if isinstance(payload.get('image_mime_type'), str) else None
+    image_url = payload.get('image_url') if isinstance(payload.get('image_url'), str) else None
+    hero_image = payload.get('hero_image') if isinstance(payload.get('hero_image'), str) else None
 
     if not title:
         # Fallback sensible title
@@ -197,6 +199,11 @@ def plans_collection():
         doc['image_base64'] = image_base64
         if image_mime_type:
             doc['image_mime_type'] = image_mime_type
+    # URL-based image references (optional; used by clients as fallback to base64)
+    if image_url:
+        doc['image_url'] = image_url
+    if hero_image:
+        doc['hero_image'] = hero_image
     try:
         doc_ref = plans_ref.document()
         doc_ref.set(doc, timeout=5)
@@ -220,6 +227,8 @@ def plans_collection():
             'source': saved.get('source'),
             'image_base64': saved.get('image_base64'),
             'image_mime_type': saved.get('image_mime_type'),
+            'image_url': saved.get('image_url'),
+            'hero_image': saved.get('hero_image'),
         }
         return jsonify(out), 201
     except Exception as e:

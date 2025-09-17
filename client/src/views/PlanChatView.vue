@@ -195,6 +195,11 @@ async function savePlan() {
   try {
     // Ensure itinerary is preserved from either current or original plan
     const preservedItinerary = currentPlan.value.itinerary || originalPlan.value.itinerary || []
+    // Preserve hero image fields
+    const imgBase64 = currentPlan.value?.image_base64 || originalPlan.value?.image_base64 || null
+    const imgMime = currentPlan.value?.image_mime_type || originalPlan.value?.image_mime_type || (imgBase64 ? 'image/png' : null)
+    const imageUrl = currentPlan.value?.image_url || originalPlan.value?.image_url || null
+    const heroImage = currentPlan.value?.hero_image || originalPlan.value?.hero_image || null
     
     const planData = {
       title: currentPlan.value.title + ' (改善版)',
@@ -204,7 +209,13 @@ async function savePlan() {
       places: currentPlan.value.places || originalPlan.value.places || [],
       route_info: currentPlan.value.route_info || originalPlan.value.route_info,
       suggestions: currentPlan.value.suggestions || originalPlan.value.suggestions || [],
-      status: 'confirmed'
+      status: 'confirmed',
+      // hero image persistence
+      ...(imgBase64 ? { image_base64: imgBase64 } : {}),
+      ...(imgMime ? { image_mime_type: imgMime } : {}),
+      // pass-through for URL-based images (server may store if allowed)
+      ...(imageUrl ? { image_url: imageUrl } : {}),
+      ...(heroImage ? { hero_image: heroImage } : {})
     }
     
     await createPlan(planData, auth.authHeader())
