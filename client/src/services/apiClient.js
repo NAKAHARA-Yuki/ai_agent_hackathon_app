@@ -279,6 +279,20 @@ export async function getMemory(id, authHeader){
   return m
 }
 
+export async function getMemoryVideoStatus(id, authHeader){
+  if (!useMock) {
+    return await realFetch(`/api/memories/${id}/video-status`, { headers: { 'Content-Type': 'application/json', ...(authHeader||{}) } })
+  }
+  // Mock: mark all jobs done immediately if present
+  const items = lsGet('mockMemories', [])
+  const idx = items.findIndex(x => x.id === id)
+  if (idx === -1) return { video_jobs: [], all_done: true }
+  const jobs = (items[idx].video_jobs || []).map(j => ({ ...j, done: true }))
+  items[idx].video_jobs = jobs
+  lsSet('mockMemories', items)
+  return { video_jobs: jobs, all_done: true }
+}
+
 export async function deletePlan(planId, authHeader) {
   if (!useMock) {
     const resp = await fetch(`/api/plans/${planId}`, { 

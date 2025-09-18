@@ -117,11 +117,12 @@ onMounted(fetchAll)
     <div v-else class="cards">
       <div v-if="!items.length" class="empty">まだ思い出がありません。右上の「思い出を追加」から登録できます。</div>
       <div v-else class="grid">
-  <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)" @click="openDetail(mem)">
+    <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)" @click="openDetail(mem)">
           <div class="overlay"></div>
           <div class="text">
       <div class="title">関連プラン: {{ planTitle(mem.plan_id) }}</div>
             <div class="count">写真 {{ (mem.images||[]).length }} 枚</div>
+      <div v-if="(mem.video_jobs||[]).some(j=>!j.done)" class="badge">動画作成中</div>
           </div>
         </div>
       </div>
@@ -174,6 +175,7 @@ onMounted(fetchAll)
 .card .text { position:absolute; left:10px; right:10px; bottom:10px; color:#fff; }
 .card .title { font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.4) }
 .card .count { font-size:12px; opacity:.95 }
+.badge { display:inline-block; margin-top:6px; font-size:12px; padding:3px 8px; border-radius:999px; background:#f59e0b; color:#111; }
 
 /* modal */
 .modal-backdrop { position:fixed; inset:0; background:#0006; display:grid; place-items:center; z-index:1000; }
