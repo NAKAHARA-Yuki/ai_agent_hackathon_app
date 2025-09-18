@@ -17,6 +17,21 @@ const saving = ref(false)
 const selectedPlanId = ref('')
 const images = ref([null, null, null]) // { image_base64, image_mime_type }
 const plansOptions = ref([])
+// trip dates
+const tripStart = ref('')
+const tripEnd = ref('')
+
+function fmtDate(s){
+  if (!s) return ''
+  try {
+    const d = new Date(s)
+    if (Number.isNaN(d.getTime())) return s
+    const y = d.getFullYear()
+    const m = String(d.getMonth()+1).padStart(2,'0')
+    const dd = String(d.getDate()).padStart(2,'0')
+    return `${y}/${m}/${dd}`
+  } catch { return s }
+}
 
 async function fetchAll(){
   loading.value = true; error.value = ''
@@ -37,6 +52,8 @@ async function fetchAll(){
 function openModal(){
   selectedPlanId.value = plansOptions.value[0]?.id || ''
   images.value = [null,null,null]
+  tripStart.value = ''
+  tripEnd.value = ''
   showModal.value = true
 }
 function closeModal(){
@@ -78,7 +95,10 @@ async function save(){
   saving.value = true
   try{
     const imgs = images.value.filter(Boolean).slice(0,3)
-    await createMemory({ plan_id: selectedPlanId.value, images: imgs }, auth.authHeader())
+  const payload = { plan_id: selectedPlanId.value, images: imgs }
+  if (tripStart.value) payload.trip_start_date = tripStart.value
+  if (tripEnd.value) payload.trip_end_date = tripEnd.value
+  await createMemory(payload, auth.authHeader())
     await fetchAll()
     showModal.value = false
   }catch(e){
@@ -117,12 +137,13 @@ onMounted(fetchAll)
     <div v-else class="cards">
       <div v-if="!items.length" class="empty">まだ思い出がありません。右上の「思い出を追加」から登録できます。</div>
       <div v-else class="grid">
-    <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)" @click="openDetail(mem)">
+        <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)" @click="openDetail(mem)">
           <div class="overlay"></div>
           <div class="text">
-      <div class="title">関連プラン: {{ planTitle(mem.plan_id) }}</div>
+            <div class="title">関連プラン: {{ planTitle(mem.plan_id) }}</div>
+            <div v-if="mem.trip_start_date || mem.trip_end_date" class="sub">{{ fmtDate(mem.trip_start_date) }} ~ {{ fmtDate(mem.trip_end_date) }}</div>
             <div class="count">写真 {{ (mem.images||[]).length }} 枚</div>
-      <div v-if="(mem.video_jobs||[]).some(j=>!j.done)" class="badge">動画作成中</div>
+            <div v-if="(mem.video_jobs||[]).some(j=>!j.done)" class="badge">動画作成中</div>
           </div>
         </div>
       </div>
@@ -140,6 +161,20 @@ onMounted(fetchAll)
           <select v-model="selectedPlanId">
             <option v-for="p in plansOptions" :key="p.id" :value="p.id">{{ p.title || p.id }}</option>
           </select>
+
+          <div class="dates">
+            <label>旅行日程</label>
+            <div class="date-grid">
+              <div>
+                <small>開始日</small>
+                <input type="date" v-model="tripStart" />
+              </div>
+              <div>
+                <small>終了日</small>
+                <input type="date" v-model="tripEnd" />
+              </div>
+            </div>
+          </div>
 
           <div class="uploads">
             <label>写真をアップロード（最大3枚）</label>
@@ -174,6 +209,7 @@ onMounted(fetchAll)
 .card .overlay { position:absolute; inset:0; background: linear-gradient(to top, rgba(0,0,0,.5), rgba(0,0,0,.05)); }
 .card .text { position:absolute; left:10px; right:10px; bottom:10px; color:#fff; }
 .card .title { font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.4) }
+.card .sub { font-size:12px; opacity:.95; margin-top:2px; text-shadow:0 1px 2px rgba(0,0,0,.4) }
 .card .count { font-size:12px; opacity:.95 }
 .badge { display:inline-block; margin-top:6px; font-size:12px; padding:3px 8px; border-radius:999px; background:#f59e0b; color:#111; }
 
@@ -187,4 +223,12 @@ onMounted(fetchAll)
 .uploads { margin-top:8px; }
 .u-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
 .u-item { background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px; min-height:64px; display:grid; place-items:center; }
+.dates { display:flex; flex-direction:column; gap:6px; }
+.date-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; }
+@media (max-width: 480px){
+  .memories-view { padding:16px 12px; }
+  .grid { grid-template-columns: 1fr; }
+  .modal { width: 96vw; }
+  .date-grid { grid-template-columns: 1fr; }
+}
 </style>

@@ -2,7 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import { getMemory, listPlans, getMemoryVideoStatus } from '@/services/apiClient'
+import { getMemory, listPlans, getMemoryVideoStatus, planDetail } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +15,19 @@ const plans = ref([])
 const videoJobs = ref([])
 const allDone = ref(true)
 let pollTimer = null
+const plan = ref(null)
+
+function fmtDate(s){
+  if (!s) return ''
+  try {
+    const d = new Date(s)
+    if (Number.isNaN(d.getTime())) return s
+    const y = d.getFullYear()
+    const m = String(d.getMonth()+1).padStart(2,'0')
+    const dd = String(d.getDate()).padStart(2,'0')
+    return `${y}/${m}/${dd}`
+  } catch { return s }
+}
 
 const memoryId = computed(() => {
   const raw = route.params.id
@@ -58,8 +71,12 @@ async function fetchAll(){
     ])
     mem.value = m
     plans.value = Array.isArray(p.items)? p.items : []
-  videoJobs.value = Array.isArray(m.video_jobs)? m.video_jobs : []
-  if (m.primary_video_url) {
+    // fetch plan detail for itinerary rendering
+    if (m?.plan_id) {
+      try { plan.value = await planDetail(m.plan_id, auth.authHeader()) } catch { plan.value = null }
+    }
+    videoJobs.value = Array.isArray(m.video_jobs)? m.video_jobs : []
+    if (m.primary_video_url) {
       allDone.value = true
     } else {
       allDone.value = videoJobs.value.length ? videoJobs.value.every(j=>j.done) : true
@@ -101,6 +118,23 @@ function stopPolling(){ if (pollTimer) { clearInterval(pollTimer); pollTimer = n
 function manualRefresh(){ startPollingIfNeeded() }
 
 onBeforeUnmount(() => { stopPolling() })
+
+const groupedItinerary = computed(()=>{
+  const it = plan.value?.itinerary
+  if (!Array.isArray(it) || !it.length) return []
+  // Group by it.date (YYYY-MM-DD) or it.day (Day 1, etc). Fallback "スケジュール".
+  const groups = []
+  const map = new Map()
+  for (const item of it){
+    const key = item?.date || item?.day || 'スケジュール'
+    if (!map.has(key)) map.set(key, [])
+    map.get(key).push(item)
+  }
+  for (const [key, arr] of map.entries()){
+    groups.push({ key, items: arr })
+  }
+  return groups
+})
 </script>
 
 <template>
@@ -114,11 +148,11 @@ onBeforeUnmount(() => { stopPolling() })
     <div v-else-if="error" class="state error">{{ error }}</div>
     <div v-else-if="!mem" class="state">見つかりませんでした</div>
     <div v-else class="content">
-      <div class="title">関連プラン: {{ planTitle }}</div>
-      <div v-if="videoJobs.length || mem?.primary_video_url" class="video-status">
+  <div class="title">関連プラン: {{ planTitle }}</div>
+  <div v-if="mem?.trip_start_date || mem?.trip_end_date" class="sub">期間: {{ fmtDate(mem?.trip_start_date) }} ~ {{ fmtDate(mem?.trip_end_date) }}</div>
+      <div v-if="(!allDone) && (videoJobs.length)" class="video-status">
         <div class="status-line">
           <span class="badge" :class="{done: allDone, pending: !allDone}">{{ allDone ? '動画作成完了' : '動画作成中...' }}</span>
-          <button class="secondary small" @click="manualRefresh" :disabled="allDone">更新</button>
         </div>
         <ul class="jobs">
           <li v-for="j in videoJobs" :key="j.index">
@@ -128,6 +162,27 @@ onBeforeUnmount(() => { stopPolling() })
             <span v-if="j.error" class="err">（{{ j.error }}）</span>
           </li>
         </ul>
+      </div>
+      <div v-if="groupedItinerary.length" class="itinerary">
+        <h3>工程表</h3>
+        <div v-for="(g, gi) in groupedItinerary" :key="gi" class="it-group">
+          <div class="it-group-header">{{ g.key }}</div>
+          <ul class="it-list">
+            <li v-for="(it, idx) in g.items" :key="idx" class="it-item">
+              <div class="it-node">
+                <span class="dot"></span>
+                <span class="line" :class="{ last: idx === g.items.length-1 }"></span>
+              </div>
+              <div class="it-content">
+                <div class="it-row">
+                  <div class="it-time">{{ it.time || '' }}</div>
+                  <div class="it-title">{{ it.title || it.name || it.place || 'スケジュール' }}</div>
+                </div>
+                <div v-if="it.description || it.note" class="it-desc">{{ it.description || it.note }}</div>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
       <div class="videos">
         <div v-if="videoUrls.length" class="vgrid">
@@ -159,4 +214,26 @@ onBeforeUnmount(() => { stopPolling() })
 .videos { margin-top:12px; }
 .vgrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:12px; }
 .video-player { width:100%; max-height: 60vh; border-radius:12px; box-shadow:0 6px 18px #0002; background:#000; }
+/* itinerary */
+.itinerary { margin-top: 16px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px; }
+.itinerary h3 { margin:0 0 8px; font-size:16px; }
+.it-group { padding:8px 4px; }
+.it-group + .it-group { border-top:1px dashed #e2e8f0; margin-top:8px; padding-top:12px; }
+.it-group-header { font-weight:700; color:#0f172a; margin-bottom:8px; }
+.it-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px; }
+.it-item { display:grid; grid-template-columns: 20px 1fr; gap:10px; align-items:flex-start; }
+.it-node { position:relative; width:20px; display:flex; justify-content:center; }
+.it-node .dot { width:10px; height:10px; background:#2563eb; border-radius:50%; position:relative; top:4px; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+.it-node .line { position:absolute; top:14px; bottom:-18px; width:2px; background:#e2e8f0; left:9px; }
+.it-node .line.last { display:none; }
+.it-content { display:flex; flex-direction:column; gap:4px; padding-bottom:4px; }
+.it-row { display:flex; align-items:center; gap:10px; }
+.it-time { min-width:64px; font-weight:700; color:#334155; }
+.it-title { font-weight:600; }
+.it-desc { font-size:13px; color:#475569; }
+@media (max-width: 480px){
+  .memory-detail { padding:16px 12px; }
+  .vgrid { grid-template-columns: 1fr; }
+  .it-time { min-width:48px; font-size:12px; }
+}
 </style>

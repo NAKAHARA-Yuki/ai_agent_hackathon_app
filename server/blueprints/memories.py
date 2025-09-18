@@ -42,13 +42,13 @@ def memories_collection():
             for d in docs:
                 try:
                     data = d.to_dict() or {}
-                    if data.get('deleted'):
-                        continue
                     out = {
                         'id': getattr(d, 'id', None),
                         'plan_id': data.get('plan_id'),
                         'images': data.get('images') or [],
                         'video_jobs': data.get('video_jobs') or [],
+                        'trip_start_date': data.get('trip_start_date'),
+                        'trip_end_date': data.get('trip_end_date'),
                         'created_at': data.get('created_at'),
                         'updated_at': data.get('updated_at'),
                     }
@@ -74,6 +74,9 @@ def memories_collection():
     payload = request.get_json() or {}
     plan_id = payload.get('plan_id') if isinstance(payload.get('plan_id'), str) else None
     images = payload.get('images') if isinstance(payload.get('images'), list) else []
+    # Optional trip dates (YYYY-MM-DD)
+    trip_start_date = payload.get('trip_start_date') if isinstance(payload.get('trip_start_date'), str) else None
+    trip_end_date = payload.get('trip_end_date') if isinstance(payload.get('trip_end_date'), str) else None
     if not plan_id:
         return jsonify({"error": "plan_id_required"}), 400
 
@@ -89,6 +92,8 @@ def memories_collection():
     doc = {
         'plan_id': plan_id,
         'images': norm_images,
+    'trip_start_date': trip_start_date,
+    'trip_end_date': trip_end_date,
         'created_at': firestore.SERVER_TIMESTAMP,
         'updated_at': firestore.SERVER_TIMESTAMP,
     }
@@ -127,6 +132,8 @@ def memories_collection():
             'primary_video_url': saved.get('primary_video_url'),
             'created_at': saved.get('created_at'),
             'updated_at': saved.get('updated_at'),
+            'trip_start_date': saved.get('trip_start_date'),
+            'trip_end_date': saved.get('trip_end_date'),
         }
         return jsonify(out), 201
     except Exception:
@@ -162,6 +169,8 @@ def memories_item(mem_id: str):
             'primary_video_url': data.get('primary_video_url'),
             'created_at': data.get('created_at'),
             'updated_at': data.get('updated_at'),
+            'trip_start_date': data.get('trip_start_date'),
+            'trip_end_date': data.get('trip_end_date'),
         }
         return jsonify(out)
     except Exception:
