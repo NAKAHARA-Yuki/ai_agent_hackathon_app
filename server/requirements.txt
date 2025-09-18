@@ -5,6 +5,7 @@ google-generativeai==0.7.1
 requests==2.32.3
 gevent
 google-cloud-firestore==2.16.0
+google-cloud-storage==2.18.2
 PyJWT==2.8.0
 Werkzeug==3.0.3
 pytest==7.4.4

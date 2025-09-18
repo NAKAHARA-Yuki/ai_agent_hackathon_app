@@ -45,8 +45,12 @@ async function fetchAll(){
     ])
     mem.value = m
     plans.value = Array.isArray(p.items)? p.items : []
-  videoJobs.value = Array.isArray(m.video_jobs)? m.video_jobs : []
-  allDone.value = videoJobs.value.length ? videoJobs.value.every(j=>j.done) : true
+    videoJobs.value = Array.isArray(m.video_jobs)? m.video_jobs : []
+    if (m.primary_video_url) {
+      allDone.value = true
+    } else {
+      allDone.value = videoJobs.value.length ? videoJobs.value.every(j=>j.done) : true
+    }
   startPollingIfNeeded()
   }catch(e){
     error.value = '読み込みに失敗しました'
@@ -70,6 +74,9 @@ function startPollingIfNeeded(){
       const s = await getMemoryVideoStatus(memoryId.value, auth.authHeader())
       videoJobs.value = s.video_jobs || []
       allDone.value = !!s.all_done
+      if (s.primary_video_url) {
+        mem.value = { ...(mem.value||{}), primary_video_url: s.primary_video_url }
+      }
       if (allDone.value) stopPolling()
     }catch(e){ /* ignore transient errors */ }
   }, 5000)
@@ -92,7 +99,7 @@ onBeforeUnmount(() => { stopPolling() })
     <div v-else-if="!mem" class="state">見つかりませんでした</div>
     <div v-else class="content">
       <div class="title">関連プラン: {{ planTitle }}</div>
-      <div v-if="videoJobs.length" class="video-status">
+      <div v-if="videoJobs.length || mem?.primary_video_url" class="video-status">
         <div class="status-line">
           <span class="badge" :class="{done: allDone, pending: !allDone}">{{ allDone ? '動画作成完了' : '動画作成中...' }}</span>
           <button class="secondary small" @click="manualRefresh" :disabled="allDone">更新</button>
@@ -105,6 +112,9 @@ onBeforeUnmount(() => { stopPolling() })
             <span v-if="j.error" class="err">（{{ j.error }}）</span>
           </li>
         </ul>
+      </div>
+      <div v-if="mem?.primary_video_url" class="video">
+        <video controls :src="mem.primary_video_url" style="width:100%; max-width:720px; border-radius:10px; box-shadow: 0 8px 24px #0001;"></video>
       </div>
       <div class="gallery">
         <img v-for="(img,idx) in mem.images" :key="idx" :src="imgSrc(img)" alt="思い出の写真" />

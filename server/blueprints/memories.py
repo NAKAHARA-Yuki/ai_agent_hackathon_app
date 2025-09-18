@@ -108,7 +108,6 @@ def memories_collection():
                     user_id=user_id,
                     memory_id=getattr(doc_ref, 'id', None) or 'unknown',
                     prompt=str(payload.get('prompt') or 'my memory'),
-                    storage_uri_override=payload.get('storage_uri') if isinstance(payload.get('storage_uri'), str) else None
                 )
                 # persist job metadata
                 try:
@@ -124,6 +123,8 @@ def memories_collection():
             'plan_id': saved.get('plan_id'),
             'images': saved.get('images') or [],
             'video_jobs': saved.get('video_jobs') or video_jobs or [],
+            'video_urls': saved.get('video_urls') or [],
+            'primary_video_url': saved.get('primary_video_url'),
             'created_at': saved.get('created_at'),
             'updated_at': saved.get('updated_at'),
         }
@@ -157,6 +158,8 @@ def memories_item(mem_id: str):
             'plan_id': data.get('plan_id'),
             'images': data.get('images') or [],
             'video_jobs': data.get('video_jobs') or [],
+            'video_urls': data.get('video_urls') or [],
+            'primary_video_url': data.get('primary_video_url'),
             'created_at': data.get('created_at'),
             'updated_at': data.get('updated_at'),
         }
@@ -177,20 +180,16 @@ def _get_gcp_access_token() -> str:
     return creds.token
 
 
-def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str, prompt: str, storage_uri_override: str | None = None) -> List[Dict[str, Any]]:
-    """Launch Vertex Veo predictLongRunning jobs for each image. Returns list of job metadata."""
+def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str, prompt: str) -> List[Dict[str, Any]]:
+    """Launch Vertex Veo predictLongRunning jobs for each image. Returns list of job metadata.
+
+    Note: We do NOT set storageUri. We'll fetch the base64 video upon completion via operations API,
+    then upload to GCS ourselves and persist the public URL in Firestore.
+    """
     project_id = os.getenv('VEO_PROJECT_ID') or os.getenv('GCP_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT') or 'ai-agent-hackason'
     location = os.getenv('VEO_LOCATION', 'us-central1')
     model_id = os.getenv('VEO_MODEL_ID', 'veo-3.0-fast-generate-preview')
     api_endpoint = os.getenv('VEO_API_ENDPOINT', f'{location}-aiplatform.googleapis.com')
-
-    # storage uri
-    if storage_uri_override and isinstance(storage_uri_override, str):
-        base_uri = storage_uri_override.rstrip('/') + '/'
-    else:
-        scheme = os.getenv('GCS_URI_SCHEME', 'gcs')  # 'gs' or 'gcs'
-        bucket = os.getenv('GCS_VIDEO_BUCKET', 'izatabi')
-        base_uri = f"{scheme}://{bucket}/users/{user_id}/memories/{memory_id}/"
 
     token = _get_gcp_access_token()
     url = f"https://{api_endpoint}/v1/projects/{project_id}/locations/{location}/publishers/google/models/{model_id}:predictLongRunning"
@@ -200,7 +199,6 @@ def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str,
         try:
             b64 = img.get('image_base64')
             mime = img.get('image_mime_type') or 'image/jpeg'
-            storage_uri = f"{base_uri}video_{idx+1}/"
             payload = {
                 'instances': [
                     {
@@ -220,7 +218,6 @@ def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str,
                     'includeRaiReason': True,
                     'generateAudio': False,
                     'resolution': '720p',
-                    'storageUri': storage_uri,
                 },
             }
             headers = {
@@ -236,7 +233,6 @@ def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str,
                 data = {'status_code': resp.status_code, 'text': resp.text[:200]}
             job = {
                 'index': idx,
-                'storage_uri': storage_uri,
                 'operation_name': op_name,
                 'http_status': resp.status_code,
             }
@@ -251,9 +247,8 @@ def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str,
 def memories_video_status(mem_id: str):
     """Check Veo long-running operations for a memory and return per-job status.
 
-    Returns: { video_jobs: [{ index, operation_name, done, error, storage_uri }], all_done: bool }
+    Returns: { video_jobs: [{ index, operation_name, done, error, video_public_url }], all_done: bool }
     """
-    from flask import current_app
     db = getattr(current_app, 'db', None)
 
     claims = claims_or_dev()
@@ -297,6 +292,26 @@ def memories_video_status(mem_id: str):
                         entry['error'] = f"HTTP {resp.status_code}"
                     elif 'error' in data:
                         entry['error'] = data.get('error')
+                    # On completion, try to extract base64 video and persist to GCS, store URL
+                    if entry.get('done') and not entry.get('video_public_url'):
+                        try:
+                            # Veo operations response assumed to include base64 under one of known keys
+                            video_b64 = None
+                            # Common patterns (adjust if API differs)
+                            if isinstance(data.get('response'), dict):
+                                video_b64 = data['response'].get('video', {}).get('bytesBase64Encoded') or data['response'].get('videoBase64')
+                            if not video_b64 and isinstance(data.get('result'), dict):
+                                video_b64 = data['result'].get('video', {}).get('bytesBase64Encoded') or data['result'].get('videoBase64')
+                            if not video_b64 and isinstance(data.get('videos'), list) and data['videos']:
+                                first = data['videos'][0]
+                                if isinstance(first, dict):
+                                    video_b64 = first.get('bytesBase64Encoded') or first.get('base64')
+                            if video_b64:
+                                public_url = _save_video_to_gcs(video_b64, user_id, mem_id, idx)
+                                if public_url:
+                                    entry['video_public_url'] = public_url
+                        except Exception as e:
+                            entry['error'] = f"save_video: {e}"
             except Exception as e:
                 entry['error'] = str(e)
             updated_jobs.append(entry)
@@ -305,11 +320,53 @@ def memories_video_status(mem_id: str):
 
         # persist back
         try:
-            doc_ref.update({ 'video_jobs': updated_jobs, 'updated_at': firestore.SERVER_TIMESTAMP }, timeout=5)
+            # If any job has video_public_url, also store a top-level field for convenience
+            public_urls = [j.get('video_public_url') for j in updated_jobs if j.get('video_public_url')]
+            update_doc = { 'video_jobs': updated_jobs, 'updated_at': firestore.SERVER_TIMESTAMP }
+            if public_urls:
+                update_doc['video_urls'] = public_urls
+                update_doc['primary_video_url'] = public_urls[0]
+            doc_ref.update(update_doc, timeout=5)
         except Exception:
             pass
 
-        return jsonify({ 'video_jobs': updated_jobs, 'all_done': all_done })
+        return jsonify({ 'video_jobs': updated_jobs, 'all_done': all_done, 'primary_video_url': (public_urls[0] if 'public_urls' in locals() and public_urls else None), 'video_urls': (public_urls if 'public_urls' in locals() else []) })
     except Exception:
         logger.exception('/api/memories/{id}/video-status GET error')
         return jsonify({"error": "database_unavailable"}), 503
+
+
+def _save_video_to_gcs(video_b64: str, user_id: str, mem_id: str, idx: int) -> str | None:
+    """Decode base64 video and upload to GCS. Return a public or signed URL."""
+    try:
+        import base64
+        from google.cloud import storage  # type: ignore
+
+        bucket_name = os.getenv('GCS_VIDEO_BUCKET', 'izatabi')
+        object_name = f"users/{user_id}/memories/{mem_id}/video_{(idx or 0)+1}.mp4"
+        content_type = 'video/mp4'
+
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(object_name)
+
+        raw = base64.b64decode(video_b64)
+        blob.upload_from_string(raw, content_type=content_type)
+
+        # Public or signed URL
+        if os.getenv('GCS_PUBLIC_READ', 'true').lower() == 'true':
+            try:
+                blob.make_public()
+            except Exception:
+                pass
+            return blob.public_url
+        else:
+            # Signed URL for 7 days by default
+            from datetime import timedelta
+            # 半年 = 60*60*24*30*6 = 15,552,000 秒
+            expires = int(os.getenv('GCS_SIGNED_URL_EXPIRES_SECONDS', '15552000'))
+            url = blob.generate_signed_url(expiration=timedelta(seconds=expires), method='GET')
+            return url
+    except Exception as e:
+        logger.warning(f'GCS upload failed: {e}')
+        return None
