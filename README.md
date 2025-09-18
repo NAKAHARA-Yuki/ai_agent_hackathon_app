@@ -129,6 +129,42 @@ ai_agent_hackathon_app/
 └── .github/workflows/    # CI/CDパイプライン
 ```
 
+### 環境変数（抜粋）
+
+サーバー（`server/.env`）に設定:
+
+```
+# 核心
+FLASK_ENV=development
+LOG_LEVEL=INFO
+JWT_SECRET=dev-secret-change-me
+
+# Google Cloud
+GCP_PROJECT_ID=your_project_id
+GOOGLE_CLOUD_PROJECT=your_project_id
+
+# API Keys（任意）
+GEMINI_API_KEY=your_gemini_api_key
+GOOGLE_MAPS_API_KEY=your_maps_api_key
+
+# Veo 動画生成（任意機能）
+ENABLE_VEO_VIDEO=false
+VEO_PROJECT_ID=ai-agent-hackason
+VEO_LOCATION=us-central1
+VEO_MODEL_ID=veo-3.0-fast-generate-preview
+VEO_API_ENDPOINT=us-central1-aiplatform.googleapis.com
+GCS_VIDEO_BUCKET=izatabi
+```
+
+ローカル起動例:
+
+```
+cd server
+FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false python3 app.py
+```
+
+> ENABLE_VEO_VIDEO を true にすると、思い出作成時に各画像ごとの動画生成ジョブを起動します。ADC（gcloud auth application-default login 等）が必要です。
+
 ### 主要ファイル詳細
 
 #### フロントエンド（client/src/）

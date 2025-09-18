@@ -12,4 +12,11 @@ services:
       - LOG_LEVEL=DEBUG
       # Allow local dev UIs
       - CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:4200
+  # Veo video generation (only effective if server reads these; ensure server uses same env)
+  # - ENABLE_VEO_VIDEO=true
+  # - VEO_PROJECT_ID=ai-agent-hackason
+  # - VEO_LOCATION=us-central1
+  # - VEO_MODEL_ID=veo-3.0-fast-generate-preview
+  # - VEO_API_ENDPOINT=us-central1-aiplatform.googleapis.com
+  # - GCS_VIDEO_BUCKET=izatabi
     # Use Dockerfile default CMD (adk api_server ... ./agents/root_coordinator)
