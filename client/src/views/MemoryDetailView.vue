@@ -29,11 +29,24 @@ const planTitle = computed(()=>{
   return p?.title || mem.value.plan_id || ''
 })
 
-function imgSrc(img){
-  if (!img) return ''
-  const mime = img.image_mime_type || 'image/png'
-  return `data:${mime};base64,${img.image_base64}`
-}
+const videoUrls = computed(() => {
+  const urls = []
+  if (mem.value?.video_urls && Array.isArray(mem.value.video_urls)) {
+    for (const u of mem.value.video_urls) if (u) urls.push(u)
+  }
+  // fallback: collect from jobs
+  for (const j of (videoJobs.value||[])) {
+    if (j && j.video_public_url && !urls.includes(j.video_public_url)) urls.push(j.video_public_url)
+  }
+  // ensure primary first if exists
+  const primary = mem.value?.primary_video_url
+  if (primary) {
+    const idx = urls.indexOf(primary)
+    if (idx > 0) { urls.splice(idx,1); urls.unshift(primary) }
+    else if (idx === -1) { urls.unshift(primary) }
+  }
+  return urls
+})
 
 async function fetchAll(){
   loading.value = true; error.value = ''
@@ -45,8 +58,8 @@ async function fetchAll(){
     ])
     mem.value = m
     plans.value = Array.isArray(p.items)? p.items : []
-    videoJobs.value = Array.isArray(m.video_jobs)? m.video_jobs : []
-    if (m.primary_video_url) {
+  videoJobs.value = Array.isArray(m.video_jobs)? m.video_jobs : []
+  if (m.primary_video_url) {
       allDone.value = true
     } else {
       allDone.value = videoJobs.value.length ? videoJobs.value.every(j=>j.done) : true
@@ -76,6 +89,9 @@ function startPollingIfNeeded(){
       allDone.value = !!s.all_done
       if (s.primary_video_url) {
         mem.value = { ...(mem.value||{}), primary_video_url: s.primary_video_url }
+      }
+      if (Array.isArray(s.video_urls)) {
+        mem.value = { ...(mem.value||{}), video_urls: s.video_urls }
       }
       if (allDone.value) stopPolling()
     }catch(e){ /* ignore transient errors */ }
@@ -113,11 +129,11 @@ onBeforeUnmount(() => { stopPolling() })
           </li>
         </ul>
       </div>
-      <div v-if="mem?.primary_video_url" class="video">
-        <video controls :src="mem.primary_video_url" style="width:100%; max-width:720px; border-radius:10px; box-shadow: 0 8px 24px #0001;"></video>
-      </div>
-      <div class="gallery">
-        <img v-for="(img,idx) in mem.images" :key="idx" :src="imgSrc(img)" alt="思い出の写真" />
+      <div class="videos">
+        <div v-if="videoUrls.length" class="vgrid">
+          <video v-for="(url,i) in videoUrls" :key="i" controls :src="url" class="video-player"></video>
+        </div>
+        <div v-else class="state">動画を生成中です…</div>
       </div>
     </div>
   </div>
@@ -140,6 +156,7 @@ onBeforeUnmount(() => { stopPolling() })
 .jobs .wait { color:#d97706; margin-left:6px; }
 .jobs .err { color:#b91c1c; margin-left:6px; }
 .small { padding:6px 8px; font-size:12px; }
-.gallery { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:12px; }
-.gallery img { width:100%; height:100%; object-fit:cover; border-radius:12px; box-shadow:0 6px 18px #0002; aspect-ratio: 16/9; }
+.videos { margin-top:12px; }
+.vgrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:12px; }
+.video-player { width:100%; max-height: 60vh; border-radius:12px; box-shadow:0 6px 18px #0002; background:#000; }
 </style>

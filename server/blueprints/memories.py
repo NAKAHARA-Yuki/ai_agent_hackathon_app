@@ -361,7 +361,7 @@ def _save_video_to_gcs(video_b64: str, user_id: str, mem_id: str, idx: int) -> s
         raw = base64.b64decode(video_b64)
         blob.upload_from_string(raw, content_type=content_type)
 
-        # Public or signed URL
+        # Public, authenticated-console style, or signed URL
         if os.getenv('GCS_PUBLIC_READ', 'true').lower() == 'true':
             try:
                 blob.make_public()
