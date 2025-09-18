@@ -49,6 +49,9 @@ def memories_collection():
                         'video_jobs': data.get('video_jobs') or [],
                         'trip_start_date': data.get('trip_start_date'),
                         'trip_end_date': data.get('trip_end_date'),
+                        'text': data.get('text'),
+                        'summary': data.get('summary'),
+                        'itinerary': data.get('itinerary') or [],
                         'created_at': data.get('created_at'),
                         'updated_at': data.get('updated_at'),
                     }
@@ -97,6 +100,19 @@ def memories_collection():
         'created_at': firestore.SERVER_TIMESTAMP,
         'updated_at': firestore.SERVER_TIMESTAMP,
     }
+    # Try to pull text/summary/itinerary from the linked plan as snapshot fields
+    try:
+        plan_snap = user_ref.collection('plans').document(plan_id).get(timeout=5)
+        if getattr(plan_snap, 'exists', False):
+            p = plan_snap.to_dict() or {}
+            if isinstance(p.get('text'), str):
+                doc['text'] = p.get('text')
+            if isinstance(p.get('summary'), str):
+                doc['summary'] = p.get('summary')
+            if isinstance(p.get('itinerary'), list):
+                doc['itinerary'] = p.get('itinerary')
+    except Exception:
+        pass
     try:
         doc_ref = col_ref.document()
         doc_ref.set(doc, timeout=5)
@@ -130,6 +146,9 @@ def memories_collection():
             'video_jobs': saved.get('video_jobs') or video_jobs or [],
             'video_urls': saved.get('video_urls') or [],
             'primary_video_url': saved.get('primary_video_url'),
+            'text': saved.get('text'),
+            'summary': saved.get('summary'),
+            'itinerary': saved.get('itinerary') or [],
             'created_at': saved.get('created_at'),
             'updated_at': saved.get('updated_at'),
             'trip_start_date': saved.get('trip_start_date'),
@@ -167,6 +186,9 @@ def memories_item(mem_id: str):
             'video_jobs': data.get('video_jobs') or [],
             'video_urls': data.get('video_urls') or [],
             'primary_video_url': data.get('primary_video_url'),
+            'text': data.get('text'),
+            'summary': data.get('summary'),
+            'itinerary': data.get('itinerary') or [],
             'created_at': data.get('created_at'),
             'updated_at': data.get('updated_at'),
             'trip_start_date': data.get('trip_start_date'),

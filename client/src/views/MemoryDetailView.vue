@@ -120,7 +120,7 @@ function manualRefresh(){ startPollingIfNeeded() }
 onBeforeUnmount(() => { stopPolling() })
 
 const groupedItinerary = computed(()=>{
-  const it = plan.value?.itinerary
+  const it = (mem.value?.itinerary && mem.value.itinerary.length ? mem.value.itinerary : (plan.value?.itinerary))
   if (!Array.isArray(it) || !it.length) return []
   // Group by it.date (YYYY-MM-DD) or it.day (Day 1, etc). Fallback "スケジュール".
   const groups = []
@@ -165,6 +165,10 @@ const groupedItinerary = computed(()=>{
       </div>
       <div v-if="groupedItinerary.length" class="itinerary">
         <h3>工程表</h3>
+        <div v-if="mem?.summary || mem?.text" class="it-summary">
+          <div v-if="mem?.summary" class="sum">{{ mem.summary }}</div>
+          <div v-else-if="mem?.text" class="sum">{{ mem.text }}</div>
+        </div>
         <div v-for="(g, gi) in groupedItinerary" :key="gi" class="it-group">
           <div class="it-group-header">{{ g.key }}</div>
           <ul class="it-list">
@@ -231,6 +235,8 @@ const groupedItinerary = computed(()=>{
 .it-time { min-width:64px; font-weight:700; color:#334155; }
 .it-title { font-weight:600; }
 .it-desc { font-size:13px; color:#475569; }
+.it-summary { background:#f8fafc; border:1px dashed #e5e7eb; border-radius:10px; padding:8px; margin:8px 0 10px; }
+.it-summary .sum { color:#334155; font-size:14px; white-space:pre-wrap; }
 @media (max-width: 480px){
   .memory-detail { padding:16px 12px; }
   .vgrid { grid-template-columns: 1fr; }
