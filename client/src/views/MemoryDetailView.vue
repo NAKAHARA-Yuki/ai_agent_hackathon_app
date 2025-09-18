@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { getMemory, listPlans, getMemoryVideoStatus } from '@/services/apiClient'
@@ -16,6 +16,13 @@ const videoJobs = ref([])
 const allDone = ref(true)
 let pollTimer = null
 
+const memoryId = computed(() => {
+  const raw = route.params.id
+  const s = raw == null ? '' : String(raw).trim()
+  if (!s || s.toLowerCase() === 'undefined' || s.toLowerCase() === 'null' || s === 'NaN') return ''
+  return s
+})
+
 const planTitle = computed(()=>{
   if (!mem.value) return ''
   const p = plans.value.find(x => x.id === mem.value.plan_id)
@@ -31,8 +38,9 @@ function imgSrc(img){
 async function fetchAll(){
   loading.value = true; error.value = ''
   try{
+    if (!memoryId.value) { error.value = '無効なURLです'; return }
     const [m, p] = await Promise.all([
-      getMemory(route.params.id, auth.authHeader()),
+      getMemory(memoryId.value, auth.authHeader()),
       listPlans(auth.authHeader())
     ])
     mem.value = m
@@ -50,13 +58,16 @@ async function fetchAll(){
 function goBack(){ router.push({ name: 'memories' }) }
 
 onMounted(fetchAll)
+watch(() => memoryId.value, () => { fetchAll() })
 
 function startPollingIfNeeded(){
   stopPolling()
+  if (!memoryId.value) return
   if (!videoJobs.value.length || videoJobs.value.every(j=>j.done)) return
   pollTimer = setInterval(async ()=>{
     try{
-      const s = await getMemoryVideoStatus(route.params.id, auth.authHeader())
+      if (!memoryId.value) { stopPolling(); return }
+      const s = await getMemoryVideoStatus(memoryId.value, auth.authHeader())
       videoJobs.value = s.video_jobs || []
       allDone.value = !!s.all_done
       if (allDone.value) stopPolling()
@@ -65,6 +76,8 @@ function startPollingIfNeeded(){
 }
 function stopPolling(){ if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
 function manualRefresh(){ startPollingIfNeeded() }
+
+onBeforeUnmount(() => { stopPolling() })
 </script>
 
 <template>
