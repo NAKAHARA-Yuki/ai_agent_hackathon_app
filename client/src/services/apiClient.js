@@ -269,6 +269,16 @@ export async function createMemory(payload, authHeader){
   return doc
 }
 
+export async function getMemory(id, authHeader){
+  if (!useMock) {
+    return await realFetch(`/api/memories/${id}`, { headers: { 'Content-Type': 'application/json', ...(authHeader||{}) } })
+  }
+  const items = lsGet('mockMemories', [])
+  const m = items.find(x => x.id === id)
+  if (!m) throw new Error('Not found')
+  return m
+}
+
 export async function deletePlan(planId, authHeader) {
   if (!useMock) {
     const resp = await fetch(`/api/plans/${planId}`, { 

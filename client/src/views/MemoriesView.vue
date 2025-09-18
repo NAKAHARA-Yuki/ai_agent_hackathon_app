@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { listPlans, listMemories, createMemory } from '@/services/apiClient'
 
 const auth = useAuthStore()
+const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
@@ -95,6 +97,11 @@ function heroStyle(mem){
   return { '--hero-img': 'url(https://source.unsplash.com/featured/800x600?travel%20memories)'}
 }
 
+function openDetail(mem){
+  if (!mem?.id) return
+  router.push({ name: 'memory-detail', params: { id: mem.id } })
+}
+
 onMounted(fetchAll)
 </script>
 
@@ -110,7 +117,7 @@ onMounted(fetchAll)
     <div v-else class="cards">
       <div v-if="!items.length" class="empty">まだ思い出がありません。右上の「思い出を追加」から登録できます。</div>
       <div v-else class="grid">
-    <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)">
+  <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)" @click="openDetail(mem)">
           <div class="overlay"></div>
           <div class="text">
       <div class="title">関連プラン: {{ planTitle(mem.plan_id) }}</div>

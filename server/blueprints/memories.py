@@ -1,5 +1,5 @@
 """Memories (albums) blueprint: link a plan and up to 3 images."""
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 import logging
 from datetime import datetime
 from google.cloud import firestore
@@ -13,7 +13,6 @@ memories_bp = Blueprint('memories', __name__)
 
 @memories_bp.route('/api/memories', methods=['GET', 'POST'])
 def memories_collection():
-    from flask import current_app
     db = getattr(current_app, 'db', None)
 
     claims = claims_or_dev()
@@ -101,4 +100,36 @@ def memories_collection():
         return jsonify(out), 201
     except Exception:
         logger.exception('/api/memories POST error')
+        return jsonify({"error": "database_unavailable"}), 503
+
+
+@memories_bp.route('/api/memories/<mem_id>', methods=['GET'])
+def memories_item(mem_id: str):
+    """Return a single memory by id"""
+    db = getattr(current_app, 'db', None)
+
+    claims = claims_or_dev()
+    if not claims:
+        return jsonify({"error": "unauthorized"}), 401
+
+    user_id = claims['sub']
+    user_ref = db.collection('users').document(user_id)
+    doc_ref = user_ref.collection('memories').document(mem_id)
+    try:
+        snap = doc_ref.get(timeout=5)
+        if not getattr(snap, 'exists', False):
+            return jsonify({"error": "not_found"}), 404
+        data = snap.to_dict() or {}
+        if data.get('deleted'):
+            return jsonify({"error": "not_found"}), 404
+        out = {
+            'id': mem_id,
+            'plan_id': data.get('plan_id'),
+            'images': data.get('images') or [],
+            'created_at': data.get('created_at'),
+            'updated_at': data.get('updated_at'),
+        }
+        return jsonify(out)
+    except Exception:
+        logger.exception('/api/memories/{id} GET error')
         return jsonify({"error": "database_unavailable"}), 503
