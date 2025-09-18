@@ -129,8 +129,25 @@ const itineraryDays = computed(() => Array.isArray(mem.value?.itinerary) ? mem.v
     <div v-else-if="error" class="state error">{{ error }}</div>
     <div v-else-if="!mem" class="state">見つかりませんでした</div>
     <div v-else class="content">
-  <div class="title">関連プラン: {{ planTitle }}</div>
-  <div v-if="mem?.trip_start_date || mem?.trip_end_date" class="sub">期間: {{ fmtDate(mem?.trip_start_date) }} ~ {{ fmtDate(mem?.trip_end_date) }}</div>
+      <!-- Videos moved to top -->
+      <div class="videos">
+        <h3 class="section-title">動画</h3>
+        <div v-if="videoUrls.length" class="vgrid">
+          <video v-for="(url,i) in videoUrls" :key="i" controls :src="url" class="video-player"></video>
+        </div>
+        <div v-else class="video-generating">
+          <div class="loading-icon">📹</div>
+          <div class="loading-text">動画を生成中です…</div>
+        </div>
+      </div>
+
+      <!-- Plan info -->
+      <div class="plan-info">
+        <div class="title">関連プラン: {{ planTitle }}</div>
+        <div v-if="mem?.trip_start_date || mem?.trip_end_date" class="sub">期間: {{ fmtDate(mem?.trip_start_date) }} ~ {{ fmtDate(mem?.trip_end_date) }}</div>
+      </div>
+
+      <!-- Video status -->
       <div v-if="(!allDone) && (videoJobs.length)" class="video-status">
         <div class="status-line">
           <span class="badge" :class="{done: allDone, pending: !allDone}">{{ allDone ? '動画作成完了' : '動画作成中...' }}</span>
@@ -144,8 +161,10 @@ const itineraryDays = computed(() => Array.isArray(mem.value?.itinerary) ? mem.v
           </li>
         </ul>
       </div>
+
+      <!-- Itinerary -->
       <div v-if="itineraryDays.length" class="itinerary">
-        <h3>日程</h3>
+        <h3 class="section-title">日程</h3>
         <div v-if="mem?.summary || mem?.text" class="it-summary">
           <div v-if="mem?.summary" class="sum">{{ mem.summary }}</div>
           <div v-else-if="mem?.text" class="sum">{{ mem.text }}</div>
@@ -169,58 +188,390 @@ const itineraryDays = computed(() => Array.isArray(mem.value?.itinerary) ? mem.v
           </ul>
         </div>
       </div>
-      <div class="videos">
-        <div v-if="videoUrls.length" class="vgrid">
-          <video v-for="(url,i) in videoUrls" :key="i" controls :src="url" class="video-player"></video>
-        </div>
-        <div v-else class="state">動画を生成中です…</div>
-      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.memory-detail { width:100%; height:100%; padding:20px 16px; box-sizing:border-box; overflow:auto; }
-.header { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
-.icon { background:#f1f5f9; border:none; border-radius:8px; width:32px; height:32px; cursor:pointer; }
-.state { color:#475569; }
-.state.error { color:#b91c1c; }
-.title { font-weight:700; margin: 10px 0 14px; }
-.video-status { background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-bottom:12px; }
-.status-line { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-.badge { font-size:12px; padding:4px 8px; border-radius:999px; background:#f59e0b; color:#111827; }
-.badge.done { background:#10b981; color:#fff; }
-.badge.pending { background:#f59e0b; color:#111; }
-.jobs { margin:0; padding-left:18px; color:#374151; }
-.jobs .ok { color:#10b981; margin-left:6px; }
-.jobs .wait { color:#d97706; margin-left:6px; }
-.jobs .err { color:#b91c1c; margin-left:6px; }
-.small { padding:6px 8px; font-size:12px; }
-.videos { margin-top:12px; }
-.vgrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:12px; }
-.video-player { width:100%; max-height: 60vh; border-radius:12px; box-shadow:0 6px 18px #0002; background:#000; }
-/* itinerary */
-.itinerary { margin-top: 16px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px; }
-.itinerary h3 { margin:0 0 8px; font-size:16px; }
-.it-group { padding:8px 4px; }
-.it-group + .it-group { border-top:1px dashed #e2e8f0; margin-top:8px; padding-top:12px; }
-.it-group-header { font-weight:700; color:#0f172a; margin-bottom:8px; }
-.it-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px; }
-.it-item { display:grid; grid-template-columns: 20px 1fr; gap:10px; align-items:flex-start; }
-.it-node { position:relative; width:20px; display:flex; justify-content:center; }
-.it-node .dot { width:10px; height:10px; background:#2563eb; border-radius:50%; position:relative; top:4px; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
-.it-node .line { position:absolute; top:14px; bottom:-18px; width:2px; background:#e2e8f0; left:9px; }
-.it-node .line.last { display:none; }
-.it-content { display:flex; flex-direction:column; gap:4px; padding-bottom:4px; }
-.it-row { display:flex; align-items:center; gap:10px; }
-.it-time { min-width:64px; font-weight:700; color:#334155; }
-.it-title { font-weight:600; }
-.it-desc { font-size:13px; color:#475569; }
-.it-summary { background:#f8fafc; border:1px dashed #e5e7eb; border-radius:10px; padding:8px; margin:8px 0 10px; }
-.it-summary .sum { color:#334155; font-size:14px; white-space:pre-wrap; }
+.memory-detail { 
+  width:100%; 
+  height:100%; 
+  padding:20px 16px; 
+  box-sizing:border-box; 
+  overflow:auto; 
+}
+
+.header { 
+  display:flex; 
+  align-items:center; 
+  gap:12px; 
+  margin-bottom:20px; 
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.icon { 
+  background:#f1f5f9; 
+  border:none; 
+  border-radius:8px; 
+  width:36px; 
+  height:36px; 
+  cursor:pointer; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #374151;
+  transition: background-color 0.2s ease;
+}
+
+.icon:hover {
+  background:#e2e8f0;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.section-title {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.state { 
+  color:#475569; 
+  text-align: center;
+  padding: 32px 16px;
+}
+
+.state.error { 
+  color:#b91c1c; 
+}
+
+.plan-info {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.title { 
+  font-weight:600; 
+  margin: 0 0 8px 0; 
+  color: #111827;
+  font-size: 16px;
+}
+
+.sub {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+}
+
+.video-status { 
+  background:#f8fafc; 
+  border:1px solid #e5e7eb; 
+  border-radius:12px; 
+  padding:16px; 
+}
+
+.status-line { 
+  display:flex; 
+  align-items:center; 
+  gap:8px; 
+  margin-bottom:8px; 
+}
+
+.badge { 
+  font-size:12px; 
+  padding:6px 12px; 
+  border-radius:999px; 
+  background:#f59e0b; 
+  color:#111827; 
+  font-weight: 600;
+}
+
+.badge.done { 
+  background:#10b981; 
+  color:#fff; 
+}
+
+.badge.pending { 
+  background:#f59e0b; 
+  color:#111; 
+}
+
+.jobs { 
+  margin:0; 
+  padding-left:20px; 
+  color:#374151; 
+}
+
+.jobs .ok { 
+  color:#10b981; 
+  margin-left:8px; 
+  font-weight: 500;
+}
+
+.jobs .wait { 
+  color:#d97706; 
+  margin-left:8px; 
+  font-weight: 500;
+}
+
+.jobs .err { 
+  color:#b91c1c; 
+  margin-left:8px; 
+}
+
+/* Videos section */
+.videos { 
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  order: -1; /* Move to top */
+}
+
+.vgrid { 
+  display:grid; 
+  grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); 
+  gap:16px; 
+}
+
+.video-player { 
+  width:100%; 
+  max-height: 60vh; 
+  border-radius:12px; 
+  box-shadow:0 6px 18px rgba(0,0,0,0.1); 
+  background:#000; 
+}
+
+.video-generating {
+  text-align: center;
+  padding: 32px 16px;
+  color: #6b7280;
+}
+
+.loading-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.loading-text {
+  font-size: 16px;
+}
+
+/* Itinerary section */
+.itinerary { 
+  background:#fff; 
+  border:1px solid #e5e7eb; 
+  border-radius:12px; 
+  padding:20px; 
+}
+
+.it-group { 
+  padding:12px 0; 
+}
+
+.it-group + .it-group { 
+  border-top:1px dashed #e2e8f0; 
+  margin-top:16px; 
+  padding-top:20px; 
+}
+
+.it-group-header { 
+  font-weight:700; 
+  color:#0f172a; 
+  margin-bottom:12px; 
+  font-size: 15px;
+}
+
+.it-list { 
+  list-style:none; 
+  padding:0; 
+  margin:0; 
+  display:flex; 
+  flex-direction:column; 
+  gap:16px; 
+}
+
+.it-item { 
+  display:grid; 
+  grid-template-columns: 24px 1fr; 
+  gap:12px; 
+  align-items:flex-start; 
+}
+
+.it-node { 
+  position:relative; 
+  width:24px; 
+  display:flex; 
+  justify-content:center; 
+}
+
+.it-node .dot { 
+  width:12px; 
+  height:12px; 
+  background:#2563eb; 
+  border-radius:50%; 
+  position:relative; 
+  top:6px; 
+  box-shadow:0 0 0 4px rgba(37,99,235,.15); 
+}
+
+.it-node .line { 
+  position:absolute; 
+  top:18px; 
+  bottom:-20px; 
+  width:2px; 
+  background:#e2e8f0; 
+  left:11px; 
+}
+
+.it-node .line.last { 
+  display:none; 
+}
+
+.it-content { 
+  display:flex; 
+  flex-direction:column; 
+  gap:6px; 
+  padding-bottom:4px; 
+}
+
+.it-row { 
+  display:flex; 
+  align-items:flex-start; 
+  gap:12px; 
+  flex-wrap: wrap;
+}
+
+.it-time { 
+  min-width:72px; 
+  font-weight:700; 
+  color:#2563eb; 
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.it-title { 
+  font-weight:600; 
+  color: #111827;
+  flex: 1;
+  min-width: 0;
+}
+
+.it-desc { 
+  font-size:13px; 
+  color:#6b7280; 
+  line-height: 1.5;
+}
+
+.it-summary { 
+  background:#f8fafc; 
+  border:1px dashed #e5e7eb; 
+  border-radius:10px; 
+  padding:12px; 
+  margin:0 0 16px 0; 
+}
+
+.it-summary .sum { 
+  color:#374151; 
+  font-size:14px; 
+  white-space:pre-wrap; 
+  line-height: 1.5;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px){
+  .memory-detail { 
+    padding:16px 12px; 
+  }
+  
+  .vgrid { 
+    grid-template-columns: 1fr; 
+  }
+  
+  .videos,
+  .itinerary,
+  .plan-info {
+    padding: 16px;
+  }
+  
+  .content {
+    gap: 20px;
+  }
+}
+
 @media (max-width: 480px){
-  .memory-detail { padding:16px 12px; }
-  .vgrid { grid-template-columns: 1fr; }
-  .it-time { min-width:48px; font-size:12px; }
+  .memory-detail { 
+    padding:12px 8px; 
+  }
+  
+  .header {
+    margin-bottom: 16px;
+    gap: 8px;
+  }
+  
+  .header h1 {
+    font-size: 16px;
+  }
+  
+  .icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .it-time { 
+    min-width:56px; 
+    font-size:12px; 
+  }
+  
+  .it-row {
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+  }
+  
+  .it-time {
+    min-width: auto;
+    margin-bottom: 2px;
+  }
+  
+  .videos,
+  .itinerary,
+  .plan-info,
+  .video-status {
+    padding: 12px;
+  }
+  
+  .content {
+    gap: 16px;
+  }
+  
+  .section-title {
+    font-size: 15px;
+  }
+  
+  .loading-icon {
+    font-size: 36px;
+  }
+  
+  .loading-text {
+    font-size: 14px;
+  }
 }
 </style>
