@@ -2,7 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import { getMemory, listPlans, getMemoryVideoStatus, planDetail } from '@/services/apiClient'
+import { getMemory, listPlans, getMemoryVideoStatus } from '@/services/apiClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,7 +15,6 @@ const plans = ref([])
 const videoJobs = ref([])
 const allDone = ref(true)
 let pollTimer = null
-const plan = ref(null)
 
 function fmtDate(s){
   if (!s) return ''
@@ -71,10 +70,6 @@ async function fetchAll(){
     ])
     mem.value = m
     plans.value = Array.isArray(p.items)? p.items : []
-    // fetch plan detail for itinerary rendering
-    if (m?.plan_id) {
-      try { plan.value = await planDetail(m.plan_id, auth.authHeader()) } catch { plan.value = null }
-    }
     videoJobs.value = Array.isArray(m.video_jobs)? m.video_jobs : []
     if (m.primary_video_url) {
       allDone.value = true
@@ -119,22 +114,8 @@ function manualRefresh(){ startPollingIfNeeded() }
 
 onBeforeUnmount(() => { stopPolling() })
 
-const groupedItinerary = computed(()=>{
-  const it = (mem.value?.itinerary && mem.value.itinerary.length ? mem.value.itinerary : (plan.value?.itinerary))
-  if (!Array.isArray(it) || !it.length) return []
-  // Group by it.date (YYYY-MM-DD) or it.day (Day 1, etc). Fallback "スケジュール".
-  const groups = []
-  const map = new Map()
-  for (const item of it){
-    const key = item?.date || item?.day || 'スケジュール'
-    if (!map.has(key)) map.set(key, [])
-    map.get(key).push(item)
-  }
-  for (const [key, arr] of map.entries()){
-    groups.push({ key, items: arr })
-  }
-  return groups
-})
+// itinerary は day/items 構造が保存されている前提でそのまま描画
+const itineraryDays = computed(() => Array.isArray(mem.value?.itinerary) ? mem.value.itinerary : [])
 </script>
 
 <template>
@@ -163,14 +144,14 @@ const groupedItinerary = computed(()=>{
           </li>
         </ul>
       </div>
-      <div v-if="groupedItinerary.length" class="itinerary">
+      <div v-if="itineraryDays.length" class="itinerary">
         <h3>日程</h3>
         <div v-if="mem?.summary || mem?.text" class="it-summary">
           <div v-if="mem?.summary" class="sum">{{ mem.summary }}</div>
           <div v-else-if="mem?.text" class="sum">{{ mem.text }}</div>
         </div>
-        <div v-for="(g, gi) in groupedItinerary" :key="gi" class="it-group">
-          <div class="it-group-header">{{ g.key }}</div>
+        <div v-for="(g, gi) in itineraryDays" :key="gi" class="it-group">
+          <div class="it-group-header">Day {{ g.day || (gi + 1) }}</div>
           <ul class="it-list">
             <li v-for="(it, idx) in g.items" :key="idx" class="it-item">
               <div class="it-node">
