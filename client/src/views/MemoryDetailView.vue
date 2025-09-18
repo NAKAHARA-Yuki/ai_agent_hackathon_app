@@ -164,7 +164,7 @@ const groupedItinerary = computed(()=>{
         </ul>
       </div>
       <div v-if="groupedItinerary.length" class="itinerary">
-        <h3>工程表</h3>
+        <h3>日程</h3>
         <div v-if="mem?.summary || mem?.text" class="it-summary">
           <div v-if="mem?.summary" class="sum">{{ mem.summary }}</div>
           <div v-else-if="mem?.text" class="sum">{{ mem.text }}</div>

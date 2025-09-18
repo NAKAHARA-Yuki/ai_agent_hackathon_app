@@ -21,16 +21,51 @@ const plansOptions = ref([])
 const tripStart = ref('')
 const tripEnd = ref('')
 
-function fmtDate(s){
-  if (!s) return ''
+function toDate(val){
   try {
-    const d = new Date(s)
-    if (Number.isNaN(d.getTime())) return s
-    const y = d.getFullYear()
-    const m = String(d.getMonth()+1).padStart(2,'0')
-    const dd = String(d.getDate()).padStart(2,'0')
-    return `${y}/${m}/${dd}`
-  } catch { return s }
+    if (!val) return null
+    if (val instanceof Date) return val
+    if (typeof val === 'number') return new Date(val)
+    if (typeof val === 'string') return new Date(val)
+    if (typeof val === 'object'){
+      // Firestore Timestamp like { seconds, nanos } or {_seconds}
+      const sec = val.seconds ?? val._seconds
+      if (typeof sec === 'number') return new Date(sec * 1000)
+    }
+    return null
+  } catch { return null }
+}
+function fmtDate(s){
+  const d = toDate(s)
+  if (!d || Number.isNaN(d.getTime())) return typeof s === 'string' ? s : ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth()+1).padStart(2,'0')
+  const dd = String(d.getDate()).padStart(2,'0')
+  return `${y}/${m}/${dd}`
+}
+
+function memoryDateRange(mem){
+  if (!mem) return ''
+  const ds = toDate(mem.trip_start_date)
+  const de = toDate(mem.trip_end_date)
+  if (ds || de){
+    if (ds && de) return `${fmtDate(ds)} ~ ${fmtDate(de)}`
+    if (ds) return `${fmtDate(ds)}`
+    if (de) return `${fmtDate(de)}`
+  }
+  // fallback to itinerary dates
+  const it = Array.isArray(mem.itinerary) ? mem.itinerary : []
+  const dates = it.map(x=>toDate(x?.date)).filter(d=>d && !Number.isNaN(d.getTime()))
+  if (dates.length){
+    dates.sort((a,b)=>a-b)
+    const first = dates[0], last = dates[dates.length-1]
+    if (first && last && first.getTime() !== last.getTime()) return `${fmtDate(first)} ~ ${fmtDate(last)}`
+    return fmtDate(first)
+  }
+  // fallback to created_at
+  const created = toDate(mem.created_at)
+  if (created) return fmtDate(created)
+  return ''
 }
 
 async function fetchAll(){
@@ -128,7 +163,7 @@ onMounted(fetchAll)
 <template>
   <div class="memories-view">
     <header class="header">
-      <h1>思い出</h1>
+      <h1>旅の思い出たち</h1>
       <button class="primary" @click="openModal" aria-label="思い出を追加">思い出を追加</button>
     </header>
 
@@ -140,8 +175,8 @@ onMounted(fetchAll)
         <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)" @click="openDetail(mem)">
           <div class="overlay"></div>
           <div class="text">
-            <div class="title">関連プラン: {{ planTitle(mem.plan_id) }}</div>
-            <div v-if="mem.trip_start_date || mem.trip_end_date" class="sub">{{ fmtDate(mem.trip_start_date) }} ~ {{ fmtDate(mem.trip_end_date) }}</div>
+            <div class="title">{{ planTitle(mem.plan_id) }}の思い出</div>
+            <div v-if="memoryDateRange(mem)" class="sub">{{ memoryDateRange(mem) }}</div>
             <div class="count">写真 {{ (mem.images||[]).length }} 枚</div>
             <div v-if="(mem.video_jobs||[]).some(j=>!j.done)" class="badge">動画作成中</div>
           </div>
@@ -197,7 +232,9 @@ onMounted(fetchAll)
 
 <style scoped>
 .memories-view { width:100%; height:100%; padding:20px 16px; box-sizing:border-box; overflow:auto; }
-.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px; }
+.header h1 { margin:0; font-size:20px; line-height:1.2; }
+.header .primary { font-size:14px; padding:8px 12px; height:36px; display:inline-flex; align-items:center; border-radius:10px; }
 .state { color:#475569; }
 .state.error { color:#b91c1c; }
 .primary { background: var(--color-primary, #2563eb); color:#fff; border:none; padding:10px 14px; border-radius:10px; cursor:pointer; }
@@ -227,6 +264,8 @@ onMounted(fetchAll)
 .date-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; }
 @media (max-width: 480px){
   .memories-view { padding:16px 12px; }
+  .header h1 { font-size:18px; }
+  .header .primary { height:34px; font-size:13px; padding:6px 10px; }
   .grid { grid-template-columns: 1fr; }
   .modal { width: 96vw; }
   .date-grid { grid-template-columns: 1fr; }
