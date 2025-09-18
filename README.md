@@ -39,14 +39,14 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 
 - **Frontend** (`client/`): Vue.js + Vite による SPA
 - **Backend** (`server/`): Python Flask API サーバー（Flask Blueprint アーキテクチャ）
-  - **モジュラー設計**: 7個のBlueprint + 3個のユーティリティモジュール
+  - **モジュラー設計**: 8個のBlueprint + 3個のユーティリティモジュール
   - **85.5%の複雑性削減**: 2,686行から388行へのリファクタリング
   - **保守性向上**: 機能別分離、単一責任原則、独立テストが可能
 - **ADK Agent Service** (`agent/`): Google ADK ベースのマルチエージェントシステム
   - Root Coordinator Agent（リクエスト振り分け）
   - Travel Planner Agent（新規プラン作成）
-  - Travel Advisor Agent（当日サポート）
-- **MCP Service** (`mcp/`): MCP (Model Context Protocol) サーバー（Google Maps機能提供）
+  - Travel Modifier Agent（既存プラン修正・最適化）
+  - Travel Advisor Agent（当日サポート・リアルタイム対応）
 - **Database**: Google Firestore
 - **Deployment**: Google Cloud Run + Docker
 
@@ -99,7 +99,8 @@ ai_agent_hackathon_app/
 │   │   ├── maps.py       # Google Maps統合エンドポイント
 │   │   ├── personas.py   # ユーザーペルソナ管理エンドポイント
 │   │   ├── plans.py      # 旅行プランCRUD操作エンドポイント
-│   │   └── ai.py         # AIエージェントチャット・プラン生成エンドポイント
+│   │   ├── ai.py         # AIエージェントチャット・プラン生成エンドポイント
+│   │   └── memories.py   # 思い出（アルバム）管理・Veo動画生成エンドポイント
 │   ├── utils/            # ユーティリティモジュール
 │   │   ├── auth.py       # JWT・認証ユーティリティ
 │   │   ├── data_processing.py # データ正規化・サニタイゼーション
@@ -115,12 +116,16 @@ ai_agent_hackathon_app/
 │   │       ├── agent.py     # ルートコーディネーター（リクエスト振り分け）
 │   │       ├── travel_planner/
 │   │       │   └── agent.py # 旅行プランナーエージェント（新規作成）
-│   │       └── travel_advisor/
-│   │           └── agent.py # 旅行アドバイザーエージェント（当日サポート）
+│   │       ├── travel_modifier/
+│   │       │   └── agent.py # 旅行修正エージェント（既存プラン最適化）
+│   │       ├── travel_advisor/
+│   │       │   └── agent.py # 旅行アドバイザーエージェント（当日サポート）
+│   │       └── day_advice/
+│   │           └── agent.py # デイアドバイスエージェント（日別アドバイス）
 │   ├── requirements.txt  # ADK依存関係
 │   └── Dockerfile        # エージェント用Docker設定
-├── mcp/                  # Google Maps MCP サーバー
-│   └── Dockerfile        # MCP用Docker設定
+├── mcp/                  # Google Maps MCP サーバー（注：外部MCPサーバーとして参照）
+│   └── 注：実装は @googlemaps/code-assist-mcp npm パッケージを利用
 ├── shared/               # 共有ユーティリティ
 │   ├── contracts/        # 型定義・インターフェース
 │   └── logging_config.py # ログ設定ユーティリティ
@@ -169,7 +174,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 
 #### フロントエンド（client/src/）
 
-**ビューコンポーネント（views/）** - 15画面
+**ビューコンポーネント（views/）** - 17画面
 - `StartView.vue` - 診断開始画面（ホーム）
 - `InterestsView.vue` - 趣味・興味設定
 - `MainView.vue` - メイン画面（診断完了後）
@@ -184,8 +189,10 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 - `PlanDetailView.vue` - プラン詳細表示
 - `PlanChatView.vue` - AIチャット旅行プランニング
 - `TravelDayChatView.vue` - 旅行日チャット
+- `MemoriesView.vue` - 思い出（アルバム）一覧画面
+- `MemoryDetailView.vue` - 思い出詳細・Veo動画表示画面
 
-**UIコンポーネント（components/）** - 10個
+**UIコンポーネント（components/）** - 11個
 - `ResultChart.vue` - 診断結果レーダーチャート（Chart.js使用）
 - `LoadingScreen.vue` - ローディング画面
 - `ProgressBar.vue` - 進捗バー
@@ -196,6 +203,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 - `DetailScreen.vue` - 詳細画面
 - `InputScreen.vue` - 入力画面
 - `SuggestionScreen.vue` - 提案画面
+- `v-icon.vue` - アイコンコンポーネント
 
 **サービス層（services/）**
 - `apiClient.js` - バックエンドAPI通信クライアント（axios使用）
@@ -209,7 +217,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 
 **Flask Blueprint アーキテクチャ** - モジュラー設計による85.5%の複雑性削減
 - **app.py** (388行) - アプリケーション初期化・Blueprint登録・設定管理
-- **blueprints/** - 機能別エンドポイントモジュール（7個のBlueprint）
+- **blueprints/** - 機能別エンドポイントモジュール（8個のBlueprint）
   - `auth.py` - 認証・ユーザー管理
   - `health.py` - システムヘルスチェック
   - `quiz.py` - 旅行診断・ペルソナ生成
@@ -217,6 +225,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
   - `personas.py` - ユーザーペルソナ管理  
   - `plans.py` - 旅行プランCRUD操作
   - `ai.py` - AIエージェントとの統合
+  - `memories.py` - 思い出管理・Veo動画生成
 - **utils/** - 共有ユーティリティモジュール（3個）
   - `auth.py` - JWT・認証処理
   - `data_processing.py` - データ正規化・サニタイゼーション
@@ -398,8 +407,12 @@ def retry_on_503(func, max_retries=3)
 Root Coordinator Agent (ルートコーディネーター)
 ├── Travel Planner Agent (旅行プランナー)
 │   └── 新規旅行プラン作成・3案提案・JSON構造化出力
-└── Travel Advisor Agent (旅行アドバイザー)
-    └── 当日サポート・既存プラン調整・リアルタイム対応
+├── Travel Modifier Agent (旅行修正エージェント)
+│   └── 既存プラン修正・最適化・制約変更の反映
+├── Travel Advisor Agent (旅行アドバイザー)
+│   └── 当日サポート・既存プラン調整・リアルタイム対応
+└── Day Advice Agent (デイアドバイス)
+    └── 日別の詳細なアドバイス・時間帯別提案
 ```
 
 #### エージェント詳細仕様
@@ -409,20 +422,33 @@ Root Coordinator Agent (ルートコーディネーター)
 - **モデル**: `gemini-2.5-flash-lite`
 - **判断基準**:
   - 新規旅行プラン作成依頼 → Travel Planner
+  - 既存プラン修正・制約変更 → Travel Modifier  
   - 既存プラン修正・当日対応 → Travel Advisor
+  - 日別詳細アドバイス → Day Advice
 - **特徴**: サブエージェントの応答をそのまま返す（形式変更なし）
 
 **2. Travel Planner Agent** (`agents/root_coordinator/travel_planner/agent.py`)
 - **役割**: persona/profile情報から3つの完全な旅行プランを生成
 - **モデル**: `gemini-2.5-pro`
 - **出力形式**: 厳密なJSON構造（plans配列、itinerary、places、route_info含む）
-- **ツール統合**: MCP (Model Context Protocol) による Google Maps機能統合
+- **ツール統合**: Google Search + Google Maps MCP による地理情報統合
 - **特徴**:
   - 地理的合理性・季節感・移動時間を考慮
   - 輸送手段（transport）詳細情報付与
   - 危険/非現実/閉鎖施設の除外
 
-**3. Travel Advisor Agent** (`agents/root_coordinator/travel_advisor/agent.py`)
+**3. Travel Modifier Agent** (`agents/root_coordinator/travel_modifier/agent.py`)
+- **役割**: 既存の旅行プランの修正・最適化・制約変更の反映
+- **モデル**: `gemini-2.5-pro`
+- **対応シナリオ**:
+  - 予算制約の変更に基づくプラン調整
+  - 時間制約の修正（日程短縮・延長）
+  - 交通手段の変更（車→電車、飛行機→新幹線等）
+  - 宿泊先の変更・グレード調整
+  - 同行者の追加・変更による調整
+- **出力形式**: 修正されたJSON構造（変更点のハイライト付き）
+
+**4. Travel Advisor Agent** (`agents/root_coordinator/travel_advisor/agent.py`)
 - **役割**: 旅行当日のリアルタイムサポート・既存プラン調整
 - **モデル**: `gemini-2.5-pro`
 - **対応シナリオ**:
@@ -432,6 +458,17 @@ Root Coordinator Agent (ルートコーディネーター)
   - 営業時間・混雑状況確認
   - 緊急時サポート情報
 - **出力形式**: JSON構造（suggestions、updated_schedule、route_info含む）
+
+**5. Day Advice Agent** (`agents/root_coordinator/day_advice/agent.py`)
+- **役割**: 旅行日別の詳細アドバイス・時間帯別の最適化提案
+- **モデル**: `gemini-2.5-pro`
+- **対応シナリオ**:
+  - 1日の詳細スケジュール最適化
+  - 時間帯別の混雑状況を考慮した提案
+  - 食事・休憩タイミングの最適化
+  - 天気予報に基づく屋内・屋外活動の調整
+  - 移動効率の最大化アドバイス
+- **出力形式**: 日別構造化JSON（時間軸、活動提案、注意点含む）
 
 #### ADK技術統合詳細
 
@@ -451,11 +488,11 @@ agent = LlmAgent(
 )
 ```
 
-**MCP (Model Context Protocol) ツール統合**
-- **Google Maps MCP**: 地図データ・経路情報・場所検索（MCP経由）
-- **接続方式**: StdioConnectionParams経由でnpxプロセス起動
+**Google Maps MCP (Model Context Protocol) 統合**
+- **実装方式**: 外部NPMパッケージ `@googlemaps/code-assist-mcp` を利用
+- **接続方式**: エージェントから HTTP エンドポイント経由でアクセス
 - **API Key管理**: 環境変数`GOOGLE_MAPS_API_KEY`から自動設定
-- **タイムアウト**: 10秒（設定可能）
+- **エンドポイント設定**: `MAPS_MCP_ENDPOINT_URL` 環境変数で指定
 
 #### エージェント通信プロトコル
 
@@ -490,25 +527,31 @@ GEMINI_MODEL=gemini-2.5-pro                 # 使用モデル指定
 
 # MCP設定
 GOOGLE_MAPS_API_KEY=your_maps_api_key        # Maps MCP用
-MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
+MAPS_MCP_ENDPOINT_URL=http://localhost:3000/tools/retrieve-google-maps-platform-docs
+
+# Veo動画生成（思い出機能・任意）
+ENABLE_VEO_VIDEO=false                       # Veo動画生成の有効化
+VEO_PROJECT_ID=ai-agent-hackason            # Veo用プロジェクトID
+VEO_LOCATION=us-central1                     # Veo API リージョン
+VEO_MODEL_ID=veo-3.0-fast-generate-preview  # Veo モデル ID
+VEO_API_ENDPOINT=us-central1-aiplatform.googleapis.com
+GCS_VIDEO_BUCKET=izatabi                     # 動画保存用GCSバケット
 ```
 
 **Docker Compose設定** (`docker-compose.dev.yml`)
 ```yaml
 services:
-  agent-service:
+  agent:
     build: ./agent
+    container_name: izatabi-agent
     ports:
-      - "8082:8080"
+      - "8080:8080"
+    env_file:
+      - ./server/.env
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
-  
-  mcp-service:
-    build: ./mcp
-    ports:
-      - "3000:3000"
-    command: npx @googlemaps/code-assist-mcp --port 3000
+      - LOG_LEVEL=DEBUG
+      - CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:4200
+    # Google Maps MCP および Veo 動画生成の環境変数設定可能
 ```
 
 #### エージェント品質保証
@@ -555,7 +598,7 @@ FLASK_ENV=development
 ENV=development
 
 # エージェント設定
-AGENT_BASE_URL=http://localhost:8082
+AGENT_BASE_URL=http://localhost:8080
 MAPS_MCP_ENDPOINT_URL=http://localhost:3000/tools/retrieve-google-maps-platform-docs
 ```
 
@@ -612,11 +655,10 @@ python app.py  # http://localhost:8080
 # 3. ADKエージェントサービス
 cd agent
 pip install -r requirements.txt
-adk api_server --host 0.0.0.0 --port 8082 ./agents
+adk api_server --host 0.0.0.0 --port 8080 ./agents/root_coordinator
 
-# 4. MCP サービス (任意)
-cd mcp
-npm install
+# 4. Google Maps MCP サービス (任意)
+# 別ターミナルでMCPサーバーを起動する場合
 npx @googlemaps/code-assist-mcp --port 3000
 ```
 
@@ -762,6 +804,13 @@ pytest -v                 # 詳細出力
 - `POST /api/geocode` - 地名→座標変換
 - `GET /api/maps/static` - 静的地図画像生成
 
+### 思い出・メディア管理
+- `GET /api/memories` - 思い出（アルバム）一覧取得
+- `POST /api/memories` - 新規思い出作成（画像アップロード・Veo動画生成）
+- `GET /api/memories/:id` - 思い出詳細取得
+- `DELETE /api/memories/:id` - 思い出削除
+- `GET /api/memories/:id/video-status` - Veo動画生成ステータス確認
+
 ## 🚢 デプロイメント
 
 ### Cloud Run デプロイ
@@ -833,11 +882,14 @@ GitHub Actions ワークフローにより自動デプロイ：
 
 ## 📝 更新履歴
 
-### 最新更新 (2025年9月)
-- ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、7個のBlueprintと3個のユーティリティモジュールに分割
-- ✅ **ADK エージェント設定修正**: Tool Configuration 競合修正、Circular Import 解決、モデル互換性改善
-- ✅ **包括的テストスイート**: 163+ テストケース実装、Jest + pytest による C1カバレッジ100%達成
-- ✅ **エージェント実装ドキュメント化**: ADK統合・マルチエージェント詳細仕様書
+### 最新更新 (2025年1月)
+- ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、8個のBlueprintと3個のユーティリティモジュールに分割
+- ✅ **思い出（アルバム）機能追加**: memories.py Blueprint による画像管理・Vertex AI Veo動画生成統合
+- ✅ **ADK マルチエージェント拡張**: 4つのサブエージェント（Planner, Modifier, Advisor, Day Advice）による階層型システム
+- ✅ **Google Maps MCP統合改善**: 外部NPMパッケージによる柔軟なMCP接続方式
+- ✅ **Vue.js UI拡張**: 思い出関連画面（MemoriesView, MemoryDetailView）追加、計17画面・11コンポーネント
+- ✅ **Veo動画生成機能**: 思い出作成時の自動動画生成（Vertex AI Veo 3.0 Fast Generate）
+- ✅ **ドキュメント最新化**: 実装状況に基づくREADME全面更新・正確性向上
 - ✅ 輸送情報表示機能の追加（移動手段のアイコン・ラベル・所要時間・距離）
 - ✅ ドキュメント構造の整理・統合
 - ✅ コンポーネント情報の正確性向上
