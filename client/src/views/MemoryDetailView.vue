@@ -339,7 +339,6 @@ const itineraryDays = computed(() => Array.isArray(mem.value?.itinerary) ? mem.v
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 20px;
-  order: -1; /* Move to top */
 }
 
 .vgrid { 

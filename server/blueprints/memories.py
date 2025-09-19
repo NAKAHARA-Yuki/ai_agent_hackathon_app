@@ -214,8 +214,9 @@ def _get_gcp_access_token() -> str:
 def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str, prompt: str) -> List[Dict[str, Any]]:
     """Launch Vertex Veo predictLongRunning jobs for each image. Returns list of job metadata.
 
-    Note: We do NOT set storageUri. We'll fetch the base64 video upon completion via operations API,
-    then upload to GCS ourselves and persist the public URL in Firestore.
+    Direct-save to Cloud Storage: set parameters.storageUri so Veo writes mp4 files
+    into the specified GCS bucket/prefix. On completion, we'll read response.videos[].gcsUri
+    and convert it to a public/signed URL.
     """
     project_id = os.getenv('VEO_PROJECT_ID') or os.getenv('GCP_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT') or 'ai-agent-hackason'
     location = os.getenv('VEO_LOCATION', 'us-central1')
@@ -224,6 +225,11 @@ def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str,
 
     token = _get_gcp_access_token()
     url = f"https://{api_endpoint}/v1/projects/{project_id}/locations/{location}/publishers/google/models/{model_id}:predictLongRunning"
+
+    # Target GCS bucket/prefix for outputs
+    bucket_name = os.getenv('GCS_VIDEO_BUCKET', 'izatabi')
+    base_prefix = f"users/{user_id}/memories/{memory_id}/"
+    storage_uri = f"gs://{bucket_name}/{base_prefix}"
 
     jobs = []
     for idx, img in enumerate(images):
@@ -249,6 +255,8 @@ def _launch_veo_jobs(images: List[Dict[str, Any]], user_id: str, memory_id: str,
                     'includeRaiReason': True,
                     'generateAudio': False,
                     'resolution': '720p',
+                    # Instruct Veo to store outputs directly to Cloud Storage
+                    'storageUri': storage_uri,
                 },
             }
             headers = {
@@ -333,25 +341,30 @@ def memories_video_status(mem_id: str):
                         entry['error'] = f"HTTP {resp.status_code}"
                     elif 'error' in data:
                         entry['error'] = data.get('error')
-                    # On completion, try to extract base64 video and persist to GCS, store URL
+                    # On completion, try to read GCS URI and publish/sign it to a URL; fallback to base64 path
                     if entry.get('done') and not entry.get('video_public_url'):
                         try:
-                            video_b64 = None
+                            public_url = None
                             if isinstance(data.get('response'), dict):
                                 resp_videos = data['response'].get('videos')
                                 if isinstance(resp_videos, list) and resp_videos:
-                                    first = resp_videos[0]
-                                    if isinstance(first, dict):
-                                        video_b64 = first.get('bytesBase64Encoded') or first.get('base64')
-                            if not video_b64 and isinstance(data.get('result'), dict):
-                                # fallback paths (in case of different schema)
+                                    first = resp_videos[0] if isinstance(resp_videos[0], dict) else None
+                                    gcs_uri = first.get('gcsUri') if first else None
+                                    if gcs_uri:
+                                        public_url = _publish_gcs_uri(gcs_uri)
+                                    else:
+                                        # Back-compat: some responses may include base64
+                                        video_b64 = first.get('bytesBase64Encoded') or first.get('base64') if first else None
+                                        if video_b64:
+                                            public_url = _save_video_to_gcs(video_b64, user_id, mem_id, idx)
+                            if not public_url and isinstance(data.get('result'), dict):
                                 video_b64 = data['result'].get('video', {}).get('bytesBase64Encoded') or data['result'].get('videoBase64')
-                            if video_b64:
-                                public_url = _save_video_to_gcs(video_b64, user_id, mem_id, idx)
-                                if public_url:
-                                    entry['video_public_url'] = public_url
+                                if video_b64:
+                                    public_url = _save_video_to_gcs(video_b64, user_id, mem_id, idx)
+                            if public_url:
+                                entry['video_public_url'] = public_url
                         except Exception as e:
-                            entry['error'] = f"save_video: {e}"
+                            entry['error'] = f"publish_video: {e}"
             except Exception as e:
                 entry['error'] = str(e)
             updated_jobs.append(entry)
@@ -408,4 +421,40 @@ def _save_video_to_gcs(video_b64: str, user_id: str, mem_id: str, idx: int) -> s
             return url
     except Exception as e:
         logger.warning(f'GCS upload failed: {e}')
+        return None
+
+
+def _publish_gcs_uri(gcs_uri: str) -> str | None:
+    """Given a gs://bucket/object URI, return a public URL (or signed URL).
+
+    If GCS_PUBLIC_READ=true, attempt to make the object public and return its public URL.
+    Otherwise, return a signed URL with expiration derived from GCS_SIGNED_URL_EXPIRES_SECONDS.
+    """
+    try:
+        if not (isinstance(gcs_uri, str) and gcs_uri.startswith('gs://')):
+            return None
+        from google.cloud import storage  # type: ignore
+        without = gcs_uri[len('gs://'):]
+        # split once: bucket / object path
+        if '/' not in without:
+            return None
+        bucket_name, object_name = without.split('/', 1)
+
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(object_name)
+
+        if os.getenv('GCS_PUBLIC_READ', 'true').lower() == 'true':
+            try:
+                blob.make_public()
+            except Exception:
+                pass
+            # Use blob.public_url which returns https://storage.googleapis.com/bucket/object by default
+            return blob.public_url
+        else:
+            from datetime import timedelta
+            expires = int(os.getenv('GCS_SIGNED_URL_EXPIRES_SECONDS', '15552000'))
+            return blob.generate_signed_url(expiration=timedelta(seconds=expires), method='GET')
+    except Exception as e:
+        logger.warning(f'GCS publish failed for {gcs_uri}: {e}')
         return None
