@@ -7,7 +7,7 @@ import logging
 import random
 from pathlib import Path
 from time import monotonic
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify, send_from_directory, request
 from dotenv import load_dotenv
 from google.cloud import firestore
@@ -157,7 +157,12 @@ if db is None and ENV.lower() == "development":
             self.id = path[-1] if path else None
 
         def _now_iso(self):
-            return datetime.utcnow().isoformat() + "Z"
+            try:
+                jst = timezone(timedelta(hours=9))
+                return datetime.now(jst).isoformat()
+            except Exception:
+                # Fallback to UTC if timezone fails
+                return datetime.utcnow().isoformat() + "Z"
 
         def _resolve(self):
             cur = self._store
@@ -183,7 +188,11 @@ if db is None and ENV.lower() == "development":
             node = self._resolve()
             base = node.get("__doc__", {})
             for k, v in data.items():
-                base[k] = v
+                # replace Firestore server timestamps if present
+                if v is getattr(firestore, "SERVER_TIMESTAMP", object()):
+                    base[k] = self._now_iso()
+                else:
+                    base[k] = v
             node["__doc__"] = base
 
         def collection(self, name):

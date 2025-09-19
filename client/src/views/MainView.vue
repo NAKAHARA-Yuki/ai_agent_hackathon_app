@@ -403,22 +403,30 @@ function openTravelDayChat() {
   padding: 16px;
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
   margin-bottom: 16px;
+  box-sizing: border-box; /* avoid overflow on desktop */
 }
 
 .banner-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap; /* allow wrapping to avoid overlap on desktop */
+  gap: 12px; /* spacing between title and button when wrapped */
 }
 
 .banner-info {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0; /* allow text to shrink in flex container */
+  overflow: hidden; /* clamp overflowing title */
 }
 
 .banner-title {
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; /* keep one line on desktop */
 }
 
 .banner-subtitle {
@@ -439,6 +447,8 @@ function openTravelDayChat() {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0; /* prevent shrinking and overlap */
+  margin-left: auto; /* keep button on the far right when space allows */
 }
 
 .chat-btn:hover {
