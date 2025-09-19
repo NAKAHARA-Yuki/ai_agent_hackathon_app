@@ -129,28 +129,26 @@ const itineraryDays = computed(() => Array.isArray(mem.value?.itinerary) ? mem.v
     <div v-else-if="error" class="state error">{{ error }}</div>
     <div v-else-if="!mem" class="state">見つかりませんでした</div>
     <div v-else class="content">
+      
+
+      <!-- Plan info -->
+      <div class="plan-info">
+        <div class="title">{{ planTitle }}</div>
+        <div v-if="mem?.trip_start_date || mem?.trip_end_date" class="sub">期間: {{ fmtDate(mem?.trip_start_date) }} ~ {{ fmtDate(mem?.trip_end_date) }}</div>
+      </div>
+
       <!-- Videos moved to top -->
       <div class="videos">
         <h3 class="section-title">動画</h3>
         <div v-if="videoUrls.length" class="vgrid">
           <video v-for="(url,i) in videoUrls" :key="i" controls :src="url" class="video-player"></video>
         </div>
-        <div v-else class="video-generating">
-          <div class="loading-icon">📹</div>
-          <div class="loading-text">動画を生成中です…</div>
-        </div>
-      </div>
-
-      <!-- Plan info -->
-      <div class="plan-info">
-        <div class="title">関連プラン: {{ planTitle }}</div>
-        <div v-if="mem?.trip_start_date || mem?.trip_end_date" class="sub">期間: {{ fmtDate(mem?.trip_start_date) }} ~ {{ fmtDate(mem?.trip_end_date) }}</div>
       </div>
 
       <!-- Video status -->
       <div v-if="(!allDone) && (videoJobs.length)" class="video-status">
         <div class="status-line">
-          <span class="badge" :class="{done: allDone, pending: !allDone}">{{ allDone ? '動画作成完了' : '動画作成中...' }}</span>
+          <span class="badge" :class="{done: allDone, pending: !allDone}">{{ allDone ? '動画作成完了' : '動画作成中です。この画面のまま３分程度お待ちください...' }}</span>
         </div>
         <ul class="jobs">
           <li v-for="j in videoJobs" :key="j.index">

@@ -313,9 +313,12 @@ onMounted(fetchAll)
 
 .grid { 
   display:grid; 
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+  grid-template-columns: repeat(auto-fit, minmax(280px, 320px)); 
   gap:16px; 
   width: 100%;
+  justify-content: center; /* center columns horizontally */
+  margin: 0 auto; /* center the grid container */
+  max-width: 1200px; /* keep readable width on desktop */
 }
 
 .card { 
