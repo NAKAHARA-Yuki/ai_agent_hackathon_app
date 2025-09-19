@@ -4,7 +4,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app:/app/agents
 
 WORKDIR /app
 
@@ -22,7 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ADK api_server will load agents from ./agents
 COPY agents ./agents
 # shared（リポジトリ上位）に依存しない設計へ戻す
-ENV PYTHONPATH=/app
+# ルートに加えて agents ディレクトリも import path に含める
+ENV PYTHONPATH=/app:/app/agents
 
 EXPOSE 8080
 ENTRYPOINT ["tini", "--"]

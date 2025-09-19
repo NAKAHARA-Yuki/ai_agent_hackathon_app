@@ -241,18 +241,23 @@ onMounted(fetchAll)
 
 .header { 
   display:flex; 
-  justify-content:space-between; 
-  align-items:flex-start; 
+  justify-content:flex-start; 
+  align-items:center; 
   margin-bottom:16px; 
   gap:12px; 
+  flex-wrap: wrap; /* allow wrapping on narrow screens to avoid overlap */
 }
 
 .header h1 { 
   margin:0; 
   font-size:20px; 
   line-height:1.2; 
-  flex: 1;
+  flex: 1 1 auto; /* take available space but allow shrink */
   min-width: 0; /* Allow text to shrink */
+  white-space: nowrap; /* Keep on one line */
+  overflow: hidden; /* Clip overflow */
+  text-overflow: ellipsis; /* Show ellipsis when clipped */
+  writing-mode: horizontal-tb; /* Force horizontal layout */
 }
 
 .header .primary { 
@@ -264,6 +269,7 @@ onMounted(fetchAll)
   border-radius:10px; 
   white-space:nowrap;
   flex-shrink: 0; /* Prevent button from shrinking */
+  margin-left: auto; /* push button to the far right */
 }
 
 .state { color:#475569; }

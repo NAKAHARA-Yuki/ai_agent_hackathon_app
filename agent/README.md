@@ -5,7 +5,7 @@
 - Framework: ADK Web/API
 - 主要環境変数:
   - GEMINI_API_KEY（自動的に GOOGLE_API_KEY にブリッジ）
-  - GEMINI_MODEL（既定: gemini-2.5-pro）
+  - GEMINI_MODEL（既定: gemini-2.5-flash）
   - MAPS_MCP_ENDPOINT_URL（任意）: Google Maps MCP (Model Context Protocol) HTTP サーバーのツールエンドポイントURL
 
 ## ローカル実行（コンテナ）

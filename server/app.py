@@ -131,6 +131,11 @@ except Exception as e:
     logger.warning(f"Firestore client init failed: {e}")
     db = None
 
+# Force mock DB in development when explicitly requested
+if (os.getenv('USE_MOCK_DATA', 'false').lower() == 'true') and (ENV.lower() == 'development'):
+    logger.info("USE_MOCK_DATA=true detected. Forcing DevDB (in-memory) for local mock data.")
+    db = None  # trigger DevDB fallback below
+
 # Development fallback: in-memory DB when Firestore is unavailable
 if db is None and ENV.lower() == "development":
     class _DevDocSnapshot:
@@ -381,6 +386,81 @@ def create_dummy_user_if_needed():
         }, timeout=5)
         
         logger.info(f"Dummy persona created for user '{dummy_user_id}'.")
+
+        # Seed demo plans and memories for local verification (only if none exist)
+        try:
+            plans_ref = doc_ref.collection('plans')
+            has_any_plan = False
+            try:
+                for _ in plans_ref.stream():
+                    has_any_plan = True
+                    break
+            except Exception:
+                has_any_plan = False
+
+            if not has_any_plan:
+                # Minimal 1x1 PNG base64 (transparent)
+                pixel_png_b64 = (
+                    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMA'
+                    'ASsJTYQAAAAASUVORK5CYII='
+                )
+
+                demo_itinerary = [
+                    { 'day': 1, 'items': [
+                        { 'time': '10:00', 'title': '浅草寺', 'detail': '歴史的なお寺を散策' },
+                        { 'time': '12:00', 'title': '仲見世通り', 'detail': '食べ歩きと土産' },
+                        { 'time': '15:00', 'title': 'スカイツリー', 'detail': '展望台からの景色' }
+                    ]},
+                    { 'day': 2, 'items': [
+                        { 'time': '09:30', 'title': '上野公園', 'detail': '美術館や動物園エリアを散策' },
+                        { 'time': '13:00', 'title': '秋葉原', 'detail': '電気街とカルチャー巡り' }
+                    ]}
+                ]
+
+                plan_doc = {
+                    'title': '東京シティブレイク 2日間',
+                    'text': '下町情緒と近代的な東京をバランスよく楽しむ2日間の旅。',
+                    'summary': '浅草・上野・スカイツリーなどを巡るシティブレイク。',
+                    'suggestions': [
+                        { 'title': '隅田川クルーズ', 'tags': ['クルーズ','夜景'], 'brief': '夕暮れ～夜にかけてのクルーズがおすすめ' }
+                    ],
+                    'itinerary': demo_itinerary,
+                    'places': [ { 'name': '浅草寺' }, { 'name': '東京スカイツリー' }, { 'name': '上野公園' } ],
+                    'route_info': None,
+                    'created_at': firestore.SERVER_TIMESTAMP,
+                    'updated_at': firestore.SERVER_TIMESTAMP,
+                    'source': 'chat',
+                    'status': 'confirmed',
+                    'image_base64': pixel_png_b64,
+                    'image_mime_type': 'image/png',
+                }
+
+                plan_ref = plans_ref.document()
+                plan_ref.set(plan_doc, timeout=5)
+                logger.info("Demo plan seeded for devuser.")
+
+                # Seed one memory linked to the plan
+                memories_ref = doc_ref.collection('memories')
+                mem_doc = {
+                    'plan_id': plan_ref.id,
+                    'images': [ { 'image_base64': pixel_png_b64, 'image_mime_type': 'image/png' } ],
+                    'itinerary': demo_itinerary,
+                    'text': plan_doc['text'],
+                    'summary': plan_doc['summary'],
+                    'trip_start_date': '2025-10-10',
+                    'trip_end_date': '2025-10-11',
+                    'video_jobs': [],
+                    'video_urls': [],
+                    'created_at': firestore.SERVER_TIMESTAMP,
+                    'updated_at': firestore.SERVER_TIMESTAMP,
+                }
+                mem_ref = memories_ref.document()
+                mem_ref.set(mem_doc, timeout=5)
+                logger.info("Demo memory seeded for devuser.")
+            else:
+                logger.info("Plans already exist for devuser; skipping demo seed.")
+        except Exception as se:
+            logger.warning(f"Demo seed failed: {se}")
 
     except Exception as e:
         logger.error(f"Failed to create/update dummy user or persona: {e}")

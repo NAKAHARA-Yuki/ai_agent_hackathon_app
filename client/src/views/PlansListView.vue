@@ -149,7 +149,7 @@ onMounted(fetchPlans)
   flex-direction: column; 
   gap: 12px; 
   width: 100%; 
-  padding: 0 0 20px; /* 左右のパディングを削除。App.vueのcontentが既にパディングを提供 */
+  padding: 0 16px 20px; /* デスクトップは若干の左右パディングを付与 */
   box-sizing: border-box;
   min-height: 100%;
   height: 100%;
@@ -254,8 +254,10 @@ onMounted(fetchPlans)
   /* Prevent clipping on mobile */
   min-height: 120px;
   width: 100%;
-  max-width: 100%; /* 幅制限追加 */
+  max-width: 1200px; /* デスクトップでの読みやすい幅に制限 */
   box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .active-plan-banner::before {
@@ -291,6 +293,8 @@ onMounted(fetchPlans)
   justify-content: space-between;
   position: relative;
   z-index: 1;
+  flex-wrap: wrap; /* デスクトップでも長タイトル時に折返し許可 */
+  gap: 12px;
 }
 
 .banner-info {
@@ -340,6 +344,7 @@ onMounted(fetchPlans)
   text-shadow: none;
   min-height: 52px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 2px rgba(255,255,255,0.4) inset;
+  flex-shrink: 0; /* ボタンの縮小によるはみ出しを防止 */
 }
 
 .chat-btn:hover {
@@ -370,10 +375,10 @@ onMounted(fetchPlans)
 .state.error { color:#b91c1c; }
 .cards { 
   display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); 
+  grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); 
   gap: 14px; 
   justify-content: center; /* Center the grid items */
-  max-width: 100%; /* Prevent horizontal scrolling */
+  max-width: 1200px; /* デスクトップでの行幅制限 */
   margin: 0 auto; /* Center the grid container */
   width: 100%;
   padding: 0 8px; /* 左右のガターを明示的に確保 */

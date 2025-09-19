@@ -10,6 +10,11 @@ _LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
 logging.basicConfig(level=getattr(logging, _LEVEL, logging.INFO), format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
 log = logging.getLogger("agent.root_coordinator")
 
+# Ensure google-genai (used by ADK) can authenticate with API key in local dev
+if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
+	os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY") or ""
+	log.info("GOOGLE_API_KEY not set; using GEMINI_API_KEY as fallback for local dev")
+
 # MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 MODEL = "gemini-2.5-flash-lite"
 log.info(f"Root Coordinator Agent model: {MODEL}")
