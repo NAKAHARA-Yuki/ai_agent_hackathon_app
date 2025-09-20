@@ -25,6 +25,7 @@ The backend code has been successfully refactored using Flask Blueprints to impr
 5. **`blueprints/personas.py`** - User personas and profile management
 6. **`blueprints/plans.py`** - Travel plans CRUD operations
 7. **`blueprints/ai.py`** - AI agent chat and plan generation
+8. **`blueprints/memories.py`** - Memories (albums) management and Veo video generation
 
 #### Utility Modules Created
 1. **`utils/auth.py`** - JWT handling and authentication utilities
@@ -73,6 +74,7 @@ server/
 │   ├── maps.py             # Google Maps integration
 │   ├── personas.py         # User personas management
 │   ├── plans.py            # Travel plans CRUD
+│   ├── memories.py         # Memories (albums) and Veo video generation
 │   └── ai.py               # AI agent interactions
 ├── utils/                   # Utility modules
 │   ├── __init__.py

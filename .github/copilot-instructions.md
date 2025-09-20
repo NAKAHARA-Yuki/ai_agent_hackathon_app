@@ -155,16 +155,17 @@ MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
 - **デベロッパーサーバー**: APIプロキシ付きhttp://localhost:5173
 
 ### バックエンド (`server/`)  
-- **フレームワーク**: Flask 3.0.3 + Gunicorn
+- **フレームワーク**: Flask 3.0.3 + Gunicorn + Flask Blueprint アーキテクチャ
 - **データベース**: Google Cloud Firestore（本番） / DevDB（開発）
-- **API**: 旅行計画、ユーザー認証、Google Maps統合
-- **主要機能**: JWT認証、AI分析、旅行プラン生成
+- **API**: 8個のBlueprint（auth, health, quiz, maps, personas, plans, ai, memories）
+- **主要機能**: JWT認証、AI分析、旅行プラン生成、Veo動画生成、思い出管理
 
 ### エージェントサービス (`agent/`)
-- **フレームワーク**: Google ADK（Agent Development Kit）
+- **フレームワーク**: Google ADK（Agent Development Kit）マルチエージェントシステム
 - **目的**: Gemini AIを使用したインテリジェント旅行計画
+- **構成**: Root Coordinator + 4サブエージェント（Travel Planner, Travel Modifier, Travel Advisor, Day Advice）
 - **依存関係**: httpx、google-adk（制限された環境では失敗する可能性）
-- **エンドポイント**: 旅行プラン生成用`/v1/plan`
+- **エンドポイント**: 旅行プラン生成、修正、アドバイス用API
 
 ### MCPサーバー (`mcp/`)
 - **目的**: MCP (Model Context Protocol) サーバー（Google Maps機能提供）
@@ -242,9 +243,9 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 
 ## 最新の改善・修正点
 
-### Flask Blueprint リファクタリング (2025年9月)
+### Flask Blueprint リファクタリング (2025年9月-2025年1月)
 - **2,686行のapp.py → 388行に削減** (85.5%の複雑性削減)
-- **7個のBlueprint**: auth, health, quiz, maps, personas, plans, ai
+- **8個のBlueprint**: auth, health, quiz, maps, personas, plans, ai, memories
 - **3個のユーティリティモジュール**: utils/auth.py, utils/data_processing.py, utils/ai_processing.py
 - **保守性向上**: 機能別分離、単一責任原則、独立テストが可能
 
@@ -259,6 +260,13 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 - **C1カバレッジ100%目標**: Jest + pytest による完全カバレッジ
 - **テスト技術**: Mock/Real API両対応、エラーハンドリング、境界値テスト
 - **CI/CD対応**: GitHub Actions での自動テスト実行
+
+### ドキュメント最新化 (2025年1月)
+- **全READMEファイル更新**: 実装状況に基づく正確な情報反映
+- **API エンドポイント完全整理**: 実際のBlueprint実装に基づく20+エンドポイント
+- **コンポーネント詳細文書化**: 17 Vue views、11コンポーネント、8 Blueprint詳細
+- **マルチエージェント仕様書更新**: Root Coordinator + 4サブエージェント構成
+- **開発手順最新化**: セットアップ、ビルド、テスト、デプロイの正確な手順
 
 ### 実行コマンド更新
 ```bash
