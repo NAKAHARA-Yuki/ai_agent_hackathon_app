@@ -35,10 +35,15 @@ const memoryId = computed(() => {
   return s
 })
 
-const planTitle = computed(()=>{
-  if (!mem.value) return ''
-  const p = plans.value.find(x => x.id === mem.value.plan_id)
-  return p?.title || mem.value.plan_id || ''
+const planTitle = computed(() => {
+  const m = mem.value
+  if (!m) return ''
+  // Prefer the snapshot title saved on the memory itself
+  const mt = (typeof m.title === 'string' ? m.title.trim() : '')
+  if (mt) return mt
+  // Fallback to the current plan title, then plan_id
+  const p = plans.value.find(x => x.id === m.plan_id)
+  return p?.title || m.plan_id || ''
 })
 
 const videoUrls = computed(() => {
