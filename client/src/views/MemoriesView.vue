@@ -125,6 +125,15 @@ function planTitle(id){
   return p?.title || id || ''
 }
 
+// Helper: prefer memory snapshot title, fallback to plan title + suffix
+function memoryTitle(mem){
+  if (!mem) return ''
+  const t = typeof mem.title === 'string' ? mem.title.trim() : ''
+  if (t) return t
+  const base = planTitle(mem.plan_id)
+  return base ? `${base}の思い出` : '思い出'
+}
+
 async function save(){
   if(!canSave.value || saving.value) return
   saving.value = true
@@ -175,7 +184,7 @@ onMounted(fetchAll)
         <div v-for="mem in items" :key="mem.id" class="card" :style="heroStyle(mem)" @click="openDetail(mem)">
           <div class="overlay"></div>
           <div class="text">
-            <div class="title">{{ planTitle(mem.plan_id) }}の思い出</div>
+            <div class="title">{{ memoryTitle(mem) }}</div>
             <div v-if="memoryDateRange(mem)" class="sub">{{ memoryDateRange(mem) }}</div>
             <div class="count">写真 {{ (mem.images||[]).length }} 枚</div>
             <div v-if="(mem.video_jobs||[]).some(j=>!j.done)" class="badge">動画作成中</div>
@@ -237,6 +246,7 @@ onMounted(fetchAll)
   padding:20px 16px; 
   box-sizing:border-box; 
   overflow:auto; 
+  overflow-x: hidden; /* prevent horizontal scroll on mobile */
 }
 
 .header { 
@@ -316,6 +326,7 @@ onMounted(fetchAll)
   grid-template-columns: repeat(auto-fit, minmax(280px, 320px)); 
   gap:16px; 
   width: 100%;
+  min-width: 0; /* avoid min-content overflow */
   justify-content: center; /* center columns horizontally */
   margin: 0 auto; /* center the grid container */
   max-width: 1200px; /* keep readable width on desktop */
@@ -323,6 +334,7 @@ onMounted(fetchAll)
 
 .card { 
   position:relative; 
+  width: 100%;
   aspect-ratio:16/9; 
   border-radius:14px; 
   overflow:hidden; 
@@ -425,6 +437,7 @@ onMounted(fetchAll)
   flex-direction:column; 
   gap:16px; 
   overflow-y: auto;
+  overflow-x: hidden; /* prevent accidental horizontal scroll */
   flex: 1;
 }
 
@@ -551,8 +564,8 @@ onMounted(fetchAll)
   }
   
   .modal { 
-    width: calc(100vw - 32px);
-    margin: 16px;
+    width: 100%; /* fill backdrop's inner box */
+    margin: 0;    /* spacing is provided by backdrop padding */
   }
   
   .modal-header,
@@ -590,8 +603,8 @@ onMounted(fetchAll)
   }
   
   .modal {
-    width: calc(100vw - 24px);
-    margin: 12px;
+    width: 100%;
+    margin: 0;
   }
   
   .modal-header,
