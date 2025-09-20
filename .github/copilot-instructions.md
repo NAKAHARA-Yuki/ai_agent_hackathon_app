@@ -1,6 +1,6 @@
 # AI エージェント ハッカソン 旅行アプリ
 
-Vue.js フロントエンド、Flask バックエンド、Google ADK エージェントサービス、Google Maps MCP サーバーを使用した AI 搭載旅行計画アプリケーション。Google Maps と Gemini AI 統合で Docker + Cloud Run 経由でデプロイされます。
+Vue.js フロントエンド、Flask バックエンド、Google ADK エージェントサービスを使用した AI 搭載旅行計画アプリケーション。Gemini AI 統合で Docker + Cloud Run 経由でデプロイされます。
 
 **ここにない情報に遭遇した場合のみ、常にこれらの手順を最初に参照し、検索やbashコマンドにフォールバックしてください。**
 
@@ -37,12 +37,6 @@ pip install -r requirements.txt  # ファイアウォール/ネットワーク�
 - **既知の問題**: ネットワーク制限によりエージェント依存関係のインストールがよく失敗します
 - サンドボックス環境では予想される失敗として文書化
 - 適切なネットワーキングを持つ実際のGoogle Cloud環境では動作します
-
-**MCP (Google Maps MCP):**
-```bash
-npx -y @googlemaps/code-assist-mcp --port 3000  # MCPサーバーをインストールして実行
-```
-- タイムアウト: 初回実行時（パッケージダウンロード）は60秒以上を使用
 
 ### 開発モード検証
 
@@ -82,8 +76,7 @@ docker build -t travel-app .  # 5-15分かかります。決してキャンセ�
 
 **個別コンポーネントビルド:**
 ```bash
-cd agent && docker build -t agent-service .     # ADKエージェント用
-cd mcp && docker build -t mcp-service .         # MCPサーバー用  
+cd agent && docker build -t agent-service .     # ADKエージェント用  
 ```
 
 **Docker Compose (開発環境):**
@@ -115,7 +108,6 @@ docker compose -f docker-compose.dev.yml up
 1. **登録/ログイン**: アカウント作成、JWTトークン生成を確認
 2. **旅行クイズ**: 性格評価を完了  
 3. **AI計画**: 旅行プランを生成（APIキーが必要）
-4. **マップ統合**: Google Maps機能を確認（Maps APIキーが必要）
 
 ## 環境要件
 
@@ -123,21 +115,14 @@ docker compose -f docker-compose.dev.yml up
 ```bash
 # コアAPIキー
 GEMINI_API_KEY=your_gemini_api_key           # AI機能に必要
-GOOGLE_MAPS_API_KEY=your_maps_api_key        # Maps統合に必要
 JWT_SECRET=your_jwt_secret                   # 認証に必要
 
 # Google Cloud（本番環境）
 GCP_PROJECT_ID=your_project_id               # Firestore用
 GOOGLE_CLOUD_PROJECT=your_project_id         # 代替名
 
-# クライアント環境（Vite）
-VITE_GOOGLE_MAPS_API_KEY=your_public_api_key # パブリックMaps APIキー
-VITE_GOOGLE_MAPS_MAP_ID=your_map_id          # Advanced Markers用（オプション）
-VITE_ENABLE_ADVANCED_MARKER=true             # 高度な機能（オプション）
-
 # エージェントサービス
 AGENT_BASE_URL=http://localhost:8080         # ADKエージェントエンドポイント
-MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
 ```
 
 ### 開発フォールバック
@@ -157,7 +142,7 @@ MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
 ### バックエンド (`server/`)  
 - **フレームワーク**: Flask 3.0.3 + Gunicorn + Flask Blueprint アーキテクチャ
 - **データベース**: Google Cloud Firestore（本番） / DevDB（開発）
-- **API**: 8個のBlueprint（auth, health, quiz, maps, personas, plans, ai, memories）
+- **API**: 7個のBlueprint（auth, health, quiz, personas, plans, ai, memories）
 - **主要機能**: JWT認証、AI分析、旅行プラン生成、Veo動画生成、思い出管理
 
 ### エージェントサービス (`agent/`)
@@ -166,11 +151,6 @@ MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
 - **構成**: Root Coordinator + 4サブエージェント（Travel Planner, Travel Modifier, Travel Advisor, Day Advice）
 - **依存関係**: httpx、google-adk（制限された環境では失敗する可能性）
 - **エンドポイント**: 旅行プラン生成、修正、アドバイス用API
-
-### MCPサーバー (`mcp/`)
-- **目的**: MCP (Model Context Protocol) サーバー（Google Maps機能提供）
-- **ランタイム**: @googlemaps/code-assist-mcpを使用したNode.js
-- **エンドポイント**: `/tools/retrieve-google-maps-platform-docs`
 
 ### デプロイメント (`Dockerfile` + Cloud Run)
 - **マルチステージ**: Node.jsビルド → Pythonランタイム
@@ -188,7 +168,6 @@ MAPS_MCP_ENDPOINT_URL=http://mcp:3000/tools/retrieve-google-maps-platform-docs
 ### ランタイムの問題
 - **サーバーが開始しない**: 本番モードでJWT_SECRETを確認
 - **AI応答なし**: GEMINI_API_KEYが設定されていることを確認
-- **マップが読み込まれない**: VITE_GOOGLE_MAPS_API_KEYを確認
 - **認証失敗**: JWT_SECRETとユーザー作成を確認
 
 ### テストコマンド
@@ -210,7 +189,7 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 - **クライアントビルド**: 合計約10秒（インストール + ビルド）
 - **サーバー起動**: データベース初期化で約15秒  
 - **Dockerビルド**: ネットワークとキャッシュに応じて5-15分
-- **MCP初回実行**: パッケージダウンロードで約60秒
+- **エージェント初回実行**: パッケージダウンロードで約60秒
 
 ## 追加コンテキスト
 
@@ -220,7 +199,6 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 ├── client/          # Vue.jsフロントエンド
 ├── server/          # Flaskバックエンド  
 ├── agent/           # Google ADKエージェントサービス
-├── mcp/             # Google Maps MCPサーバー
 ├── shared/          # 共有コントラクト/タイプ
 ├── Dockerfile       # マルチステージ本番ビルド
 └── docker-compose.dev.yml  # 開発オーケストレーション
@@ -228,7 +206,7 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 
 ### CI/CDパイプライン (`.github/workflows/deploy-cloud-run.yml`)
 - **トリガー**: mainブランチへのプッシュ
-- **プロセス**: エージェント+MCPビルド → Cloud Runにデプロイ → メインアプリビルド+デプロイ
+- **プロセス**: エージェントビルド → Cloud Runにデプロイ → メインアプリビルド+デプロイ
 - **依存関係**: Google Cloud認証情報、Artifact Registry
 
 ### 主要URLとエンドポイント
@@ -237,7 +215,6 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 - **ヘルスチェック**: `/api/health`
 - **認証**: `/api/auth/login`、`/api/auth/signup`
 - **旅行計画**: `/api/agent/chat`、`/api/generate_plan`
-- **マップ統合**: `/api/maps-key`、`/api/geocode`
 
 **注意**: 常にビルドを完了まで実行し、適切なタイムアウトを使用し、完全なユーザーシナリオを通じて機能を検証してください。アプリケーションは外部サービスが利用できない場合に適切に劣化するように設計されています。
 
@@ -245,12 +222,12 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 
 ### Flask Blueprint リファクタリング (2025年9月-2025年1月)
 - **2,686行のapp.py → 388行に削減** (85.5%の複雑性削減)
-- **8個のBlueprint**: auth, health, quiz, maps, personas, plans, ai, memories
+- **7個のBlueprint**: auth, health, quiz, personas, plans, ai, memories
 - **3個のユーティリティモジュール**: utils/auth.py, utils/data_processing.py, utils/ai_processing.py
 - **保守性向上**: 機能別分離、単一責任原則、独立テストが可能
 
 ### ADK エージェント設定修正
-- **Tool Configuration 競合解決**: Google Search (Primary) + MCP (Fallback)
+- **Tool Configuration 競合解決**: Google Search (Primary) による検索機能統合
 - **Circular Import 修正**: Lazy loading、適切なimport順序
 - **Model 互換性**: Gemini 2.5 Pro 使用、FunctionTool 互換性向上
 - **Agent Structure**: Root Coordinator + Sub-Agents (Travel Planner, Travel Advisor)

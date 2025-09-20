@@ -433,7 +433,7 @@ for h in logging.getLogger().handlers:
 from blueprints.health import health_bp
 from blueprints.auth import auth_bp
 from blueprints.quiz import quiz_bp
-from blueprints.maps import maps_bp
+
 from blueprints.personas import personas_bp
 from blueprints.plans import plans_bp
 from blueprints.memories import memories_bp
@@ -442,7 +442,7 @@ from blueprints.ai import ai_bp
 app.register_blueprint(health_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(quiz_bp)
-app.register_blueprint(maps_bp)
+
 app.register_blueprint(personas_bp)
 app.register_blueprint(plans_bp)
 app.register_blueprint(ai_bp)

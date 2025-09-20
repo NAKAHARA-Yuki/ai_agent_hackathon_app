@@ -12,10 +12,8 @@ AIを活用した旅行診断・プランニングアプリケーションです
   - **Travel Planner**: 新規旅行プラン作成
   - **Travel Modifier**: 既存プラン修正・最適化
   - **Travel Advisor**: 当日サポート・リアルタイム対応
-- **インタラクティブ旅行プランニング**: AIとのチャット形式での旅行計画作成
 - **思い出アルバム機能**: 旅行写真の保存・管理
 - **Veo動画生成**: Vertex AI Veo 3.0による思い出動画自動生成
-- **マップ統合**: Google Maps連携による視覚的な旅行ルート表示
 - **輸送情報表示**: 移動手段のアイコン・ラベル・所要時間・距離の詳細表示
 - **マルチプラン管理**: 複数の旅行プランの作成・保存・比較機能
 - **レスポンシブUI**: 17の画面・11のコンポーネントによる包括的UX
@@ -26,28 +24,26 @@ AIを活用した旅行診断・プランニングアプリケーションです
 
 ```
 Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Service ──→ Gemini API
-       │                    │                              │                    │
-       │                    │ blueprints/                  │                    │
-       │                    │ ├── auth.py                  ├──→ Maps MCP ───────┴──→ Maps API
-       │                    │ ├── health.py               │    Server
+       │                    │                              │                    
+       │                    │ blueprints/                  │                    
+       │                    │ ├── auth.py                  │                    
+       │                    │ ├── health.py               │
        │                    │ ├── quiz.py                 │
-       │                    │ ├── maps.py ─────────────────┤
        │                    │ ├── personas.py             │
        │                    │ ├── plans.py                │
-       │                    │ └── ai.py                   │
+       │                    │ ├── ai.py                   │
+       │                    │ └── memories.py             │
        │                    │                             │
        │                    └──→ Firestore ──────────────┼──→ Google Cloud
        │                         Database                │
-       │                                                 │
-       └──→ Google Maps ────────────────────────────────┘
-           JavaScript API
+       └────────────────────────────────────────────────┘
 ```
 
 ### 各コンポーネント
 
 - **Frontend** (`client/`): Vue.js + Vite による SPA
 - **Backend** (`server/`): Python Flask API サーバー（Flask Blueprint アーキテクチャ）
-  - **モジュラー設計**: 8個のBlueprint + 3個のユーティリティモジュール
+  - **モジュラー設計**: 7個のBlueprint + 3個のユーティリティモジュール
   - **85.5%の複雑性削減**: 2,686行から388行へのリファクタリング
   - **保守性向上**: 機能別分離、単一責任原則、独立テストが可能
 - **ADK Agent Service** (`agent/`): Google ADK ベースのマルチエージェントシステム
@@ -65,7 +61,6 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 - **サービス名**: 
   - `izatabi-app`
   - `travel-agent-service`
-  - `maps-mcp-service`
 - **データベース**: Firestore デフォルトデータベース `(default)`
 
 #### 開発環境 (Development) 
@@ -73,7 +68,6 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 - **サービス名**:
   - `izatabi-app-dev`
   - `travel-agent-service-dev`
-  - `maps-mcp-service-dev`
 - **データベース**: Firestore データベース `izatabi-dev`
 
 各環境は独立したGoogle Cloud Runサービスとデータベースを使用し、完全に分離されています。
@@ -134,11 +128,10 @@ ai_agent_hackathon_app/
 │   └── vite.config.js     # Viteビルド設定
 ├── server/                # Flask バックエンド
 │   ├── app.py            # メインFlaskアプリケーション（388行、Blueprint統合）
-│   ├── blueprints/       # Flask Blueprintモジュール（8個）
+│   ├── blueprints/       # Flask Blueprintモジュール（7個）
 │   │   ├── auth.py       # 認証エンドポイント（signup, login, profile）
 │   │   ├── health.py     # ヘルスチェックエンドポイント
 │   │   ├── quiz.py       # 診断質問・分析エンドポイント
-│   │   ├── maps.py       # Google Maps統合エンドポイント
 │   │   ├── personas.py   # ユーザーペルソナ管理エンドポイント
 │   │   ├── plans.py      # 旅行プランCRUD操作エンドポイント
 │   │   ├── ai.py         # AIエージェントチャット・プラン生成エンドポイント
@@ -169,8 +162,6 @@ ai_agent_hackathon_app/
 │   │           └── agent.py # デイアドバイスエージェント（日別アドバイス）
 │   ├── requirements.txt  # ADK依存関係
 │   └── Dockerfile        # エージェント用Docker設定
-├── mcp/                  # Google Maps MCP サーバー（注：外部MCPサーバーとして参照）
-│   └── 注：実装は @googlemaps/code-assist-mcp npm パッケージを利用
 ├── shared/               # 共有ユーティリティ
 │   ├── contracts/        # 型定義・インターフェース
 │   └── logging_config.py # ログ設定ユーティリティ
@@ -195,7 +186,6 @@ GOOGLE_CLOUD_PROJECT=your_project_id
 
 # API Keys（任意）
 GEMINI_API_KEY=your_gemini_api_key
-GOOGLE_MAPS_API_KEY=your_maps_api_key
 
 # Veo 動画生成（任意機能）
 ENABLE_VEO_VIDEO=false
@@ -262,11 +252,10 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 
 **Flask Blueprint アーキテクチャ** - モジュラー設計による85.5%の複雑性削減
 - **app.py** (388行) - アプリケーション初期化・Blueprint登録・設定管理
-- **blueprints/** - 機能別エンドポイントモジュール（8個のBlueprint）
+- **blueprints/** - 機能別エンドポイントモジュール（7個のBlueprint）
   - `auth.py` - 認証・ユーザー管理
   - `health.py` - システムヘルスチェック
   - `quiz.py` - 旅行診断・ペルソナ生成
-  - `maps.py` - Google Maps API統合
   - `personas.py` - ユーザーペルソナ管理  
   - `plans.py` - 旅行プランCRUD操作
   - `ai.py` - AIエージェントとの統合
@@ -280,7 +269,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 
 **agents/travel_planner/agent.py** - ADK（Agent Development Kit）ベースの旅行計画AI
 - Gemini 2.5 Flashモデルを使用
-- Google Search、Google Maps MCP ツール統合
+- Google Search ツール統合
 - インテリジェントな旅行プラン生成
 
 #### 共有モジュール（shared/）
@@ -351,21 +340,6 @@ def handle_plan(plan_id)
 @plans_bp.route('/api/active-plan', methods=['GET', 'POST'])
 def handle_active_plan()
     """アクティブプラン取得・設定"""
-```
-
-#### Google Maps統合（`server/blueprints/maps.py`）
-```python
-@maps_bp.get('/api/maps-key')
-def get_maps_js_key()
-    """フロントエンド用Google Maps APIキー・設定提供"""
-
-@maps_bp.post('/api/geocode')
-def geocode_location()
-    """地名から緯度経度への変換（Geocoding API）"""
-
-@maps_bp.get('/api/maps/static')
-def generate_static_map()
-    """静的地図画像生成"""
 ```
 
 #### ユーティリティ関数（`server/utils/`）
@@ -476,7 +450,7 @@ Root Coordinator Agent (ルートコーディネーター)
 - **役割**: persona/profile情報から3つの完全な旅行プランを生成
 - **モデル**: `gemini-2.5-pro`
 - **出力形式**: 厳密なJSON構造（plans配列、itinerary、places、route_info含む）
-- **ツール統合**: Google Search + Google Maps MCP による地理情報統合
+- **ツール統合**: Google Search による情報統合
 - **特徴**:
   - 地理的合理性・季節感・移動時間を考慮
   - 輸送手段（transport）詳細情報付与
@@ -521,7 +495,7 @@ Root Coordinator Agent (ルートコーディネーター)
 ```python
 # エージェント定義パターン
 from google.adk.agents import LlmAgent
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+
 
 agent = LlmAgent(
     name="agent_name",
@@ -533,11 +507,9 @@ agent = LlmAgent(
 )
 ```
 
-**Google Maps MCP (Model Context Protocol) 統合**
-- **実装方式**: 外部NPMパッケージ `@googlemaps/code-assist-mcp` を利用
-- **接続方式**: エージェントから HTTP エンドポイント経由でアクセス
-- **API Key管理**: 環境変数`GOOGLE_MAPS_API_KEY`から自動設定
-- **エンドポイント設定**: `MAPS_MCP_ENDPOINT_URL` 環境変数で指定
+**Google Search ツール統合**
+- **接続方式**: ADK標準ツールとして統合
+- **用途**: 最新の観光情報・イベント情報・交通情報の取得
 
 #### エージェント通信プロトコル
 
@@ -570,10 +542,6 @@ AGENT_HTTP_TIMEOUT=180                        # HTTPタイムアウト（秒）
 GEMINI_API_KEY=your_gemini_api_key           # Gemini API認証
 GEMINI_MODEL=gemini-2.5-pro                 # 使用モデル指定
 
-# MCP設定
-GOOGLE_MAPS_API_KEY=your_maps_api_key        # Maps MCP用
-MAPS_MCP_ENDPOINT_URL=http://localhost:3000/tools/retrieve-google-maps-platform-docs
-
 # Veo動画生成（思い出機能・任意）
 ENABLE_VEO_VIDEO=false                       # Veo動画生成の有効化
 VEO_PROJECT_ID=ai-agent-hackason            # Veo用プロジェクトID
@@ -596,7 +564,7 @@ services:
     environment:
       - LOG_LEVEL=DEBUG
       - CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:4200
-    # Google Maps MCP および Veo 動画生成の環境変数設定可能
+    # Veo 動画生成の環境変数設定可能
 ```
 
 #### エージェント品質保証
@@ -628,7 +596,6 @@ services:
 ```bash
 # AI/API設定
 GEMINI_API_KEY=your_gemini_api_key_here
-GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 
 # 認証
 JWT_SECRET=your_jwt_secret_here
@@ -644,32 +611,15 @@ ENV=development
 
 # エージェント設定
 AGENT_BASE_URL=http://localhost:8080
-MAPS_MCP_ENDPOINT_URL=http://localhost:3000/tools/retrieve-google-maps-platform-docs
 ```
 
 #### 2. フロントエンド環境変数 (`client/.env.local`)
 
 ```bash
-# Google Maps設定
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
-VITE_GOOGLE_MAPS_MAP_ID=your_map_id_here
-VITE_ENABLE_ADVANCED_MARKER=true
+# アプリケーション設定
+VITE_APP_TITLE=いざ旅
+VITE_USE_MOCK=false
 ```
-
-### Google Maps の有効化設定
-
-1. **Google Cloud Console** で以下のAPIを有効化:
-   - Maps JavaScript API
-   - Geocoding API
-   - Static Maps API
-
-2. **APIキーの設定**:
-   - フロントエンド用: HTTP リファラ制限を設定
-   - バックエンド用: IPアドレス制限を設定
-
-3. **Map IDの作成** (Advanced Marker使用時):
-   - Google Cloud Console > Maps > Map Management
-   - 新しいMap IDを作成し、スタイルを設定
 
 ### ローカル開発環境の起動
 
@@ -702,9 +652,6 @@ cd agent
 pip install -r requirements.txt
 adk api_server --host 0.0.0.0 --port 8080 ./agents/root_coordinator
 
-# 4. Google Maps MCP サービス (任意)
-# 別ターミナルでMCPサーバーを起動する場合
-npx @googlemaps/code-assist-mcp --port 3000
 ```
 
 ### テスト実行
@@ -772,7 +719,7 @@ pytest -v                 # 詳細出力
   - Root Coordinator: Gemini 2.5 Flash Lite (高速ルーティング)
   - Travel Planner: Gemini 2.5 Pro (高品質プラン生成)
   - Travel Advisor: Gemini 2.5 Pro (詳細サポート)
-- **Tools**: Google Search (Primary), Google Maps MCP (Fallback) - Tool Configuration 競合修正済み
+- **Tools**: Google Search (Primary) - Tool Configuration 競合修正済み
 - **Architecture**: 階層型マルチエージェント（ルートコーディネーター + サブエージェント）
 - **Communication**: ADK API Server プロトコル
 - **Improvements**: Circular Import 解決、Function Tool 互換性向上
@@ -781,7 +728,7 @@ pytest -v                 # 詳細出力
 - **コンテナ**: Docker
 - **デプロイ**: Google Cloud Run
 - **データベース**: Google Firestore
-- **外部API**: Google Maps API, Gemini API
+- **外部API**: Gemini API
 
 ### テスト・品質保証
 - **Frontend**: Jest 29.7.0 + @vue/test-utils
@@ -816,7 +763,6 @@ pytest -v                 # 詳細出力
 
 ### システム・設定
 - `GET /api/health` - システムヘルスチェック
-- `GET /api/maps-key` - Maps API設定取得
 
 ### 認証
 - `POST /api/auth/signup` - ユーザー登録
@@ -849,10 +795,6 @@ pytest -v                 # 詳細出力
 - `DELETE /api/plans/:id` - プラン削除
 - `GET /api/active-plan` - アクティブプラン取得
 - `POST /api/active-plan` - アクティブプラン設定
-
-### 地図・ジオコーディング
-- `POST /api/geocode` - 地名→座標変換
-- `GET /api/maps/static` - 静的地図画像生成
 
 ### 思い出・メディア管理
 - `GET /api/memories` - 思い出（アルバム）一覧取得
@@ -938,14 +880,6 @@ Cloud Run では `LOG_FORMAT=json` 推奨。`X-Cloud-Trace-Context` ヘッダが
 - **JavaScript**: ESLint + Prettier
 - **コミットメッセージ**: Conventional Commits形式
 
-### Advanced Marker について
-
-バックエンドは `/api/maps-key` でキー・mapId・advanced を返します。MapPanel はこれらを使って JS マップを初期化し、Advanced Marker が有効かつ mapId が指定されている場合のみ高機能ピンを使用します。
-
-注意:
-- ルート表示はキー不要の埋め込みを既定で使用します（InvalidKeyMapError 時でも表示可能）
-- Advanced Marker を使う場合は、Map ID を設定し、VITE_ENABLE_ADVANCED_MARKER=true にしてください
-
 ## 📄 ライセンス
 
 このプロジェクトは著作権で保護されています。
@@ -964,7 +898,6 @@ Cloud Run では `LOG_FORMAT=json` 推奨。`X-Cloud-Trace-Context` ヘッダが
 - ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、8個のBlueprintと3個のユーティリティモジュールに分割
 - ✅ **思い出（アルバム）機能追加**: memories.py Blueprint による画像管理・Vertex AI Veo動画生成統合
 - ✅ **ADK マルチエージェント拡張**: 4つのサブエージェント（Planner, Modifier, Advisor, Day Advice）による階層型システム
-- ✅ **Google Maps MCP統合改善**: 外部NPMパッケージによる柔軟なMCP接続方式
 - ✅ **Vue.js UI拡張**: 思い出関連画面（MemoriesView, MemoryDetailView）追加、計17画面・11コンポーネント
 - ✅ **Veo動画生成機能**: 思い出作成時の自動動画生成（Vertex AI Veo 3.0 Fast Generate）
 - ✅ **ドキュメント最新化**: 実装状況に基づくREADME全面更新・正確性向上
