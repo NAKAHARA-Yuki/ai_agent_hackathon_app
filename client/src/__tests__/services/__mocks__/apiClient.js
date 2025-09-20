@@ -137,16 +137,6 @@ export async function createPlan(payload, authHeader){
   return doc
 }
 
-export async function mapsKey(){
-  if (!getUseMock()) {
-    try { 
-      return await realFetch('/api/maps-key') 
-    } catch { 
-      return { key:'', advanced:false, mapId:'' } 
-    }
-  }
-  return { key:'', advanced:false, mapId:'' }
-}
 
 export async function getActivePlan(authHeader){
   if (!getUseMock()) {

@@ -9,18 +9,31 @@ from typing import Optional, Dict, Any
 ENV = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
 _jwt_from_env = os.getenv("JWT_SECRET")
 
+# In production, don't crash the whole app at import-time if JWT is misconfigured.
+# Keep the app up (so /api/health works) and fail fast when token ops are used.
 if ENV.lower() == "development":
     JWT_SECRET = _jwt_from_env or "dev-secret-change-me"
+    JWT_READY = bool(_jwt_from_env)
 else:
     if not _jwt_from_env or _jwt_from_env == "dev-secret-change-me":
-        raise RuntimeError("JWT_SECRET environment variable must be set in production.")
-    JWT_SECRET = _jwt_from_env
+        # Defer failure to token creation/verification time and log an error.
+        import logging as _logging
+        _logging.getLogger(__name__).error(
+            "JWT_SECRET is not set or uses default in production; auth endpoints will be disabled until configured."
+        )
+        JWT_SECRET = None
+        JWT_READY = False
+    else:
+        JWT_SECRET = _jwt_from_env
+        JWT_READY = True
 
 JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "2880"))  # 48h
 
 
 def create_jwt(user_id: str) -> str:
     """Create a JWT token for the given user ID"""
+    if not JWT_SECRET:
+        raise RuntimeError("JWT not configured")
     now = datetime.now(timezone.utc)
     payload = {
         "sub": user_id,
@@ -32,6 +45,8 @@ def create_jwt(user_id: str) -> str:
 
 def create_jwt_with_ttl(user_id: str, ttl_min: int) -> str:
     """Create a JWT token with custom TTL"""
+    if not JWT_SECRET:
+        raise RuntimeError("JWT not configured")
     now = datetime.now(timezone.utc)
     ttl_min = max(1, min(int(ttl_min or 15), 24 * 60))
     payload = {
@@ -45,6 +60,8 @@ def create_jwt_with_ttl(user_id: str, ttl_min: int) -> str:
 def verify_jwt(token: str) -> Optional[Dict[str, Any]]:
     """Verify and decode a JWT token"""
     try:
+        if not JWT_SECRET:
+            raise RuntimeError("JWT not configured")
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
     except Exception:
         return None
