@@ -841,6 +841,35 @@ GitHub Actions ワークフローにより自動デプロイ：
 - **APIキーの管理**: 本番環境では環境変数で管理し、ソースコードにコミットしない
 - **CORS設定**: 本番環境のドメインに合わせてCORS設定を調整
 - **ログレベル**: 本番環境では `LOG_LEVEL=INFO` に設定
+
+### 📜 ログ設定（Cloud Logging 対応 + DEBUG詳細）
+
+- `LOG_FORMAT`: 既定は `json`。`singleline` も選択可能
+  - `json`: Google Cloud structured logging。`trace/spanId/httpRequest` を含む（推奨）
+  - `singleline`: 1行テキスト。ローカルでの人間読み向け
+- `LOG_LEVEL`: `DEBUG` のときは、APIルート(`/api/*`)に対して以下も出力
+  - リクエストボディ（JSON または form）: サニタイズ＆トランケート済み
+  - レスポンスボディ（JSON のみ）: サニタイズ＆トランケート済み
+
+サニタイズ: `password/token/authorization/api_key/secret/jwt` を含むキーは `***` に置換。長文は自動的に短縮されます（`server/utils/data_processing.py`）。
+
+有効化例（ローカル開発）:
+
+```bash
+# サーバー
+export FLASK_ENV=development
+export LOG_FORMAT=json        # または singleline
+export LOG_LEVEL=DEBUG        # ボディ出力を有効化
+export JWT_SECRET=dev-secret-change-me
+python3 server/app.py
+
+# 検証
+curl -H 'Content-Type: application/json' \
+     -d '{"ping":"pong","password":"secret"}' \
+     http://localhost:8080/api/health
+```
+
+Cloud Run では `LOG_FORMAT=json` 推奨。`X-Cloud-Trace-Context` ヘッダがある場合、`trace/spanId` が自動で付与され Cloud Logging と相関されます。レスポンスヘッダ `X-Trace-Id` でも追跡可能です。
 - **Firestore Rules**: セキュリティルールを適切に設定
 
 ## 🛠️ 開発ガイドライン

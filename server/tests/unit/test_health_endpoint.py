@@ -98,6 +98,17 @@ class TestHealthEndpoint:
         assert 'jwt_configured' in data
         assert data['jwt_configured'] is True  # Should be True from test setup
 
+    def test_trace_header_and_response_x_trace_id(self, client):
+        """When X-Cloud-Trace-Context is provided, response should include X-Trace-Id and succeed."""
+        hdr = {
+            'X-Cloud-Trace-Context': '105445aa7843bc8bf206b12000100000/123;o=1',
+            'User-Agent': 'pytest-agent',
+        }
+        resp = client.get('/api/health', headers=hdr)
+        assert resp.status_code == 200
+        # Our middleware echoes a correlation header for API routes
+        assert resp.headers.get('X-Trace-Id') is not None
+
     def test_health_endpoint_agent_metrics(self, client):
         """Test health endpoint includes agent metrics"""
         response = client.get('/api/health')

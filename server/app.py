@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from google.cloud import firestore
 import uuid
 from copy import deepcopy
+from utils.data_processing import snip_json
 
 # Add shared module to path  
 _this_dir = os.path.dirname(__file__)
@@ -27,7 +28,12 @@ for _p in _candidate_shared:
         sys.path.append(_p)
 
 try:  # prefer real shared module
-    from logging_config import configure_basic_cloud_logging, enforce_single_line_all  # type: ignore
+    from logging_config import (
+        configure_basic_cloud_logging,
+    enforce_single_line_all,
+        configure_gcp_json_logging,
+    enforce_json_all,
+    )  # type: ignore
 except Exception:  # fallback if not present (logging_config missing)
     # shared/logging_config.py がコンテナに存在しない場合のフォールバック
     import logging as _logging
@@ -105,11 +111,17 @@ else:
 # Create Flask app
 app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/static')
 
-# Cloud-friendly logging setup 
-LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
+# Cloud-friendly logging setup
+_default_level = "DEBUG" if (ENV or "").lower() == "development" else "INFO"
+LOG_LEVEL = (os.getenv("LOG_LEVEL") or _default_level).upper()
+LOG_FORMAT = (os.getenv("LOG_FORMAT") or "json").lower()  # singleline|json
 try:
-    configure_basic_cloud_logging(level_name=LOG_LEVEL, force=True)
-    enforce_single_line_all(LOG_LEVEL)
+    if LOG_FORMAT == 'json':
+        configure_gcp_json_logging(level_name=LOG_LEVEL, force=True, labels={'service': 'server'})
+        enforce_json_all(LOG_LEVEL)
+    else:
+        configure_basic_cloud_logging(level_name=LOG_LEVEL, force=True)
+        enforce_single_line_all(LOG_LEVEL)
 except Exception:
     configure_basic_cloud_logging(level_name="INFO", force=True)
     try:
@@ -251,11 +263,59 @@ app.AGENT_JSON_FAIL = 0
 
 @app.before_request
 def _start_timer():
+    # If debug, capture request body snapshot for logging (small, sanitized)
+    try:
+        if logger.isEnabledFor(logging.DEBUG) and request.path.startswith('/api/'):
+            # Attempt to parse JSON with a small max content length guard
+            body_text = None
+            if request.method in ('POST', 'PUT', 'PATCH'):
+                try:
+                    if request.is_json:
+                        body_text = snip_json(request.get_json(silent=True) or {})
+                    else:
+                        body_text = snip_json(request.form.to_dict() or {})
+                except Exception:
+                    body_text = None
+            request._body_snip = body_text
+    except Exception:
+        pass
     """Start request timing and generate trace ID"""
     try:
         request._start_time = monotonic()
     except Exception:
         request._start_time = None
+    # Prefer Cloud Trace header if present: X-Cloud-Trace-Context: TRACE_ID/SPAN_ID;o=1
+    try:
+        hdr = request.headers.get('X-Cloud-Trace-Context')
+        gcp_trace_id = None
+        gcp_span_id = None
+        gcp_sampled = None
+        if hdr:
+            # Expected format: 32-hex/span;o=1
+            # e.g., 105445aa7843bc8bf206b12000100000/1;o=1
+            parts = hdr.split(';')
+            trace_span = parts[0]
+            opts = parts[1] if len(parts) > 1 else ''
+            if '/' in trace_span:
+                t, s = trace_span.split('/', 1)
+                gcp_trace_id = t.strip()
+                gcp_span_id = s.strip()
+            else:
+                gcp_trace_id = trace_span.strip()
+            if 'o=' in opts:
+                try:
+                    gcp_sampled = opts.split('o=')[1].strip()
+                    gcp_sampled = True if gcp_sampled == '1' else False
+                except Exception:
+                    gcp_sampled = None
+        request._gcp_trace_id = gcp_trace_id
+        request._gcp_span_id = gcp_span_id
+        request._trace_sampled = gcp_sampled
+    except Exception:
+        request._gcp_trace_id = None
+        request._gcp_span_id = None
+        request._trace_sampled = None
+    # Local fallback trace id for correlation across app logs
     try:
         request._trace_id = f"{random.getrandbits(64):016x}"
     except Exception:
@@ -270,13 +330,104 @@ def _log_request(resp):  # type: ignore
             dur_ms = (monotonic() - request._start_time) * 1000
         path = request.path
         if path.startswith("/api/"):
-            tid = getattr(request, "_trace_id", None)
+            # Prefer GCP trace IDs for correlation
+            gcp_trace = getattr(request, '_gcp_trace_id', None)
+            gcp_span = getattr(request, '_gcp_span_id', None)
+            tid = gcp_span or getattr(request, "_trace_id", None)
             if tid:
-                resp.headers["X-Trace-Id"] = tid
-            logger.info(f"HTTP {request.method} {path} -> {resp.status_code} {int(dur_ms or 0)}ms trace={tid}")
+                resp.headers["X-Trace-Id"] = str(tid)
+
+            # If JSON logging, emit structured access log with httpRequest
+            if (os.getenv('LOG_FORMAT', 'singleline').lower() == 'json'):
+                http_req = {
+                    'requestMethod': request.method,
+                    'requestUrl': request.base_url,
+                    'status': resp.status_code,
+                    'userAgent': request.headers.get('User-Agent'),
+                    'remoteIp': request.headers.get('X-Forwarded-For', request.remote_addr),
+                    'referer': request.referrer,
+                    'latency': f"{int((dur_ms or 0))}ms",
+                    'protocol': request.environ.get('SERVER_PROTOCOL'),
+                }
+                # Compose trace field if GCP project provided
+                project_id = os.getenv('GCP_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT')
+                trace_field = None
+                if project_id:
+                    trace_id_for_log = gcp_trace or getattr(request, '_trace_id', None)
+                    if trace_id_for_log:
+                        trace_field = f"projects/{project_id}/traces/{trace_id_for_log}"
+                # Optionally attach sanitized bodies at DEBUG level
+                request_body = getattr(request, '_body_snip', None) if logger.isEnabledFor(logging.DEBUG) else None
+                response_body = None
+                if logger.isEnabledFor(logging.DEBUG):
+                    try:
+                        if resp.is_json:
+                            response_body = snip_json(resp.get_json(silent=True) or {})
+                        else:
+                            response_body = None
+                    except Exception:
+                        response_body = None
+
+                logger.info(
+                    "request",
+                    extra={
+                        'trace': trace_field,
+                        'spanId': gcp_span or getattr(request, '_trace_id', None),
+                        'trace_sampled': getattr(request, '_trace_sampled', True) if getattr(request, '_trace_sampled', None) is not None else True,
+                        'httpRequest': http_req,
+                        'labels': {'route': path},
+                        'requestBody': request_body,
+                        'responseBody': response_body,
+                    },
+                )
+            else:
+                logger.info(f"HTTP {request.method} {path} -> {resp.status_code} {int(dur_ms or 0)}ms trace={tid}")
+                if logger.isEnabledFor(logging.DEBUG):
+                    try:
+                        req_body = getattr(request, '_body_snip', None)
+                        if req_body is not None:
+                            logger.debug(f"HTTP request body: {req_body} trace={tid}")
+                    except Exception:
+                        pass
+                    try:
+                        if resp.is_json:
+                            resp_body = snip_json(resp.get_json(silent=True) or {})
+                            logger.debug(f"HTTP response body: {resp_body} trace={tid}")
+                    except Exception:
+                        pass
     except Exception:
         pass
     return resp
+
+# Request-scoped log filter to inject trace/span for downstream logs
+class _RequestContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            gcp_trace = getattr(request, '_gcp_trace_id', None)
+            gcp_span = getattr(request, '_gcp_span_id', None)
+            tid = gcp_span or getattr(request, '_trace_id', None)
+        except Exception:
+            gcp_trace = None
+            tid = None
+        if gcp_trace or tid:
+            project_id = os.getenv('GCP_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT')
+            # use gcp trace id if present, else fallback tid (local)
+            trace_id_for_log = gcp_trace or getattr(request, '_trace_id', None)
+            trace_field = f"projects/{project_id}/traces/{trace_id_for_log}" if (project_id and trace_id_for_log) else None
+            if trace_field:
+                setattr(record, 'trace', trace_field)
+            setattr(record, 'spanId', tid)
+            # keep sampled True by default for app logs
+            sampled = getattr(request, '_trace_sampled', None)
+            setattr(record, 'trace_sampled', bool(sampled) if sampled is not None else True)
+        # attach minimal labels
+        if not hasattr(record, 'labels'):
+            setattr(record, 'labels', {'service': 'server'})
+        return True
+
+# Attach filter to all handlers
+for h in logging.getLogger().handlers:
+    h.addFilter(_RequestContextFilter())
 
 # Register blueprints
 from blueprints.health import health_bp
