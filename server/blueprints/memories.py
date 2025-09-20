@@ -13,6 +13,7 @@ from datetime import datetime
 from google.cloud import firestore
 
 from utils.auth import claims_or_dev
+from utils.data_processing import sanitize_title
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ def memories_collection():
                     out = {
                         'id': getattr(d, 'id', None),
                         'plan_id': data.get('plan_id'),
+                        'title': data.get('title'),
                         'images': data.get('images') or [],
                         'video_jobs': data.get('video_jobs') or [],
                         'trip_start_date': data.get('trip_start_date'),
@@ -84,12 +86,64 @@ def memories_collection():
         return jsonify({"error": "plan_id_required"}), 400
 
     # Normalize images: take up to 3 base64 images
+    def _resize_image_if_needed(b64: str, mime: str, max_w: int = 1280, max_h: int = 720) -> tuple[str, str] | tuple[None, None]:
+        try:
+            import base64, io
+            from PIL import Image, ImageOps  # type: ignore
+            # Strip data URL prefix if present
+            header = None
+            if b64.startswith('data:'):
+                try:
+                    header, b64 = b64.split(',', 1)
+                except Exception:
+                    header = None
+            raw = base64.b64decode(b64)
+            with Image.open(io.BytesIO(raw)) as im:
+                im.load()
+                w, h = im.size
+                # Decide target format (supported only)
+                use_jpeg = (mime or '').lower() in ('image/jpeg', 'image/jpg', 'jpeg', 'jpg')
+                target_fmt = 'JPEG' if use_jpeg else 'PNG'
+                new_mime = 'image/jpeg' if use_jpeg else 'image/png'
+
+                # Prepare image mode for target format
+                if target_fmt == 'JPEG':
+                    # JPEG doesn't support alpha; composite on white
+                    if im.mode in ('RGBA', 'LA'):
+                        bg = Image.new('RGB', im.size, (255, 255, 255))
+                        tmp = im.convert('RGBA') if im.mode != 'RGBA' else im
+                        bg.paste(tmp, mask=tmp.split()[-1])
+                        im = bg
+                    else:
+                        im = im.convert('RGB')
+                else:
+                    # PNG can keep alpha; normalize palette
+                    if im.mode in ('P',):
+                        im = im.convert('RGBA')
+
+                # Resize if larger than box, otherwise keep original size
+                if w > max_w or h > max_h:
+                    im = ImageOps.contain(im, (max_w, max_h), method=Image.LANCZOS)
+
+                out = io.BytesIO()
+                if target_fmt == 'JPEG':
+                    im.save(out, format='JPEG', quality=85, optimize=True)
+                else:
+                    im.save(out, format='PNG', optimize=True)
+                out_b64 = base64.b64encode(out.getvalue()).decode('utf-8')
+                return (out_b64, new_mime)
+        except Exception:
+            return (b64, mime)
+
     norm_images = []
     for img in images[:3]:
         if isinstance(img, dict) and isinstance(img.get('image_base64'), str):
+            mime = img.get('image_mime_type') if isinstance(img.get('image_mime_type'), str) else 'image/png'
+            b64_in = img.get('image_base64')
+            b64_out, mime_out = _resize_image_if_needed(b64_in, mime)
             norm_images.append({
-                'image_base64': img.get('image_base64'),
-                'image_mime_type': img.get('image_mime_type') if isinstance(img.get('image_mime_type'), str) else 'image/png'
+                'image_base64': b64_out,
+                'image_mime_type': mime_out,
             })
 
     doc = {
@@ -100,11 +154,13 @@ def memories_collection():
         'created_at': firestore.SERVER_TIMESTAMP,
         'updated_at': firestore.SERVER_TIMESTAMP,
     }
-    # Try to pull text/summary/itinerary from the linked plan as snapshot fields
+    # Try to pull title/text/summary/itinerary from the linked plan as snapshot fields
     try:
         plan_snap = user_ref.collection('plans').document(plan_id).get(timeout=5)
         if getattr(plan_snap, 'exists', False):
             p = plan_snap.to_dict() or {}
+            if isinstance(p.get('title'), str):
+                doc['title'] = sanitize_title(p.get('title'))
             if isinstance(p.get('text'), str):
                 doc['text'] = p.get('text')
             if isinstance(p.get('summary'), str):
@@ -113,6 +169,9 @@ def memories_collection():
                 doc['itinerary'] = p.get('itinerary')
     except Exception:
         pass
+    # If client provided explicit title, prefer it (after sanitize)
+    if isinstance(payload.get('title'), str):
+        doc['title'] = sanitize_title(payload.get('title'))
     try:
         doc_ref = col_ref.document()
         doc_ref.set(doc, timeout=5)
@@ -142,6 +201,7 @@ def memories_collection():
         out = {
             'id': getattr(doc_ref, 'id', None),
             'plan_id': saved.get('plan_id'),
+            'title': saved.get('title'),
             'images': saved.get('images') or [],
             'video_jobs': saved.get('video_jobs') or video_jobs or [],
             'video_urls': saved.get('video_urls') or [],
@@ -182,6 +242,7 @@ def memories_item(mem_id: str):
         out = {
             'id': mem_id,
             'plan_id': data.get('plan_id'),
+            'title': data.get('title'),
             'images': data.get('images') or [],
             'video_jobs': data.get('video_jobs') or [],
             'video_urls': data.get('video_urls') or [],

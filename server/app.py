@@ -603,6 +603,7 @@ def create_dummy_user_if_needed():
                 memories_ref = doc_ref.collection('memories')
                 mem_doc = {
                     'plan_id': plan_ref.id,
+                    'title': plan_doc.get('title'),
                     'images': [ { 'image_base64': pixel_png_b64, 'image_mime_type': 'image/png' } ],
                     'itinerary': demo_itinerary,
                     'text': plan_doc['text'],
