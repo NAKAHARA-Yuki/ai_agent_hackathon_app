@@ -448,6 +448,21 @@ app.register_blueprint(plans_bp)
 app.register_blueprint(ai_bp)
 app.register_blueprint(memories_bp)
 
+# Static asset routes (serve built client files explicitly)
+@app.route('/assets/<path:filename>')
+def serve_asset(filename: str):
+    try:
+        return send_from_directory(app.static_folder, f'assets/{filename}')
+    except Exception:
+        return jsonify({'error': 'not_found'}), 404
+
+@app.route('/favicon.ico')
+def serve_favicon():
+    try:
+        return send_from_directory(app.static_folder, 'favicon.ico')
+    except Exception:
+        return jsonify({'error': 'not_found'}), 404
+
 # SPA history fallback (serve index.html for non-API routes)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -457,19 +472,8 @@ def spa_fallback(path: str):
     if path.startswith('api/'):
         return jsonify({'error': 'not_found'}), 404
     try:
-        # Serve known static assets under /static path
-        static_root = app.static_folder or ''
-        if path in ('favicon.ico',):
-            fp = os.path.join(static_root, path)
-            if os.path.isfile(fp):
-                return app.send_static_file(path)
-        if path.startswith('assets/'):
-            fp = os.path.join(static_root, path)
-            if os.path.isfile(fp):
-                # Prefix with static_url_path to satisfy Flask's static route
-                return app.send_static_file(path)
-        # Otherwise serve the SPA entrypoint
-        return app.send_static_file('index.html')
+        # For any other path, serve the SPA entrypoint explicitly from static folder
+        return send_from_directory(app.static_folder, 'index.html')
     except Exception:
         # As a last resort, return 404 to avoid masking real backend errors
         return jsonify({'error': 'not_found'}), 404
