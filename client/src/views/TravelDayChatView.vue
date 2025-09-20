@@ -156,18 +156,14 @@ onMounted(loadPlan)
     <!-- Header -->
     <div class="chat-header">
       <button class="back-btn" @click="goBack" aria-label="戻る">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M15 18l-6-6 6-6"/>
-        </svg>
+  <v-icon name="chevron-left" :size="20" color="#ffffff" aria-label="戻る" />
       </button>
       <div class="header-content">
         <h1>旅行当日モード</h1>
         <p v-if="plan">{{ plan.title }}</p>
       </div>
       <div class="travel-day-badge">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg>
+  <v-icon name="check-circle" :size="18" color="#ffffff" aria-label="当日モード" />
       </div>
     </div>
 
@@ -266,10 +262,7 @@ onMounted(loadPlan)
           class="send-btn"
           aria-label="送信"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M2 12l20-8-8 8-12 0z"/>
-            <path d="M14 12l8-8-8 8z"/>
-          </svg>
+          <v-icon name="send" :size="20" aria-label="送信" />
         </button>
       </div>
     </div>

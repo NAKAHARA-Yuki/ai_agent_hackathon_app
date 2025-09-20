@@ -7,12 +7,13 @@ import logging
 import random
 from pathlib import Path
 from time import monotonic
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify, send_from_directory, request
 from dotenv import load_dotenv
 from google.cloud import firestore
 import uuid
 from copy import deepcopy
+from utils.data_processing import snip_json
 
 # Add shared module to path  
 _this_dir = os.path.dirname(__file__)
@@ -27,7 +28,12 @@ for _p in _candidate_shared:
         sys.path.append(_p)
 
 try:  # prefer real shared module
-    from logging_config import configure_basic_cloud_logging, enforce_single_line_all  # type: ignore
+    from logging_config import (
+        configure_basic_cloud_logging,
+    enforce_single_line_all,
+        configure_gcp_json_logging,
+    enforce_json_all,
+    )  # type: ignore
 except Exception:  # fallback if not present (logging_config missing)
     # shared/logging_config.py がコンテナに存在しない場合のフォールバック
     import logging as _logging
@@ -105,11 +111,17 @@ else:
 # Create Flask app
 app = Flask(__name__, static_folder=str(_client_dist), static_url_path='/static')
 
-# Cloud-friendly logging setup 
-LOG_LEVEL = (os.getenv("LOG_LEVEL") or "INFO").upper()
+# Cloud-friendly logging setup
+_default_level = "DEBUG" if (ENV or "").lower() == "development" else "INFO"
+LOG_LEVEL = (os.getenv("LOG_LEVEL") or _default_level).upper()
+LOG_FORMAT = (os.getenv("LOG_FORMAT") or "json").lower()  # singleline|json
 try:
-    configure_basic_cloud_logging(level_name=LOG_LEVEL, force=True)
-    enforce_single_line_all(LOG_LEVEL)
+    if LOG_FORMAT == 'json':
+        configure_gcp_json_logging(level_name=LOG_LEVEL, force=True, labels={'service': 'server'})
+        enforce_json_all(LOG_LEVEL)
+    else:
+        configure_basic_cloud_logging(level_name=LOG_LEVEL, force=True)
+        enforce_single_line_all(LOG_LEVEL)
 except Exception:
     configure_basic_cloud_logging(level_name="INFO", force=True)
     try:
@@ -130,6 +142,11 @@ try:
 except Exception as e:
     logger.warning(f"Firestore client init failed: {e}")
     db = None
+
+# Force mock DB in development when explicitly requested
+if (os.getenv('USE_MOCK_DATA', 'false').lower() == 'true') and (ENV.lower() == 'development'):
+    logger.info("USE_MOCK_DATA=true detected. Forcing DevDB (in-memory) for local mock data.")
+    db = None  # trigger DevDB fallback below
 
 # Development fallback: in-memory DB when Firestore is unavailable
 if db is None and ENV.lower() == "development":
@@ -152,7 +169,12 @@ if db is None and ENV.lower() == "development":
             self.id = path[-1] if path else None
 
         def _now_iso(self):
-            return datetime.utcnow().isoformat() + "Z"
+            try:
+                jst = timezone(timedelta(hours=9))
+                return datetime.now(jst).isoformat()
+            except Exception:
+                # Fallback to UTC if timezone fails
+                return datetime.utcnow().isoformat() + "Z"
 
         def _resolve(self):
             cur = self._store
@@ -178,7 +200,11 @@ if db is None and ENV.lower() == "development":
             node = self._resolve()
             base = node.get("__doc__", {})
             for k, v in data.items():
-                base[k] = v
+                # replace Firestore server timestamps if present
+                if v is getattr(firestore, "SERVER_TIMESTAMP", object()):
+                    base[k] = self._now_iso()
+                else:
+                    base[k] = v
             node["__doc__"] = base
 
         def collection(self, name):
@@ -237,11 +263,59 @@ app.AGENT_JSON_FAIL = 0
 
 @app.before_request
 def _start_timer():
+    # If debug, capture request body snapshot for logging (small, sanitized)
+    try:
+        if logger.isEnabledFor(logging.DEBUG) and request.path.startswith('/api/'):
+            # Attempt to parse JSON with a small max content length guard
+            body_text = None
+            if request.method in ('POST', 'PUT', 'PATCH'):
+                try:
+                    if request.is_json:
+                        body_text = snip_json(request.get_json(silent=True) or {})
+                    else:
+                        body_text = snip_json(request.form.to_dict() or {})
+                except Exception:
+                    body_text = None
+            request._body_snip = body_text
+    except Exception:
+        pass
     """Start request timing and generate trace ID"""
     try:
         request._start_time = monotonic()
     except Exception:
         request._start_time = None
+    # Prefer Cloud Trace header if present: X-Cloud-Trace-Context: TRACE_ID/SPAN_ID;o=1
+    try:
+        hdr = request.headers.get('X-Cloud-Trace-Context')
+        gcp_trace_id = None
+        gcp_span_id = None
+        gcp_sampled = None
+        if hdr:
+            # Expected format: 32-hex/span;o=1
+            # e.g., 105445aa7843bc8bf206b12000100000/1;o=1
+            parts = hdr.split(';')
+            trace_span = parts[0]
+            opts = parts[1] if len(parts) > 1 else ''
+            if '/' in trace_span:
+                t, s = trace_span.split('/', 1)
+                gcp_trace_id = t.strip()
+                gcp_span_id = s.strip()
+            else:
+                gcp_trace_id = trace_span.strip()
+            if 'o=' in opts:
+                try:
+                    gcp_sampled = opts.split('o=')[1].strip()
+                    gcp_sampled = True if gcp_sampled == '1' else False
+                except Exception:
+                    gcp_sampled = None
+        request._gcp_trace_id = gcp_trace_id
+        request._gcp_span_id = gcp_span_id
+        request._trace_sampled = gcp_sampled
+    except Exception:
+        request._gcp_trace_id = None
+        request._gcp_span_id = None
+        request._trace_sampled = None
+    # Local fallback trace id for correlation across app logs
     try:
         request._trace_id = f"{random.getrandbits(64):016x}"
     except Exception:
@@ -256,30 +330,136 @@ def _log_request(resp):  # type: ignore
             dur_ms = (monotonic() - request._start_time) * 1000
         path = request.path
         if path.startswith("/api/"):
-            tid = getattr(request, "_trace_id", None)
+            # Prefer GCP trace IDs for correlation
+            gcp_trace = getattr(request, '_gcp_trace_id', None)
+            gcp_span = getattr(request, '_gcp_span_id', None)
+            tid = gcp_span or getattr(request, "_trace_id", None)
             if tid:
-                resp.headers["X-Trace-Id"] = tid
-            logger.info(f"HTTP {request.method} {path} -> {resp.status_code} {int(dur_ms or 0)}ms trace={tid}")
+                resp.headers["X-Trace-Id"] = str(tid)
+
+            # If JSON logging, emit structured access log with httpRequest
+            if (os.getenv('LOG_FORMAT', 'singleline').lower() == 'json'):
+                http_req = {
+                    'requestMethod': request.method,
+                    'requestUrl': request.base_url,
+                    'status': resp.status_code,
+                    'userAgent': request.headers.get('User-Agent'),
+                    'remoteIp': request.headers.get('X-Forwarded-For', request.remote_addr),
+                    'referer': request.referrer,
+                    'latency': f"{int((dur_ms or 0))}ms",
+                    'protocol': request.environ.get('SERVER_PROTOCOL'),
+                }
+                # Compose trace field if GCP project provided
+                project_id = os.getenv('GCP_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT')
+                trace_field = None
+                if project_id:
+                    trace_id_for_log = gcp_trace or getattr(request, '_trace_id', None)
+                    if trace_id_for_log:
+                        trace_field = f"projects/{project_id}/traces/{trace_id_for_log}"
+                # Optionally attach sanitized bodies at DEBUG level
+                request_body = getattr(request, '_body_snip', None) if logger.isEnabledFor(logging.DEBUG) else None
+                response_body = None
+                if logger.isEnabledFor(logging.DEBUG):
+                    try:
+                        if resp.is_json:
+                            response_body = snip_json(resp.get_json(silent=True) or {})
+                        else:
+                            response_body = None
+                    except Exception:
+                        response_body = None
+
+                logger.info(
+                    "request",
+                    extra={
+                        'trace': trace_field,
+                        'spanId': gcp_span or getattr(request, '_trace_id', None),
+                        'trace_sampled': getattr(request, '_trace_sampled', True) if getattr(request, '_trace_sampled', None) is not None else True,
+                        'httpRequest': http_req,
+                        'labels': {'route': path},
+                        'requestBody': request_body,
+                        'responseBody': response_body,
+                    },
+                )
+            else:
+                logger.info(f"HTTP {request.method} {path} -> {resp.status_code} {int(dur_ms or 0)}ms trace={tid}")
+                if logger.isEnabledFor(logging.DEBUG):
+                    try:
+                        req_body = getattr(request, '_body_snip', None)
+                        if req_body is not None:
+                            logger.debug(f"HTTP request body: {req_body} trace={tid}")
+                    except Exception:
+                        pass
+                    try:
+                        if resp.is_json:
+                            resp_body = snip_json(resp.get_json(silent=True) or {})
+                            logger.debug(f"HTTP response body: {resp_body} trace={tid}")
+                    except Exception:
+                        pass
     except Exception:
         pass
     return resp
+
+# Request-scoped log filter to inject trace/span for downstream logs
+class _RequestContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            gcp_trace = getattr(request, '_gcp_trace_id', None)
+            gcp_span = getattr(request, '_gcp_span_id', None)
+            tid = gcp_span or getattr(request, '_trace_id', None)
+        except Exception:
+            gcp_trace = None
+            tid = None
+        if gcp_trace or tid:
+            project_id = os.getenv('GCP_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT')
+            # use gcp trace id if present, else fallback tid (local)
+            trace_id_for_log = gcp_trace or getattr(request, '_trace_id', None)
+            trace_field = f"projects/{project_id}/traces/{trace_id_for_log}" if (project_id and trace_id_for_log) else None
+            if trace_field:
+                setattr(record, 'trace', trace_field)
+            setattr(record, 'spanId', tid)
+            # keep sampled True by default for app logs
+            sampled = getattr(request, '_trace_sampled', None)
+            setattr(record, 'trace_sampled', bool(sampled) if sampled is not None else True)
+        # attach minimal labels
+        if not hasattr(record, 'labels'):
+            setattr(record, 'labels', {'service': 'server'})
+        return True
+
+# Attach filter to all handlers
+for h in logging.getLogger().handlers:
+    h.addFilter(_RequestContextFilter())
 
 # Register blueprints
 from blueprints.health import health_bp
 from blueprints.auth import auth_bp
 from blueprints.quiz import quiz_bp
-from blueprints.maps import maps_bp
 from blueprints.personas import personas_bp
 from blueprints.plans import plans_bp
+from blueprints.memories import memories_bp
 from blueprints.ai import ai_bp
 
 app.register_blueprint(health_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(quiz_bp)
-app.register_blueprint(maps_bp)
 app.register_blueprint(personas_bp)
 app.register_blueprint(plans_bp)
 app.register_blueprint(ai_bp)
+app.register_blueprint(memories_bp)
+
+# Static asset routes (serve built client files explicitly)
+@app.route('/assets/<path:filename>')
+def serve_asset(filename: str):
+    try:
+        return send_from_directory(app.static_folder, f'assets/{filename}')
+    except Exception:
+        return jsonify({'error': 'not_found'}), 404
+
+@app.route('/favicon.ico')
+def serve_favicon():
+    try:
+        return send_from_directory(app.static_folder, 'favicon.ico')
+    except Exception:
+        return jsonify({'error': 'not_found'}), 404
 
 # SPA history fallback (serve index.html for non-API routes)
 @app.route('/', defaults={'path': ''})
@@ -290,19 +470,8 @@ def spa_fallback(path: str):
     if path.startswith('api/'):
         return jsonify({'error': 'not_found'}), 404
     try:
-        # Serve known static assets under /static path
-        static_root = app.static_folder or ''
-        if path in ('favicon.ico',):
-            fp = os.path.join(static_root, path)
-            if os.path.isfile(fp):
-                return app.send_static_file(path)
-        if path.startswith('assets/'):
-            fp = os.path.join(static_root, path)
-            if os.path.isfile(fp):
-                # Prefix with static_url_path to satisfy Flask's static route
-                return app.send_static_file(path)
-        # Otherwise serve the SPA entrypoint
-        return app.send_static_file('index.html')
+        # For any other path, serve the SPA entrypoint explicitly from static folder
+        return send_from_directory(app.static_folder, 'index.html')
     except Exception:
         # As a last resort, return 404 to avoid masking real backend errors
         return jsonify({'error': 'not_found'}), 404
@@ -379,6 +548,82 @@ def create_dummy_user_if_needed():
         }, timeout=5)
         
         logger.info(f"Dummy persona created for user '{dummy_user_id}'.")
+
+        # Seed demo plans and memories for local verification (only if none exist)
+        try:
+            plans_ref = doc_ref.collection('plans')
+            has_any_plan = False
+            try:
+                for _ in plans_ref.stream():
+                    has_any_plan = True
+                    break
+            except Exception:
+                has_any_plan = False
+
+            if not has_any_plan:
+                # Minimal 1x1 PNG base64 (transparent)
+                pixel_png_b64 = (
+                    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMA'
+                    'ASsJTYQAAAAASUVORK5CYII='
+                )
+
+                demo_itinerary = [
+                    { 'day': 1, 'items': [
+                        { 'time': '10:00', 'title': '浅草寺', 'detail': '歴史的なお寺を散策' },
+                        { 'time': '12:00', 'title': '仲見世通り', 'detail': '食べ歩きと土産' },
+                        { 'time': '15:00', 'title': 'スカイツリー', 'detail': '展望台からの景色' }
+                    ]},
+                    { 'day': 2, 'items': [
+                        { 'time': '09:30', 'title': '上野公園', 'detail': '美術館や動物園エリアを散策' },
+                        { 'time': '13:00', 'title': '秋葉原', 'detail': '電気街とカルチャー巡り' }
+                    ]}
+                ]
+
+                plan_doc = {
+                    'title': '東京シティブレイク 2日間',
+                    'text': '下町情緒と近代的な東京をバランスよく楽しむ2日間の旅。',
+                    'summary': '浅草・上野・スカイツリーなどを巡るシティブレイク。',
+                    'suggestions': [
+                        { 'title': '隅田川クルーズ', 'tags': ['クルーズ','夜景'], 'brief': '夕暮れ～夜にかけてのクルーズがおすすめ' }
+                    ],
+                    'itinerary': demo_itinerary,
+                    'places': [ { 'name': '浅草寺' }, { 'name': '東京スカイツリー' }, { 'name': '上野公園' } ],
+                    'route_info': None,
+                    'created_at': firestore.SERVER_TIMESTAMP,
+                    'updated_at': firestore.SERVER_TIMESTAMP,
+                    'source': 'chat',
+                    'status': 'confirmed',
+                    'image_base64': pixel_png_b64,
+                    'image_mime_type': 'image/png',
+                }
+
+                plan_ref = plans_ref.document()
+                plan_ref.set(plan_doc, timeout=5)
+                logger.info("Demo plan seeded for devuser.")
+
+                # Seed one memory linked to the plan
+                memories_ref = doc_ref.collection('memories')
+                mem_doc = {
+                    'plan_id': plan_ref.id,
+                    'title': plan_doc.get('title'),
+                    'images': [ { 'image_base64': pixel_png_b64, 'image_mime_type': 'image/png' } ],
+                    'itinerary': demo_itinerary,
+                    'text': plan_doc['text'],
+                    'summary': plan_doc['summary'],
+                    'trip_start_date': '2025-10-10',
+                    'trip_end_date': '2025-10-11',
+                    'video_jobs': [],
+                    'video_urls': [],
+                    'created_at': firestore.SERVER_TIMESTAMP,
+                    'updated_at': firestore.SERVER_TIMESTAMP,
+                }
+                mem_ref = memories_ref.document()
+                mem_ref.set(mem_doc, timeout=5)
+                logger.info("Demo memory seeded for devuser.")
+            else:
+                logger.info("Plans already exist for devuser; skipping demo seed.")
+        except Exception as se:
+            logger.warning(f"Demo seed failed: {se}")
 
     except Exception as e:
         logger.error(f"Failed to create/update dummy user or persona: {e}")

@@ -6,6 +6,8 @@ appears on a single line, making it easier to read and correlate in Cloud Loggin
 environments where multi-line logs can be split into separate entries.
 """
 import logging
+import json
+from datetime import datetime, timezone
 import re
 from typing import Iterable
 
@@ -153,4 +155,139 @@ def enforce_single_line_all(level_name="INFO"):
     ]:
         targets.append(logging.getLogger(name))
     _replace_handlers(targets, fmt, level)
+    return root
+
+
+def enforce_json_all(level_name: str = "INFO"):
+    """Apply GoogleCloudJsonFormatter to major loggers (gunicorn, werkzeug, etc.)."""
+    try:
+        level = getattr(logging, level_name.upper(), logging.INFO)
+    except Exception:
+        level = logging.INFO
+    fmt = GoogleCloudJsonFormatter()
+    # Root
+    root = logging.getLogger()
+    _replace_handlers([root], fmt, level)
+    # Common child loggers
+    targets = []
+    for name in [
+        'gunicorn.error', 'gunicorn.access', 'werkzeug', 'server', 'agent', 'uvicorn', 'uvicorn.error', 'uvicorn.access'
+    ]:
+        targets.append(logging.getLogger(name))
+    _replace_handlers(targets, fmt, level)
+    return root
+
+
+class GoogleCloudJsonFormatter(logging.Formatter):
+    """Structured JSON formatter tailored for Google Cloud Logging.
+
+    Emits JSON with fields recognized by Cloud Logging so entries are parsed
+    and correlated with Cloud Trace when 'trace' and 'spanId' are present.
+    """
+
+    # Map Python levelnames to GCP severities (same strings are fine)
+    def format(self, record: logging.LogRecord) -> str:  # noqa: D401
+        try:
+            message = record.getMessage()
+        except Exception:
+            message = getattr(record, 'message', str(record))
+
+        # Base payload
+        payload = {
+            'severity': record.levelname,
+            'message': message,
+            'logger': record.name,
+        }
+
+        # Attach trace correlation if available
+        trace = getattr(record, 'trace', None)
+        if trace:
+            payload['trace'] = trace
+        span_id = getattr(record, 'spanId', None) or getattr(record, 'span_id', None)
+        if span_id:
+            payload['spanId'] = str(span_id)
+        trace_sampled = getattr(record, 'trace_sampled', None)
+        if trace_sampled is not None:
+            payload['traceSampled'] = bool(trace_sampled)
+
+        # HTTP request structured info, if provided by the logger
+        http_req = getattr(record, 'httpRequest', None)
+        if isinstance(http_req, dict):
+            payload['httpRequest'] = http_req
+
+        # Optional bodies for debug tracing
+        req_body = getattr(record, 'requestBody', None)
+        if req_body is not None:
+            payload['requestBody'] = req_body
+        resp_body = getattr(record, 'responseBody', None)
+        if resp_body is not None:
+            payload['responseBody'] = resp_body
+
+        # Labels namespace for Cloud Logging
+        labels = getattr(record, 'labels', None)
+        if isinstance(labels, dict):
+            payload['logging.googleapis.com/labels'] = labels
+
+        # Source location (optional but helpful)
+        payload['logging.googleapis.com/sourceLocation'] = {
+            'file': record.pathname,
+            'line': record.lineno,
+            'function': record.funcName,
+        }
+
+        # Optional timestamp (platform assigns one; include for clarity in local runs)
+        try:
+            ts = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+            payload['time'] = ts
+        except Exception:
+            pass
+
+        try:
+            return json.dumps(payload, ensure_ascii=False)
+        except Exception:
+            # Fallback to single-line text if JSON encoding fails
+            txt = f"{record.levelname} {record.name} - {message}"
+            return txt.replace('\n', ' ').replace('\r', ' ')
+
+
+def configure_gcp_json_logging(level_name: str = "INFO", force: bool = True, labels: dict | None = None):
+    """Configure root logger to emit Google Cloud structured JSON to stdout.
+
+    Args:
+        level_name: log level
+        force: remove existing handlers
+        labels: optional constant labels to attach via formatter (applied via Filter)
+
+    Returns:
+        logging.Logger: configured root logger
+    """
+    try:
+        level = getattr(logging, level_name.upper(), logging.INFO)
+    except Exception:
+        level = logging.INFO
+
+    root = logging.getLogger()
+    if force:
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    handler.setFormatter(GoogleCloudJsonFormatter())
+    if labels:
+        class _ConstLabelsFilter(logging.Filter):
+            def filter(self, record: logging.LogRecord) -> bool:
+                # Don't overwrite if already set by request-scoped filter
+                if not hasattr(record, 'labels') or not isinstance(getattr(record, 'labels'), dict):
+                    setattr(record, 'labels', labels)
+                else:
+                    # Merge without clobbering existing keys
+                    merged = dict(labels)
+                    merged.update(getattr(record, 'labels'))
+                    setattr(record, 'labels', merged)
+                return True
+        handler.addFilter(_ConstLabelsFilter())
+
+    root.addHandler(handler)
+    root.setLevel(level)
     return root

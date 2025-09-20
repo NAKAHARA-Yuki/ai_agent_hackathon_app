@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -18,7 +18,7 @@ async function startQuiz() {
     quizStore.resetQuiz()
     router.push({ name: 'question', params: { questionNumber: 1 } })
   } else {
-    alert('クイズの読み込みに失敗しました。')
+    alert('旅行スタイル診断の読み込みに失敗しました。')
   }
   loading.value = false
 }
@@ -32,6 +32,20 @@ function prevStep() {
 }
 
 onMounted(async () => {
+  // このビューでは縦スクロールを無効化
+  const prevHtmlOverflowY = document.documentElement.style.overflowY
+  const prevBodyOverflowY = document.body.style.overflowY
+  document.documentElement.style.overflowY = 'hidden'
+  document.body.style.overflowY = 'hidden'
+  // フッターを非表示
+  document.body.classList.add('hide-footer')
+
+  onUnmounted(() => {
+    document.documentElement.style.overflowY = prevHtmlOverflowY
+    document.body.style.overflowY = prevBodyOverflowY
+    document.body.classList.remove('hide-footer')
+  })
+
   // すでに診断済みならメインへ
   if (auth.isAuthenticated) {
     try {
@@ -88,11 +102,28 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* グローバルの余白/高さのみ調整（スクロール制御はクラスで切替） */
+:global(html, body, #app) { height: 100%; margin: 0; }
+/* StartView表示中（body.hide-footer）だけスクロール抑制 */
+:global(body.hide-footer) { overflow: hidden; overscroll-behavior: none; }
+/* StartView表示中のみ（body.hide-footer）フッターを消す（実体は .footer-nav） */
+:global(body.hide-footer .footer-nav) { display: none !important; }
 .start {
   display: grid;
   place-items: center;
   padding: 16px;
-  height: 100%;
+  /* viewport基準で縦センタリングが効くようにする */
+  min-height: 100dvh; /* Safari等では 100vh の代わりに dvh が有効 */
+  /* フォールバック */
+  /* 固定配置で確実に全画面＆スクロール抑止 */
+  position: fixed;
+  inset: 0;
+  height: 100svh; /* 安定したビューポート高さ */
+  place-content: center;
+  justify-items: center; /* 横方向のセンタリングを明示 */
+  width: 100%;
+  box-sizing: border-box; /* paddingで縦スクロールが出ないようにする */
+  overflow: hidden; /* 内側のはみ出しでスクロールが発生しないように */
 }
 
 .hero {
@@ -102,6 +133,8 @@ onMounted(async () => {
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   width: min(960px, 100%);
+  margin: 0 auto; /* 念のため水平方向の中央寄せを明示 */
+  margin-inline: auto; /* 双方向対応の水平センタリング */
 }
 
 .hero h1 {
@@ -149,6 +182,9 @@ button.ghost {
 .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from,
 .fade-leave-to { opacity: 0; }
+
+/* スライド領域も横方向中央に */
+.slides { margin-inline: auto; }
 
 @media (max-width: 800px) {
   .hero { padding: 32px 18px; }

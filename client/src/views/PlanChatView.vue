@@ -195,6 +195,11 @@ async function savePlan() {
   try {
     // Ensure itinerary is preserved from either current or original plan
     const preservedItinerary = currentPlan.value.itinerary || originalPlan.value.itinerary || []
+    // Preserve hero image fields
+    const imgBase64 = currentPlan.value?.image_base64 || originalPlan.value?.image_base64 || null
+    const imgMime = currentPlan.value?.image_mime_type || originalPlan.value?.image_mime_type || (imgBase64 ? 'image/png' : null)
+    const imageUrl = currentPlan.value?.image_url || originalPlan.value?.image_url || null
+    const heroImage = currentPlan.value?.hero_image || originalPlan.value?.hero_image || null
     
     const planData = {
       title: currentPlan.value.title + ' (改善版)',
@@ -204,7 +209,13 @@ async function savePlan() {
       places: currentPlan.value.places || originalPlan.value.places || [],
       route_info: currentPlan.value.route_info || originalPlan.value.route_info,
       suggestions: currentPlan.value.suggestions || originalPlan.value.suggestions || [],
-      status: 'confirmed'
+      status: 'confirmed',
+      // hero image persistence
+      ...(imgBase64 ? { image_base64: imgBase64 } : {}),
+      ...(imgMime ? { image_mime_type: imgMime } : {}),
+      // pass-through for URL-based images (server may store if allowed)
+      ...(imageUrl ? { image_url: imageUrl } : {}),
+      ...(heroImage ? { hero_image: heroImage } : {})
     }
     
     await createPlan(planData, auth.authHeader())
@@ -260,9 +271,7 @@ onMounted(loadPlan)
     <!-- Header -->
     <div class="chat-header">
       <button class="back-btn" @click="goBack" aria-label="戻る">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M15 18l-6-6 6-6"/>
-        </svg>
+  <v-icon name="chevron-left" :size="20" aria-label="戻る" />
       </button>
       <div class="header-content">
         <h1>プランをブラッシュアップ</h1>
@@ -276,9 +285,7 @@ onMounted(loadPlan)
         <h2>{{ currentPlan.title }}</h2>
         <div class="header-right">
           <span v-if="hasChanges" class="modified-badge">更新済み</span>
-          <svg class="tap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
+          <v-icon class="tap-icon" name="chevron-right" :size="18" aria-label="詳細" />
         </div>
       </div>
       
@@ -371,10 +378,7 @@ onMounted(loadPlan)
           class="send-btn"
           aria-label="送信"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M2 12l20-8-8 8-12 0z"/>
-            <path d="M14 12l8-8-8 8z"/>
-          </svg>
+          <v-icon name="send" :size="20" aria-label="送信" />
         </button>
       </div>
       
@@ -397,19 +401,14 @@ onMounted(loadPlan)
         <div class="modal-header">
           <h2>{{ currentPlan?.title }}</h2>
           <button class="close-btn" @click="closeDetailModal" aria-label="閉じる">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
+            <v-icon name="close" :size="20" aria-label="閉じる" />
           </button>
         </div>
         
         <div class="modal-body">
           <div v-if="currentPlan">
             <div v-if="hasChanges" class="update-notice">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 12l2 2 4-4"/>
-                <circle cx="12" cy="12" r="10"/>
-              </svg>
+              <v-icon name="check-circle" :size="20" aria-label="更新" />
               このプランはブラッシュアップにより更新されました
             </div>
             

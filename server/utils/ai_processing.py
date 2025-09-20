@@ -12,6 +12,7 @@ from .data_processing import normalize_places_list, normalize_route_info, snip_j
 logger = logging.getLogger(__name__)
 
 # Gemini API configuration
+# Note: genai_configured は後方互換のため残すが、実呼び出しでは毎回環境変数を参照して検証する
 api_key = os.getenv("GEMINI_API_KEY")
 genai_configured = bool(api_key and api_key != "YOUR_API_KEY_HERE")
 
@@ -106,11 +107,13 @@ def call_gemini_api(prompt: str, model_name: str = 'gemini-2.5-flash') -> Dict[s
     """
     Gemini APIをRESTで呼び出す共通関数。503エラー時は自動リトライを行う。
     """
-    if not genai_configured:
+    # 毎回最新の環境変数を参照し、誤検知（プロセス起動後に設定変更された場合など）を避ける
+    _api_key = os.getenv("GEMINI_API_KEY")
+    if not _api_key or _api_key == "YOUR_API_KEY_HERE":
         raise Exception("GEMINI_API_KEY is not configured.")
 
     def _make_request():
-        url = f"https://aiplatform.googleapis.com/v1/publishers/google/models/{model_name}:generateContent?key={api_key}"
+        url = f"https://aiplatform.googleapis.com/v1/publishers/google/models/{model_name}:generateContent?key={_api_key}"
         headers = {
             'Content-Type': 'application/json',
         }

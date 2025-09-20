@@ -146,7 +146,13 @@ export async function listPlans(authHeader){
     try { return await realFetch('/api/plans', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } }) } catch(e){ throw e }
   }
   const data = lsGet('mockPlans', [])
-  return { items: data.map(p=>({ id:p.id, title:p.title, created_at:p.created_at, updated_at:p.updated_at })) }
+  return { items: data.map(p=>({ 
+    id:p.id, title:p.title, created_at:p.created_at, updated_at:p.updated_at,
+    // include image fields for UI parity
+    image_base64: p.image_base64||null, image_mime_type: p.image_mime_type||null,
+    image_url: p.image_url||null, hero_image: p.hero_image||null,
+    status: p.status||'confirmed'
+  })) }
 }
 
 export async function createPlan(payload, authHeader){
@@ -157,18 +163,29 @@ export async function createPlan(payload, authHeader){
   }
   const plans = lsGet('mockPlans', [])
   const now = new Date().toISOString()
-  const doc = { id: randomId(), title: payload.title || '旅行プラン', text: payload.text||'', places: payload.places||[], route_info: payload.route_info||null, summary: payload.summary||null, suggestions: payload.suggestions||[], itinerary: payload.itinerary||[], created_at: now, updated_at: now, status: payload.status || 'confirmed' }
+  const doc = { 
+    id: randomId(), 
+    title: payload.title || '旅行プラン', 
+    text: payload.text||'', 
+    places: payload.places||[], 
+    route_info: payload.route_info||null, 
+    summary: payload.summary||null, 
+    suggestions: payload.suggestions||[], 
+    itinerary: payload.itinerary||[], 
+    // hero image fields
+    image_base64: payload.image_base64||null,
+    image_mime_type: payload.image_mime_type||null,
+    image_url: payload.image_url||null,
+    hero_image: payload.hero_image||null,
+    created_at: now, 
+    updated_at: now, 
+    status: payload.status || 'confirmed' 
+  }
   plans.push(doc)
   lsSet('mockPlans', plans)
   return doc
 }
 
-export async function mapsKey(){
-  if (!useMock) {
-    try { return await realFetch('/api/maps-key') } catch { return { key:'', advanced:false, mapId:'' } }
-  }
-  return { key:'', advanced:false, mapId:'' }
-}
 
 export async function getActivePlan(authHeader){
   if (!useMock) {
@@ -217,6 +234,57 @@ export async function planDetail(planId, authHeader) {
     throw new Error('Plan not found')
   }
   return plan
+}
+
+// Memories API
+export async function listMemories(authHeader){
+  if (!useMock) {
+    return await realFetch('/api/memories', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } })
+  }
+  const data = lsGet('mockMemories', [])
+  return { items: data }
+}
+
+export async function createMemory(payload, authHeader){
+  if (!useMock) {
+    const resp = await fetch('/api/memories', { method:'POST', headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, body: JSON.stringify(payload) })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    return await resp.json()
+  }
+  const items = lsGet('mockMemories', [])
+  const now = new Date().toISOString()
+  const images = Array.isArray(payload.images)? payload.images.slice(0,3).map(img=>({
+    image_base64: img.image_base64||null,
+    image_mime_type: img.image_mime_type||'image/png'
+  })) : []
+  const doc = { id: randomId(), plan_id: payload.plan_id, images, created_at: now, updated_at: now }
+  items.push(doc)
+  lsSet('mockMemories', items)
+  return doc
+}
+
+export async function getMemory(id, authHeader){
+  if (!useMock) {
+    return await realFetch(`/api/memories/${id}`, { headers: { 'Content-Type': 'application/json', ...(authHeader||{}) } })
+  }
+  const items = lsGet('mockMemories', [])
+  const m = items.find(x => x.id === id)
+  if (!m) throw new Error('Not found')
+  return m
+}
+
+export async function getMemoryVideoStatus(id, authHeader){
+  if (!useMock) {
+    return await realFetch(`/api/memories/${id}/video-status`, { headers: { 'Content-Type': 'application/json', ...(authHeader||{}) } })
+  }
+  // Mock: mark all jobs done immediately if present
+  const items = lsGet('mockMemories', [])
+  const idx = items.findIndex(x => x.id === id)
+  if (idx === -1) return { video_jobs: [], all_done: true }
+  const jobs = (items[idx].video_jobs || []).map(j => ({ ...j, done: true }))
+  items[idx].video_jobs = jobs
+  lsSet('mockMemories', items)
+  return { video_jobs: jobs, all_done: true }
 }
 
 export async function deletePlan(planId, authHeader) {

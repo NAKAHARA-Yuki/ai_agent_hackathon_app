@@ -7,10 +7,14 @@ from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
 from mcp import StdioServerParameters
 log = logging.getLogger("agent.travel_planner")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 log.info(f"Travel Planner Agent model: {MODEL}")
 
 google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY")
+# Fallback for ADK/google-genai: expose GEMINI_API_KEY as GOOGLE_API_KEY when missing (local dev)
+if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
+	os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY") or ""
+	log.info("GOOGLE_API_KEY not set; using GEMINI_API_KEY as fallback for local dev (travel_planner)")
 print("Google Maps API Key:", google_maps_api_key)
 
 TRAVEL_PLANNER_INSTRUCTION = (

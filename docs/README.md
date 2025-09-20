@@ -18,9 +18,9 @@
 
 ### 🏗️ コンポーネント情報
 コンポーネントの詳細情報は以下に記載されています：
-- **[メイン README](../README.md)** - 全コンポーネントの概要（15個のビュー、10個のUIコンポーネント）
+- **[メイン README](../README.md)** - 全コンポーネントの概要（17個のビュー、11個のUIコンポーネント、7個のBlueprint）
 - **agent/** - エージェント関連ドキュメント（`../agent/` 内に配置）
-  - `agent/README.md` - ADKエージェントサービスの詳細
+  - `agent/README.md` - ADKマルチエージェントサービスの詳細（Root Coordinator + 4サブエージェント）
   - `agent/AGENT_FIX_NOTES.md` - エージェント設定修正履歴（Tool Configuration、Circular Import修正）
 - **server/** - バックエンド関連ドキュメント（`../server/` 内に配置）
   - `server/README_REFACTORING.md` - バックエンドリファクタリングサマリー（85.5%の複雑性削減）

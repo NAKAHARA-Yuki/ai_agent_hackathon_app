@@ -25,10 +25,7 @@
       
       <!-- Central brain icon -->
       <div class="brain-center">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" role="img" aria-label="AI brain thinking">
-          <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.5A2.5 2.5 0 0 1 2 17.5V9A2.5 2.5 0 0 1 4.5 6.5h1.75a2.5 2.5 0 0 1 2.5-2.5h.75z"/>
-          <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.5A2.5 2.5 0 0 0 22 17.5V9a2.5 2.5 0 0 0-2.5-2.5h-1.75a2.5 2.5 0 0 0-2.5-2.5h-.75z"/>
-        </svg>
+        <i class="mdi mdi-brain" aria-label="AI brain thinking"></i>
       </div>
     </div>
   </div>
@@ -179,11 +176,7 @@ const props = defineProps({
   will-change: transform, opacity;
 }
 
-.brain-center svg {
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
-}
+.brain-center .mdi { font-size: 40px; filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
 
 /* Animations */
 @keyframes glow-pulse {

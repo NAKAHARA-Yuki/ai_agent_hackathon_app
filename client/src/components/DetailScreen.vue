@@ -3,7 +3,7 @@
     <div class="hero" :style="{ '--hero-img': heroUrl }">
       <div class="hero-overlay"></div>
       <button class="back-btn" @click="$emit('go-back')" aria-label="戻る">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  <v-icon name="chevron-left" :size="20" aria-label="戻る" />
       </button>
       <div class="hero-text">
         <div class="hero-text-wrap">
@@ -44,17 +44,7 @@
       <!-- Move buttons below the itinerary section -->
       <div class="cta-section">
         <button class="cta secondary" @click="$emit('refine', plan)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 2v4"></path>
-            <path d="M16 2v4"></path>
-            <rect width="18" height="18" x="3" y="4" rx="2"></rect>
-            <path d="M3 10h18"></path>
-            <path d="M8 14h.01"></path>
-            <path d="M12 14h.01"></path>
-            <path d="M16 14h.01"></path>
-            <path d="M8 18h.01"></path>
-            <path d="M12 18h.01"></path>
-          </svg>
+          <v-icon name="calendar" :size="16" aria-label="カレンダー" />
           ブラッシュアップ
         </button>
         <button class="cta primary" @click="$emit('confirm', plan)">このプランを確定する</button>

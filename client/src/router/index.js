@@ -12,6 +12,8 @@ import PlansListView from '../views/PlansListView.vue'
 import TravelPlanWizardView from '../views/TravelPlanWizardView.vue'
 import InterestsView from '../views/InterestsView.vue'
 import TasksView from '../views/TasksView.vue'
+import MemoriesView from '../views/MemoriesView.vue'
+import MemoryDetailView from '../views/MemoryDetailView.vue'
 
 import PlanDetailView from '../views/PlanDetailView.vue'
 import PlanChatView from '../views/PlanChatView.vue'
@@ -58,6 +60,8 @@ const router = createRouter({
   { path: '/plans', name: 'plans', component: PlansListView }
   ,{ path: '/travel-wizard', name: 'travel-wizard', component: TravelPlanWizardView }
   ,{ path: '/tasks', name: 'tasks', component: TasksView }
+  ,{ path: '/memories', name: 'memories', component: MemoriesView }
+  ,{ path: '/memories/:id', name: 'memory-detail', component: MemoryDetailView }
 
   ,{ path: '/plans/:id', name: 'plan-detail', component: PlanDetailView }
   ,{ path: '/plans/:id/chat', name: 'plan-chat', component: PlanChatView }

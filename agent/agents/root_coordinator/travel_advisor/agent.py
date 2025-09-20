@@ -10,11 +10,16 @@ from mcp import StdioServerParameters
 
 log = logging.getLogger("agent.travel_advisor")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 log.info(f"Travel Advisor Agent model: {MODEL}")
 
 google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY")
 print("Google Maps API Key:", google_maps_api_key)
+
+# Fallback for ADK/google-genai API key in local dev
+if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
+	os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY") or ""
+	log.info("GOOGLE_API_KEY not set; using GEMINI_API_KEY as fallback for local dev (travel_advisor)")
 
 TRAVEL_ADVISOR_INSTRUCTION = (
 	"あなたは旅行当日サポート専門のAIアドバイザーです。必ず JSON オブジェクト 1 個【のみ】を出力します。JSON 以外の文字(挨拶/説明/コードフェンス/マークダウン)を前後に一切出さない。\n\n"
