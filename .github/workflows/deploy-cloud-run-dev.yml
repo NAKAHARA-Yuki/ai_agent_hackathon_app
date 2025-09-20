@@ -95,6 +95,13 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
+            --cpu 1 \
+            --memory 2Gi \
+            --min-instances 0 \
+            --max-instances 10 \
+            --concurrency 50 \
+            --timeout 600s \
+            --execution-environment gen2 \
             --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL=gemini-2.5-flash,GOOGLE_GENAI_USE_VERTEXAI=TRUE,VITE_GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       - name: Resolve Agent URL (dev)
@@ -181,7 +188,13 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --port=8080 \
-            --max-instances=2 \
+            --cpu=1 \
+            --memory=2Gi \
+            --min-instances=0 \
+            --max-instances=10 \
+            --concurrency=100 \
+            --timeout=600s \
+            --execution-environment=gen2 \
             --set-env-vars=APP_ENV=development,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }},AGENT_BASE_URL=${{ needs.agent-dev.outputs.agent_url }},GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }},ENABLE_VEO_VIDEO=${{ secrets.ENABLE_VEO_VIDEO }}
 
       - name: Resolve App URL (dev)
