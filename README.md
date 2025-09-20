@@ -7,10 +7,18 @@ AIを活用した旅行診断・プランニングアプリケーションです
 
 - **旅行スタイル診断**: 10の質問でユーザーの旅行嗜好を分析
 - **AIペルソナ生成**: 診断結果に基づいた専用AIアシスタントの作成
+- **マルチエージェントAIプランニング**: Google ADK基盤の階層型AIシステム
+  - **Root Coordinator**: リクエスト振り分け・ルーティング
+  - **Travel Planner**: 新規旅行プラン作成
+  - **Travel Modifier**: 既存プラン修正・最適化
+  - **Travel Advisor**: 当日サポート・リアルタイム対応
 - **インタラクティブ旅行プランニング**: AIとのチャット形式での旅行計画作成
+- **思い出アルバム機能**: 旅行写真の保存・管理
+- **Veo動画生成**: Vertex AI Veo 3.0による思い出動画自動生成
 - **マップ統合**: Google Maps連携による視覚的な旅行ルート表示
 - **輸送情報表示**: 移動手段のアイコン・ラベル・所要時間・距離の詳細表示
-- **マルチプラン提案**: 複数の旅行プランの比較・選択機能
+- **マルチプラン管理**: 複数の旅行プランの作成・保存・比較機能
+- **レスポンシブUI**: 17の画面・11のコンポーネントによる包括的UX
 
 ## 🏗️ システム構成
 
@@ -78,12 +86,46 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 ai_agent_hackathon_app/
 ├── client/                 # Vue.js フロントエンド
 │   ├── src/
-│   │   ├── views/         # ページコンポーネント（15個）
-│   │   ├── components/    # 再利用可能なUIコンポーネント（10個）
-│   │   ├── services/      # API通信サービス
-│   │   ├── stores/        # Pinia状態管理ストア
+│   │   ├── views/         # ページコンポーネント（17個）
+│   │   │   ├── StartView.vue          # ランディングページ
+│   │   │   ├── LoginView.vue          # ログイン画面
+│   │   │   ├── SignupView.vue         # ユーザー登録画面
+│   │   │   ├── MainView.vue           # メインダッシュボード
+│   │   │   ├── QuestionView.vue       # 診断質問画面
+│   │   │   ├── ResultView.vue         # 診断結果表示
+│   │   │   ├── InterestsView.vue      # 興味・関心設定
+│   │   │   ├── TravelPlanWizardView.vue # 旅行プラン作成ウィザード
+│   │   │   ├── PlansListView.vue      # 旅行プラン一覧
+│   │   │   ├── PlanDetailView.vue     # プラン詳細表示
+│   │   │   ├── PlanChatView.vue       # プランチャット
+│   │   │   ├── TravelDayChatView.vue  # 当日サポートチャット
+│   │   │   ├── TasksView.vue          # タスク管理
+│   │   │   ├── MemoriesView.vue       # 思い出アルバム一覧
+│   │   │   ├── MemoryDetailView.vue   # 思い出詳細（Veo動画表示）
+│   │   │   ├── MyPageView.vue         # ユーザーマイページ
+│   │   │   └── ProcessingView.vue     # 処理中表示
+│   │   ├── components/    # 再利用可能なUIコンポーネント（11個）
+│   │   │   ├── BackButton.vue         # 戻るボタン
+│   │   │   ├── DetailScreen.vue       # 詳細画面レイアウト
+│   │   │   ├── FooterNav.vue          # フッターナビゲーション
+│   │   │   ├── InputScreen.vue        # 入力画面共通レイアウト
+│   │   │   ├── LoadingScreen.vue      # ローディング表示
+│   │   │   ├── ProgressBar.vue        # プログレスバー
+│   │   │   ├── ResultChart.vue        # 診断結果チャート（Chart.js）
+│   │   │   ├── SessionTimeoutWarning.vue # セッション警告
+│   │   │   ├── SuggestionScreen.vue   # 提案画面レイアウト
+│   │   │   ├── Toast.vue              # トースト通知
+│   │   │   └── v-icon.vue             # アイコンコンポーネント
+│   │   ├── services/      # API通信サービス（1個）
+│   │   │   └── apiClient.js           # バックエンドAPI通信クライアント（axios使用）
+│   │   ├── stores/        # Pinia状態管理ストア（3個）
+│   │   │   ├── authStore.js           # 認証状態管理（JWT、ユーザー情報）
+│   │   │   ├── quizStore.js           # 診断・質問回答状態管理
+│   │   │   └── activePlanStore.js     # アクティブな旅行プラン状態管理
 │   │   ├── router/        # Vue Routerルーティング設定
+│   │   │   └── index.js               # ルート定義・認証ガード
 │   │   ├── assets/        # 静的アセット（画像、CSS等）
+│   │   ├── utils/         # ユーティリティ関数
 │   │   └── constants/     # 定数定義
 │   ├── public/            # パブリックアセット
 │   ├── index.html         # メインHTMLファイル
@@ -92,12 +134,15 @@ ai_agent_hackathon_app/
 │   └── vite.config.js     # Viteビルド設定
 ├── server/                # Flask バックエンド
 │   ├── app.py            # メインFlaskアプリケーション（388行、Blueprint統合）
-│   ├── blueprints/       # Flask Blueprintモジュール
+│   ├── blueprints/       # Flask Blueprintモジュール（8個）
 │   │   ├── auth.py       # 認証エンドポイント（signup, login, profile）
 │   │   ├── health.py     # ヘルスチェックエンドポイント
 │   │   ├── quiz.py       # 診断質問・分析エンドポイント
 │   │   ├── maps.py       # Google Maps統合エンドポイント
 │   │   ├── personas.py   # ユーザーペルソナ管理エンドポイント
+│   │   ├── plans.py      # 旅行プランCRUD操作エンドポイント
+│   │   ├── ai.py         # AIエージェントチャット・プラン生成エンドポイント
+│   │   └── memories.py   # 思い出（アルバム）管理・Veo動画生成エンドポイント
 │   │   ├── plans.py      # 旅行プランCRUD操作エンドポイント
 │   │   ├── ai.py         # AIエージェントチャット・プラン生成エンドポイント
 │   │   └── memories.py   # 思い出（アルバム）管理・Veo動画生成エンドポイント
@@ -793,9 +838,14 @@ pytest -v                 # 詳細出力
   - **レスポンス**: 構造化JSON（plans, suggestions, itinerary, route_info含む）
   - **フォールバック**: エージェント不可時Gemini API直接呼び出し
 - `POST /api/generate_plan` - Gemini旅行プラン生成（エージェント補助機能）
+- `POST /api/agent/generate_plan` - **ADKエージェント新規プラン生成**
+- `POST /api/agent/modify_plan` - **ADKエージェント既存プラン修正**
+- `POST /api/agent/day_advice` - **ADKエージェント当日アドバイス**
+- `POST /api/agent/generate_plan_image` - **ADKエージェント画像生成**
 - `GET /api/plans` - プラン一覧
 - `POST /api/plans` - プラン保存
 - `GET /api/plans/:id` - プラン詳細
+- `PATCH /api/plans/:id` - プラン更新
 - `DELETE /api/plans/:id` - プラン削除
 - `GET /api/active-plan` - アクティブプラン取得
 - `POST /api/active-plan` - アクティブプラン設定
@@ -808,7 +858,6 @@ pytest -v                 # 詳細出力
 - `GET /api/memories` - 思い出（アルバム）一覧取得
 - `POST /api/memories` - 新規思い出作成（画像アップロード・Veo動画生成）
 - `GET /api/memories/:id` - 思い出詳細取得
-- `DELETE /api/memories/:id` - 思い出削除
 - `GET /api/memories/:id/video-status` - Veo動画生成ステータス確認
 
 ## 🚢 デプロイメント
