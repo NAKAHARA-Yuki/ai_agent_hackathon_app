@@ -894,7 +894,7 @@ Cloud Run では `LOG_FORMAT=json` 推奨。`X-Cloud-Trace-Context` ヘッダが
 
 ## 📝 更新履歴
 
-### 最新更新 (2025年1月)
+### 最新更新 (2025年9月)
 - ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、8個のBlueprintと3個のユーティリティモジュールに分割
 - ✅ **思い出（アルバム）機能追加**: memories.py Blueprint による画像管理・Vertex AI Veo動画生成統合
 - ✅ **ADK マルチエージェント拡張**: 4つのサブエージェント（Planner, Modifier, Advisor, Day Advice）による階層型システム
