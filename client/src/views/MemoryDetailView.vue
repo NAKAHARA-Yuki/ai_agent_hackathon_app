@@ -142,27 +142,28 @@ const itineraryDays = computed(() => Array.isArray(mem.value?.itinerary) ? mem.v
         <div v-if="mem?.trip_start_date || mem?.trip_end_date" class="sub">期間: {{ fmtDate(mem?.trip_start_date) }} ~ {{ fmtDate(mem?.trip_end_date) }}</div>
       </div>
 
-      <!-- Videos moved to top -->
+      <!-- Videos & status -->
       <div class="videos">
         <h3 class="section-title">動画</h3>
+        <!-- Status inside the same card -->
+        <div v-if="(!allDone) && (videoJobs.length)" class="video-status">
+          <div class="status-line">
+            <span class="badge" :class="{done: allDone, pending: !allDone}">{{ allDone ? '動画作成完了' : '動画作成中です。この画面のまま３分程度お待ちください...' }}</span>
+          </div>
+          <ul class="jobs">
+            <li v-for="j in videoJobs" :key="j.index">
+              <strong>#{{ j.index+1 }}</strong>
+              <span v-if="j.done" class="ok">完了</span>
+              <span v-else class="wait">進行中</span>
+              <span v-if="j.error" class="err">（{{ j.error }}）</span>
+            </li>
+          </ul>
+        </div>
+        <!-- Videos grid -->
         <div v-if="videoUrls.length" class="vgrid">
           <video v-for="(url,i) in videoUrls" :key="i" controls :src="url" class="video-player"></video>
         </div>
-      </div>
-
-      <!-- Video status -->
-      <div v-if="(!allDone) && (videoJobs.length)" class="video-status">
-        <div class="status-line">
-          <span class="badge" :class="{done: allDone, pending: !allDone}">{{ allDone ? '動画作成完了' : '動画作成中です。この画面のまま３分程度お待ちください...' }}</span>
-        </div>
-        <ul class="jobs">
-          <li v-for="j in videoJobs" :key="j.index">
-            <strong>#{{ j.index+1 }}</strong>
-            <span v-if="j.done" class="ok">完了</span>
-            <span v-else class="wait">進行中</span>
-            <span v-if="j.error" class="err">（{{ j.error }}）</span>
-          </li>
-        </ul>
+        <div v-else-if="allDone" class="video-generating">動画はまだありません。</div>
       </div>
 
       <!-- Itinerary -->
