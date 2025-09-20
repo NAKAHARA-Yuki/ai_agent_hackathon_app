@@ -240,28 +240,28 @@ onMounted(fetchAll)
 </template>
 
 <style scoped>
-.memories-view { 
-  width:100%; 
-  height:100%; 
-  padding:20px 16px; 
-  box-sizing:border-box; 
-  overflow:auto; 
+.memories-view {
+  width:100%;
+  height:100%;
+  padding:20px 16px;
+  box-sizing:border-box;
+  overflow:auto;
   overflow-x: hidden; /* prevent horizontal scroll on mobile */
 }
 
-.header { 
-  display:flex; 
-  justify-content:flex-start; 
-  align-items:center; 
-  margin-bottom:16px; 
-  gap:12px; 
+.header {
+  display:flex;
+  justify-content:flex-start;
+  align-items:center;
+  margin-bottom:16px;
+  gap:12px;
   flex-wrap: wrap; /* allow wrapping on narrow screens to avoid overlap */
 }
 
-.header h1 { 
-  margin:0; 
-  font-size:20px; 
-  line-height:1.2; 
+.header h1 {
+  margin:0;
+  font-size:20px;
+  line-height:1.2;
   flex: 1 1 auto; /* take available space but allow shrink */
   min-width: 0; /* Allow text to shrink */
   white-space: nowrap; /* Keep on one line */
@@ -270,13 +270,13 @@ onMounted(fetchAll)
   writing-mode: horizontal-tb; /* Force horizontal layout */
 }
 
-.header .primary { 
-  font-size:14px; 
-  padding:8px 12px; 
-  height:36px; 
-  display:inline-flex; 
-  align-items:center; 
-  border-radius:10px; 
+.header .primary {
+  font-size:14px;
+  padding:8px 12px;
+  height:36px;
+  display:inline-flex;
+  align-items:center;
+  border-radius:10px;
   white-space:nowrap;
   flex-shrink: 0; /* Prevent button from shrinking */
   margin-left: auto; /* push button to the far right */
@@ -285,13 +285,13 @@ onMounted(fetchAll)
 .state { color:#475569; }
 .state.error { color:#b91c1c; }
 
-.primary { 
-  background: var(--color-primary, #2563eb); 
-  color:#fff; 
-  border:none; 
-  padding:10px 14px; 
-  border-radius:10px; 
-  cursor:pointer; 
+.primary {
+  background: var(--color-primary, #2563eb);
+  color:#fff;
+  border:none;
+  padding:10px 14px;
+  border-radius:10px;
+  cursor:pointer;
   transition: background-color 0.2s ease;
 }
 
@@ -299,13 +299,13 @@ onMounted(fetchAll)
   background: var(--color-primary-dark, #1d4ed8);
 }
 
-.secondary { 
-  background:#f1f5f9; 
-  color:#111827; 
-  border:none; 
-  padding:10px 14px; 
-  border-radius:10px; 
-  cursor:pointer; 
+.secondary {
+  background:#f1f5f9;
+  color:#111827;
+  border:none;
+  padding:10px 14px;
+  border-radius:10px;
+  cursor:pointer;
   transition: background-color 0.2s ease;
 }
 
@@ -314,32 +314,35 @@ onMounted(fetchAll)
 }
 
 .cards { margin-top:8px; }
-.empty { 
-  color:#64748b; 
+.empty {
+  color:#64748b;
   text-align: center;
   padding: 32px 16px;
   line-height: 1.6;
 }
 
-.grid { 
-  display:grid; 
-  grid-template-columns: repeat(auto-fit, minmax(280px, 320px)); 
-  gap:16px; 
+.grid {
+  display:grid;
+  /* 変更(1): カラムの最大幅を1frにすることで、柔軟なレイアウトに対応 */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap:16px;
   width: 100%;
   min-width: 0; /* avoid min-content overflow */
   justify-content: center; /* center columns horizontally */
+  justify-items: center; /* 追加: 各カードをセル内で中央に配置 */
   margin: 0 auto; /* center the grid container */
   max-width: 1200px; /* keep readable width on desktop */
 }
 
-.card { 
-  position:relative; 
+.card {
+  position:relative;
   width: 100%;
-  aspect-ratio:16/9; 
-  border-radius:14px; 
-  overflow:hidden; 
-  background: var(--hero-img) center/cover no-repeat; 
-  box-shadow:0 8px 24px rgba(0,0,0,0.08); 
+  max-width: 320px; /* 追加: カードが広がりすぎるのを防ぐ */
+  aspect-ratio:16/9;
+  border-radius:14px;
+  overflow:hidden;
+  background: var(--hero-img) center/cover no-repeat;
+  box-shadow:0 8px 24px rgba(0,0,0,0.08);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -349,79 +352,79 @@ onMounted(fetchAll)
   box-shadow:0 12px 32px rgba(0,0,0,0.12);
 }
 
-.card .overlay { 
-  position:absolute; 
-  inset:0; 
-  background: linear-gradient(to top, rgba(0,0,0,.6), rgba(0,0,0,.1)); 
+.card .overlay {
+  position:absolute;
+  inset:0;
+  background: linear-gradient(to top, rgba(0,0,0,.6), rgba(0,0,0,.1));
 }
 
-.card .text { 
-  position:absolute; 
-  left:12px; 
-  right:12px; 
-  bottom:12px; 
-  color:#fff; 
+.card .text {
+  position:absolute;
+  left:12px;
+  right:12px;
+  bottom:12px;
+  color:#fff;
 }
 
-.card .title { 
-  font-weight:700; 
+.card .title {
+  font-weight:700;
   text-shadow:0 1px 2px rgba(0,0,0,.6);
   margin-bottom: 4px;
 }
 
-.card .sub { 
-  font-size:12px; 
-  opacity:.95; 
-  margin-top:2px; 
+.card .sub {
+  font-size:12px;
+  opacity:.95;
+  margin-top:2px;
   text-shadow:0 1px 2px rgba(0,0,0,.6);
 }
 
-.card .count { 
-  font-size:12px; 
+.card .count {
+  font-size:12px;
   opacity:.95;
   margin-top: 2px;
 }
 
-.badge { 
-  display:inline-block; 
-  margin-top:6px; 
-  font-size:11px; 
-  padding:4px 8px; 
-  border-radius:999px; 
-  background:#f59e0b; 
-  color:#111; 
+.badge {
+  display:inline-block;
+  margin-top:6px;
+  font-size:11px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#f59e0b;
+  color:#111;
   font-weight: 600;
 }
 
 /* modal */
-.modal-backdrop { 
-  position:fixed; 
-  inset:0; 
-  background:rgba(0,0,0,0.5); 
-  display:grid; 
-  place-items:center; 
-  z-index:1000; 
+.modal-backdrop {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  display:grid;
+  place-items:center;
+  z-index:1000;
   padding: 16px;
   box-sizing: border-box;
 }
 
-.modal { 
-  background:#fff; 
-  width:min(640px, 100%); 
+.modal {
+  background:#fff;
+  width:min(640px, 100%);
   max-height: 90vh;
-  border-radius:12px; 
-  box-shadow:0 10px 30px rgba(0,0,0,0.2); 
-  overflow:hidden; 
+  border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.2);
+  overflow:hidden;
   display: flex;
   flex-direction: column;
 }
 
-.modal-header { 
-  display:flex; 
-  justify-content:space-between; 
-  align-items:center; 
-  padding:16px 20px; 
-  border-bottom:1px solid #e5e7eb; 
+.modal-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:16px 20px;
+  border-bottom:1px solid #e5e7eb;
   flex-shrink: 0;
 }
 
@@ -431,11 +434,11 @@ onMounted(fetchAll)
   font-weight: 600;
 }
 
-.modal-body { 
-  padding:20px; 
-  display:flex; 
-  flex-direction:column; 
-  gap:16px; 
+.modal-body {
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
   overflow-y: auto;
   overflow-x: hidden; /* prevent accidental horizontal scroll */
   flex: 1;
@@ -458,22 +461,22 @@ onMounted(fetchAll)
   box-sizing: border-box;
 }
 
-.modal-actions { 
-  display:flex; 
-  justify-content:flex-end; 
-  gap:12px; 
-  padding:16px 20px; 
-  border-top:1px solid #e5e7eb; 
+.modal-actions {
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  padding:16px 20px;
+  border-top:1px solid #e5e7eb;
   flex-shrink: 0;
 }
 
-.icon { 
-  background:#f1f5f9; 
-  border:none; 
-  border-radius:8px; 
-  width:32px; 
-  height:32px; 
-  cursor:pointer; 
+.icon {
+  background:#f1f5f9;
+  border:none;
+  border-radius:8px;
+  width:32px;
+  height:32px;
+  cursor:pointer;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -487,20 +490,20 @@ onMounted(fetchAll)
 
 .uploads { margin-top:8px; }
 
-.u-grid { 
-  display:grid; 
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); 
-  gap:12px; 
+.u-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap:12px;
 }
 
-.u-item { 
-  background:#f8fafc; 
-  border:1px solid #e5e7eb; 
-  border-radius:10px; 
-  padding:12px; 
-  min-height:80px; 
-  display:grid; 
-  place-items:center; 
+.u-item {
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:12px;
+  min-height:80px;
+  display:grid;
+  place-items:center;
   transition: border-color 0.2s ease;
 }
 
@@ -513,16 +516,16 @@ onMounted(fetchAll)
   width: 100%;
 }
 
-.dates { 
-  display:flex; 
-  flex-direction:column; 
-  gap:8px; 
+.dates {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
 }
 
-.date-grid { 
-  display:grid; 
-  grid-template-columns: repeat(2, 1fr); 
-  gap:12px; 
+.date-grid {
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:12px;
 }
 
 .date-grid > div {
@@ -539,31 +542,31 @@ onMounted(fetchAll)
 
 /* Mobile optimizations */
 @media (max-width: 640px){
-  .memories-view { 
-    padding:16px 12px; 
+  .memories-view {
+    padding:16px 12px;
   }
   
-  .header { 
+  .header {
     align-items: center;
     gap: 8px;
   }
   
-  .header h1 { 
-    font-size:18px; 
+  .header h1 {
+    font-size:18px;
   }
   
-  .header .primary { 
-    height:36px; 
-    font-size:12px; 
-    padding:8px 12px; 
+  .header .primary {
+    height:36px;
+    font-size:12px;
+    padding:8px 12px;
   }
   
-  .grid { 
-    grid-template-columns: 1fr; 
+  .grid {
+    /* 変更(2): grid-template-columns の指定は不要になったため削除 */
     gap: 12px;
   }
   
-  .modal { 
+  .modal {
     width: 100%; /* fill backdrop's inner box */
     margin: 0;    /* spacing is provided by backdrop padding */
   }
@@ -575,8 +578,8 @@ onMounted(fetchAll)
     padding-right: 16px;
   }
   
-  .date-grid { 
-    grid-template-columns: 1fr; 
+  .date-grid {
+    grid-template-columns: 1fr;
     gap: 8px;
   }
   
@@ -592,14 +595,14 @@ onMounted(fetchAll)
 }
 
 @media (max-width: 480px){
-  .memories-view { 
-    padding:12px 8px; 
+  .memories-view {
+    padding:12px 8px;
   }
   
-  .header .primary { 
-    height:34px; 
-    font-size:11px; 
-    padding:6px 10px; 
+  .header .primary {
+    height:34px;
+    font-size:11px;
+    padding:6px 10px;
   }
   
   .modal {
