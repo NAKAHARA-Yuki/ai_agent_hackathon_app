@@ -10,6 +10,7 @@ const auth = useAuthStore()
 const messages = ref([])
 const inputMessage = ref('')
 const loading = ref(false)
+const showQuickSuggestions = ref(true)
 const chatContainer = ref(null)
 const sessionId = ref('')
 const locationEnabled = ref(false)
@@ -112,6 +113,8 @@ function disableLocation() {
 
 async function sendMessage() {
   if (!inputMessage.value.trim() || loading.value) return
+  // ユーザーがプロンプト送信したのでクイックサジェストは非表示
+  showQuickSuggestions.value = false
   
   const userMessage = inputMessage.value.trim()
   inputMessage.value = ''
@@ -263,8 +266,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Quick Suggestions -->
-    <div v-if="messages.length <= 1" class="quick-suggestions">
+  <!-- Quick Suggestions -->
+  <div v-if="showQuickSuggestions" class="quick-suggestions">
       <p class="suggestions-label">よくある質問:</p>
       <div class="suggestions-grid">
         <button 
@@ -285,7 +288,6 @@ onMounted(() => {
         <textarea
           v-model="inputMessage"
           placeholder="メッセージを入力してください..."
-          @keydown.enter.prevent="!loading && sendMessage()"
           rows="1"
           class="message-input"
         ></textarea>
@@ -323,21 +325,28 @@ onMounted(() => {
 .general-chat {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* 親(.content)の高さにフィットさせ、外側スクロールを防ぐ */
+  height: 100%;
+  min-height: 0; /* 内側スクロールのため必須 */
   background: #f8fafc;
   overflow: hidden;
+  /* Center the chat panel on wider screens while keeping full width on mobile */
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
 }
 
 /* Header */
 .chat-header {
-  display: flex;
+  /* Gridで左に戻るボタン、中央にタイトル、右はスペーサー */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   color: white;
-  padding: 8px 16px;
-  padding-top: calc(8px + env(safe-area-inset-top));
-  min-height: 48px;
+  padding: 6px 10px;
+  padding-top: calc(6px + env(safe-area-inset-top));
+  min-height: 42px;
   flex-shrink: 0;
 }
 
@@ -345,7 +354,7 @@ onMounted(() => {
   background: rgba(255,255,255,0.2);
   border: none;
   border-radius: 8px;
-  padding: 8px;
+  padding: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -358,22 +367,23 @@ onMounted(() => {
 }
 
 .header-content {
-  flex: 1;
   text-align: center;
-  margin: 0 16px;
+  margin: 0; /* 正確に中央に配置 */
 }
 
 .header-content h1 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px; /* 少し低く見えるように縮小 */
   font-weight: 600;
+  line-height: 1.2;
 }
 
 
 
 /* Chat Container */
 .chat-container {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0; /* Flex子要素での正しいスクロール */
   overflow-y: auto;
   padding: 16px;
   padding-bottom: 8px;
