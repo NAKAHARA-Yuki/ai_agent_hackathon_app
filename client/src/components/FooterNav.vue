@@ -9,6 +9,7 @@ const active = computed(() => {
   return {
     home: p.startsWith('/main'),
     plan: p.startsWith('/travel-wizard'),
+    chat: p.startsWith('/chat'),
     schedule: p.startsWith('/plans'),
   memories: p.startsWith('/memories') || p.startsWith('/tasks')
   }
@@ -26,6 +27,10 @@ function go(name){ if(route.name!==name) router.push({ name }) }
     <button class="nav-item" :class="{active:active.plan}" @click="go('travel-wizard')" aria-label="プラン">
   <v-icon class="icon" name="wallet-travel" :size="22" aria-label="プラン" />
       <span class="label">プラン</span>
+    </button>
+    <button class="nav-item chat-item" :class="{active:active.chat}" @click="go('general-chat')" aria-label="チャット">
+  <v-icon class="icon" name="chat" :size="24" aria-label="チャット" />
+      <span class="label">チャット</span>
     </button>
     <button class="nav-item" :class="{active:active.schedule}" @click="go('plans')" aria-label="旅行予定">
   <v-icon class="icon" name="calendar" :size="22" aria-label="旅行予定" />
@@ -81,6 +86,20 @@ function go(name){ if(route.name!==name) router.push({ name }) }
 .nav-item.active { 
   color: var(--color-primary); 
   background: linear-gradient(to top, #eef4ff, rgba(238,244,255,0)); 
+}
+
+.nav-item.chat-item {
+  position: relative;
+}
+
+.nav-item.chat-item .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.nav-item.chat-item.active {
+  background: linear-gradient(to top, #dcfce7, rgba(220,252,231,0));
+  color: #16a34a;
 }
 
 .nav-item:not(.active):hover { background: rgba(0,0,0,0.05); }
