@@ -141,6 +141,46 @@ export async function dayAdvice({ plan, user_message, current_context, session_i
   }
 }
 
+export async function generalChat({ message, user_id, session_id, location, authHeader }){
+  if (!useMock) {
+    const payload = { message, user_id, session_id }
+    if (location) {
+      payload.location = location
+    }
+    const data = await realFetch('/api/agent/general_chat', { 
+      method:'POST', 
+      headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, 
+      body: JSON.stringify(payload) 
+    })
+    if (import.meta.env.DEV) {
+      try { console.log('[generalChat response]', data) } catch {}
+    }
+    return data
+  }
+  // Mock: Return location-aware response if location provided
+  await new Promise(r=>setTimeout(r, 600))
+  const locNote = (location && location.latitude && location.longitude)
+    ? `（現在位置: lat=${location.latitude}, lng=${location.longitude}）`
+    : ''
+  const messageOut = `「${message}」についてのご案内です。${locNote}`.trim()
+  return {
+    message: messageOut,
+    places: [],
+    response_type: 'information',
+    route_info: null,
+    suggestions: [],
+    trace_id: Math.random().toString(16).slice(2, 18),
+    grounding_metadata: {
+      search_entry_point: {
+        rendered_content: `<div style="font-size:12px;color:#374151">検索結果の例: <a href="https://www.google.com/search?q=${encodeURIComponent(message)}" target="_blank" rel="noopener noreferrer">${message}</a></div>`
+      },
+      grounding_chunks: [],
+      grounding_supports: [],
+      retrieval_queries: []
+    }
+  }
+}
+
 export async function listPlans(authHeader){
   if (!useMock) {
     try { return await realFetch('/api/plans', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } }) } catch(e){ throw e }

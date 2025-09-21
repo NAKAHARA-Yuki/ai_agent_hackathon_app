@@ -252,7 +252,6 @@ onMounted(loadPlan)
         <textarea
           v-model="inputMessage"
           placeholder="旅行中のご質問をどうぞ..."
-          @keydown.enter.prevent="!loading && sendMessage()"
           rows="1"
           class="message-input"
         ></textarea>

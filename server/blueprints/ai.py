@@ -68,7 +68,7 @@ def mark_session_initialized(user_id: str, session_id: str):
 
 def normalize_grounding_meta(event: dict) -> dict:
     """Accepts an agent event and normalizes grounding metadata to snake_case keys.
-    Returns dict with keys: grounding_chunks, grounding_supports, search_entry_point.
+    Returns dict with keys: grounding_chunks, grounding_supports, search_entry_point, retrieval_queries.
     Handles both camelCase and snake_case structures.
     """
     try:
@@ -84,6 +84,10 @@ def normalize_grounding_meta(event: dict) -> dict:
         supports = meta.get('grounding_supports')
         if supports is None:
             supports = meta.get('groundingSupports')
+        # Retrieval queries (optional)
+        retrieval_queries = meta.get('retrieval_queries')
+        if retrieval_queries is None:
+            retrieval_queries = meta.get('retrievalQueries')
 
         # search entry point
         sep = meta.get('search_entry_point')
@@ -103,7 +107,8 @@ def normalize_grounding_meta(event: dict) -> dict:
         return {
             'grounding_chunks': chunks or [],
             'grounding_supports': supports or [],
-            'search_entry_point': sep or {}
+            'search_entry_point': sep or {},
+            'retrieval_queries': retrieval_queries or [],
         }
     except Exception:
         return {}
@@ -741,6 +746,148 @@ def agent_day_advice():
     except Exception:
         logger.exception("agent_day_advice error")
         return jsonify({"error": "internal_error"}), 500
+
+
+@ai_bp.post('/api/agent/general_chat')
+def general_chat():
+    """General chat endpoint for location-based queries and general travel assistance"""
+    try:
+        # Get user authentication
+        claims = claims_or_dev()
+        if not claims:
+            return jsonify({'reply': '認証が必要です。ログインしてから再試行してください。'}), 401
+        
+        req_user_id = claims['sub']
+        data = request.get_json() or {}
+        message = data.get('message', '')
+        req_session_id = data.get('session_id', 'default')
+        location = data.get('location', None)  # Optional location data
+        
+        tid = getattr(request, '_trace_id', None)
+        
+        if not message:
+            return jsonify({'reply': '何かご質問やご要望をお聞かせください。'}), 400
+        
+        # Add location context if provided
+        context_message = message
+        if location and isinstance(location, dict):
+            lat = location.get('latitude')
+            lng = location.get('longitude')
+            if lat and lng:
+                context_message = f"[位置情報: 緯度{lat}, 経度{lng}]\n{message}"
+        
+        try:
+            events = call_adk_agent_chat(
+                app_name='general_chat',
+                user_id=req_user_id,
+                session_id=req_session_id,
+                message_text=context_message,
+                timeout_sec=AGENT_HTTP_TIMEOUT,
+                base_url=AGENT_BASE_URL,
+                ensure_session=True,
+                prefix='general_chat\n',
+            )
+
+            # Join final model parts into text and try JSON passthrough to align with other agents
+            reply_text = ''
+            # Collect normalized grounding metadata from events
+            grounding_accum = {
+                'grounding_chunks': [],
+                'grounding_supports': [],
+                'search_entry_point': {},
+                'retrieval_queries': []
+            }
+            if isinstance(events, list) and events:
+                try:
+                    # Walk through events to find any grounding metadata
+                    for ev in events:
+                        nm = normalize_grounding_meta(ev or {})
+                        if not isinstance(nm, dict):
+                            continue
+                        # Extend lists if present
+                        if nm.get('grounding_chunks'):
+                            grounding_accum['grounding_chunks'].extend(nm.get('grounding_chunks') or [])
+                        if nm.get('grounding_supports'):
+                            grounding_accum['grounding_supports'].extend(nm.get('grounding_supports') or [])
+                        if nm.get('retrieval_queries'):
+                            grounding_accum['retrieval_queries'].extend(nm.get('retrieval_queries') or [])
+                        # Prefer last non-empty rendered_content and queries in search_entry_point
+                        sep = nm.get('search_entry_point') or {}
+                        if isinstance(sep, dict):
+                            if sep.get('rendered_content'):
+                                grounding_accum['search_entry_point']['rendered_content'] = sep.get('rendered_content')
+                            if sep.get('web_search_queries'):
+                                grounding_accum['search_entry_point']['web_search_queries'] = sep.get('web_search_queries')
+                except Exception:
+                    pass
+                final = events[-1] or {}
+                content = final.get('content') or {}
+                if content.get('role') == 'model':
+                    reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+
+            if LOG_PAYLOADS:
+                try:
+                    logger.info(f"/api/agent/general_chat response: {snip_text(snip_json(events))} trace={tid}")
+                except Exception:
+                    logger.info(f"/api/agent/general_chat response: <unavailable> trace={tid}")
+
+            # Prefer JSON passthrough if the agent followed the JSON-only instruction
+            if reply_text:
+                obj = extract_json_passthrough(reply_text)
+                if isinstance(obj, dict) and obj:
+                    if tid:
+                        obj['trace_id'] = tid
+                    # Attach grounding metadata if any was captured
+                    try:
+                        if grounding_accum and any([
+                            grounding_accum.get('grounding_chunks'),
+                            grounding_accum.get('grounding_supports'),
+                            grounding_accum.get('retrieval_queries'),
+                            (grounding_accum.get('search_entry_point') or {}).get('rendered_content'),
+                            (grounding_accum.get('search_entry_point') or {}).get('web_search_queries'),
+                        ]):
+                            obj['grounding_metadata'] = grounding_accum
+                    except Exception:
+                        pass
+                    return jsonify(obj)
+
+            # Fallback to plain text
+            if not reply_text:
+                return jsonify({'reply': '応答の解釈に失敗しました。もう一度お試しください。'}), 502
+
+            resp = {'reply': reply_text}
+            # Attach grounding metadata also to text fallback response
+            try:
+                if grounding_accum and any([
+                    grounding_accum.get('grounding_chunks'),
+                    grounding_accum.get('grounding_supports'),
+                    grounding_accum.get('retrieval_queries'),
+                    (grounding_accum.get('search_entry_point') or {}).get('rendered_content'),
+                    (grounding_accum.get('search_entry_point') or {}).get('web_search_queries'),
+                ]):
+                    resp['grounding_metadata'] = grounding_accum
+            except Exception:
+                pass
+            if tid:
+                resp['trace_id'] = tid
+            return jsonify(resp)
+
+        except Exception:
+            logger.exception("ADK general_chat agent error")
+            return jsonify({
+                'reply': 'チャットサービスでエラーが発生しました。しばらく待ってから再試行してください。'
+            }), 500
+    
+    except Exception as e:
+        logger.exception("general_chat error")
+        resp = {'reply': 'エラーが発生しました。時間をおいて再試行してください。'}
+        try:
+            _tid = getattr(request, '_trace_id', None)
+            if _tid:
+                resp['trace_id'] = _tid
+        except Exception:
+            pass
+        return jsonify(resp), 500
 
 
 @ai_bp.post('/api/agent/generate_plan_image')

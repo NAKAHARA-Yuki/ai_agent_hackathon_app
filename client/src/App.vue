@@ -14,7 +14,14 @@ const route = useRoute()
 const showFooter = computed(() => {
   if(!isAuthed.value) return false
   const p = route.path
-  return p === '/' || p.startsWith('/main') || p.startsWith('/travel-wizard') || p.startsWith('/tasks') || p.startsWith('/memories') || p.startsWith('/plans') || p.startsWith('/results')
+  return p === '/'
+    || p.startsWith('/main')
+    || p.startsWith('/travel-wizard')
+    || p.startsWith('/tasks')
+    || p.startsWith('/memories')
+    || p.startsWith('/plans')
+    || p.startsWith('/results')
+    || p.startsWith('/chat')
 })
 const showMenu = ref(false)
 const menuRoot = ref(null)
@@ -294,6 +301,9 @@ onUnmounted(() => {
 :deep(.route-travel-wizard) .content, :deep(.content:has(> .wizard-wrap)) { padding:0; }
 /* travel-wizard では外側スクロールも抑止 */
 :deep(.content:has(> .wizard-wrap)) { overflow:hidden; }
+
+/* チャット画面では外側のスクロールを抑止し、ビュー内でスクロールさせる */
+:deep(.content:has(> .general-chat)) { overflow: hidden; padding-bottom: 0; }
 
 /* モバイルでの全画面対応 */
 @media (max-width: 768px) {
