@@ -138,7 +138,7 @@ async function sendMessage() {
       }
     }
     
-    const response = await generalChat({
+  const response = await generalChat({
       message: userMessage,
       user_id: auth.user?.id || 'u_local',
       session_id: sessionId.value,
@@ -147,6 +147,14 @@ async function sendMessage() {
     })
     
     // Add assistant response (prefer new JSON schema: message, with fallback to reply)
+    // Extract renderedContent if available
+    let renderedContent = null
+    try {
+      const gm = response.grounding_metadata || response.groundingMetadata || {}
+      const sep = gm.search_entry_point || gm.searchEntryPoint || {}
+      renderedContent = sep.rendered_content || sep.renderedContent || null
+    } catch (e) { /* noop */ }
+
     messages.value.push({
       id: Date.now() + 1,
       type: 'assistant',
@@ -157,7 +165,8 @@ async function sendMessage() {
       places: response.places || [],
       route_info: response.route_info || null,
       citations: response.citations || [],
-      grounding_html: response.grounding_html || null
+      grounding_html: response.grounding_html || null,
+      rendered_content: renderedContent
     })
   } catch (error) {
     console.error('Chat error:', error)
@@ -228,6 +237,8 @@ onMounted(() => {
         <div v-for="message in messages" :key="message.id" class="message" :class="message.type">
           <div class="message-content">
             <div class="message-text">{{ message.content }}</div>
+            <!-- Rendered content from GroundingMetadata (safe HTML assumed from Google SearchEntryPoint) -->
+            <div v-if="message.rendered_content" class="rendered-content" v-html="message.rendered_content"></div>
             
             <!-- Citations if provided -->
             <div v-if="message.citations && message.citations.length" class="message-citations">
@@ -452,6 +463,14 @@ onMounted(() => {
   font-size: 12px;
   opacity: 0.8;
   margin: 2px 0;
+}
+
+.rendered-content {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  font-size: 12px;
+  color: #374151;
 }
 
 /* Loading Animation */

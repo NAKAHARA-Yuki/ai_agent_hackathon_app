@@ -2,7 +2,7 @@ import os
 import logging
 from google.adk.agents import LlmAgent  # type: ignore
 # Tools
-from google.adk.tools import google_search  # type: ignore
+from google.adk.tools import google_search   # type: ignore
 
 log = logging.getLogger("agent.general_chat")
 
@@ -27,8 +27,10 @@ GENERAL_CHAT_INSTRUCTION = (
     "(EN Warning) Output exactly ONE raw JSON object only. No markdown headings/tables/fences. Any extra text may cause rejection."
 )
 
-# Initialize tools - use Google Search (ADK built-in)
-general_chat_agent = LlmAgent(
+
+# Initialize tools - using Google Search for real-time location info
+# Create the root agent
+root_agent = LlmAgent(
     name="general_chat",
     model=MODEL,
     description="General travel chat agent using Google Search for up-to-date info",
@@ -36,4 +38,4 @@ general_chat_agent = LlmAgent(
     tools=[google_search],
 )
 
-log.info(f"General Chat Agent initialized with {len(general_chat_agent.tools)} tool(s)")
+log.info(f"Root Agent initialized with {len(root_agent.tools)} tool(s)")

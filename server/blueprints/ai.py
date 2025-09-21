@@ -68,7 +68,7 @@ def mark_session_initialized(user_id: str, session_id: str):
 
 def normalize_grounding_meta(event: dict) -> dict:
     """Accepts an agent event and normalizes grounding metadata to snake_case keys.
-    Returns dict with keys: grounding_chunks, grounding_supports, search_entry_point.
+    Returns dict with keys: grounding_chunks, grounding_supports, search_entry_point, retrieval_queries.
     Handles both camelCase and snake_case structures.
     """
     try:
@@ -84,6 +84,10 @@ def normalize_grounding_meta(event: dict) -> dict:
         supports = meta.get('grounding_supports')
         if supports is None:
             supports = meta.get('groundingSupports')
+        # Retrieval queries (optional)
+        retrieval_queries = meta.get('retrieval_queries')
+        if retrieval_queries is None:
+            retrieval_queries = meta.get('retrievalQueries')
 
         # search entry point
         sep = meta.get('search_entry_point')
@@ -103,7 +107,8 @@ def normalize_grounding_meta(event: dict) -> dict:
         return {
             'grounding_chunks': chunks or [],
             'grounding_supports': supports or [],
-            'search_entry_point': sep or {}
+            'search_entry_point': sep or {},
+            'retrieval_queries': retrieval_queries or [],
         }
     except Exception:
         return {}
@@ -771,41 +776,9 @@ def general_chat():
             if lat and lng:
                 context_message = f"[位置情報: 緯度{lat}, 経度{lng}]\n{message}"
         
-        # Fallback to Gemini if agent not configured
-        if not agent_configured:
-            try:
-                if not genai_configured:
-                    return jsonify({
-                        'reply': 'AIサービスが設定されていません。管理者にお問い合わせください。',
-                        'citations': [],
-                        'grounding_html': None
-                    }), 503
-                
-                # Simple Gemini fallback for general chat
-                prompt = f"""
-                あなたは日本の旅行案内の専門家です。
-                位置情報が提供された場合は、その周辺の観光スポット、レストラン、交通情報を案内してください。
-                日本語で親しみやすく回答してください。
-                
-                ユーザーの質問: {context_message}
-                """
-                api_response = call_gemini_api(prompt)
-                reply = api_response['candidates'][0]['content']['parts'][0]['text']
-                
-                return jsonify({
-                    'reply': reply,
-                    'citations': [],
-                    'grounding_html': None
-                })
-            except Exception as e:
-                logger.exception("Gemini fallback error in general_chat")
-                return jsonify({
-                    'reply': 'AIサービスでエラーが発生しました。しばらく待ってから再試行してください。'
-                }), 500
-        
         try:
             events = call_adk_agent_chat(
-                app_name='root_coordinator',
+                app_name='general_chat',
                 user_id=req_user_id,
                 session_id=req_session_id,
                 message_text=context_message,
@@ -817,7 +790,36 @@ def general_chat():
 
             # Join final model parts into text and try JSON passthrough to align with other agents
             reply_text = ''
+            # Collect normalized grounding metadata from events
+            grounding_accum = {
+                'grounding_chunks': [],
+                'grounding_supports': [],
+                'search_entry_point': {},
+                'retrieval_queries': []
+            }
             if isinstance(events, list) and events:
+                try:
+                    # Walk through events to find any grounding metadata
+                    for ev in events:
+                        nm = normalize_grounding_meta(ev or {})
+                        if not isinstance(nm, dict):
+                            continue
+                        # Extend lists if present
+                        if nm.get('grounding_chunks'):
+                            grounding_accum['grounding_chunks'].extend(nm.get('grounding_chunks') or [])
+                        if nm.get('grounding_supports'):
+                            grounding_accum['grounding_supports'].extend(nm.get('grounding_supports') or [])
+                        if nm.get('retrieval_queries'):
+                            grounding_accum['retrieval_queries'].extend(nm.get('retrieval_queries') or [])
+                        # Prefer last non-empty rendered_content and queries in search_entry_point
+                        sep = nm.get('search_entry_point') or {}
+                        if isinstance(sep, dict):
+                            if sep.get('rendered_content'):
+                                grounding_accum['search_entry_point']['rendered_content'] = sep.get('rendered_content')
+                            if sep.get('web_search_queries'):
+                                grounding_accum['search_entry_point']['web_search_queries'] = sep.get('web_search_queries')
+                except Exception:
+                    pass
                 final = events[-1] or {}
                 content = final.get('content') or {}
                 if content.get('role') == 'model':
@@ -835,6 +837,18 @@ def general_chat():
                 if isinstance(obj, dict) and obj:
                     if tid:
                         obj['trace_id'] = tid
+                    # Attach grounding metadata if any was captured
+                    try:
+                        if grounding_accum and any([
+                            grounding_accum.get('grounding_chunks'),
+                            grounding_accum.get('grounding_supports'),
+                            grounding_accum.get('retrieval_queries'),
+                            (grounding_accum.get('search_entry_point') or {}).get('rendered_content'),
+                            (grounding_accum.get('search_entry_point') or {}).get('web_search_queries'),
+                        ]):
+                            obj['grounding_metadata'] = grounding_accum
+                    except Exception:
+                        pass
                     return jsonify(obj)
 
             # Fallback to plain text
@@ -842,6 +856,18 @@ def general_chat():
                 return jsonify({'reply': '応答の解釈に失敗しました。もう一度お試しください。'}), 502
 
             resp = {'reply': reply_text}
+            # Attach grounding metadata also to text fallback response
+            try:
+                if grounding_accum and any([
+                    grounding_accum.get('grounding_chunks'),
+                    grounding_accum.get('grounding_supports'),
+                    grounding_accum.get('retrieval_queries'),
+                    (grounding_accum.get('search_entry_point') or {}).get('rendered_content'),
+                    (grounding_accum.get('search_entry_point') or {}).get('web_search_queries'),
+                ]):
+                    resp['grounding_metadata'] = grounding_accum
+            except Exception:
+                pass
             if tid:
                 resp['trace_id'] = tid
             return jsonify(resp)

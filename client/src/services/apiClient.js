@@ -170,6 +170,14 @@ export async function generalChat({ message, user_id, session_id, location, auth
     route_info: null,
     suggestions: [],
     trace_id: Math.random().toString(16).slice(2, 18),
+    grounding_metadata: {
+      search_entry_point: {
+        rendered_content: `<div style="font-size:12px;color:#374151">検索結果の例: <a href="https://www.google.com/search?q=${encodeURIComponent(message)}" target="_blank" rel="noopener noreferrer">${message}</a></div>`
+      },
+      grounding_chunks: [],
+      grounding_supports: [],
+      retrieval_queries: []
+    }
   }
 }
 
