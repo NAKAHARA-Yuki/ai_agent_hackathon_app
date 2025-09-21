@@ -1,3 +1,2 @@
 httpx>=0.28.1,<1.0.0
-# ADK runtime (includes its own deps)
-google-adk>=1.10.0,<2.0.0
+google-adk==1.14.0

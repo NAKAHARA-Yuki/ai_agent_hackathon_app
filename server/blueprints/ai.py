@@ -803,10 +803,9 @@ def general_chat():
                     'reply': 'AIサービスでエラーが発生しました。しばらく待ってから再試行してください。'
                 }), 500
         
-        # Call general chat agent via ADK (root_coordinator with general_chat prefix)
         try:
             events = call_adk_agent_chat(
-                app_name='general_chat',
+                app_name='root_coordinator',
                 user_id=req_user_id,
                 session_id=req_session_id,
                 message_text=context_message,
@@ -816,7 +815,7 @@ def general_chat():
                 prefix='general_chat\n',
             )
 
-            # Join final model parts into plain text reply
+            # Join final model parts into text and try JSON passthrough to align with other agents
             reply_text = ''
             if isinstance(events, list) and events:
                 final = events[-1] or {}
@@ -830,13 +829,21 @@ def general_chat():
                 except Exception:
                     logger.info(f"/api/agent/general_chat response: <unavailable> trace={tid}")
 
+            # Prefer JSON passthrough if the agent followed the JSON-only instruction
+            if reply_text:
+                obj = extract_json_passthrough(reply_text)
+                if isinstance(obj, dict) and obj:
+                    if tid:
+                        obj['trace_id'] = tid
+                    return jsonify(obj)
+
+            # Fallback to plain text
             if not reply_text:
                 return jsonify({'reply': '応答の解釈に失敗しました。もう一度お試しください。'}), 502
 
             resp = {'reply': reply_text}
             if tid:
                 resp['trace_id'] = tid
-
             return jsonify(resp)
 
         except Exception:

@@ -43,6 +43,6 @@ root_agent = LlmAgent(
 	description="Coordinate requests to appropriate sub-agents (travel_planner, travel_modifier, travel_advisor, general_chat)",
 	instruction=ROOT_COORDINATOR_INSTRUCTION,
 	sub_agents=[travel_planner_agent, travel_modifier_agent, travel_advisor_agent, general_chat_agent],
-	tools=[],  # Root agent doesn't need direct tools, sub-agents handle them
+	tools=[],  
 )
 log.info(f"Root Coordinator Agent initialized with {len(root_agent.sub_agents)} sub-agent(s)")
