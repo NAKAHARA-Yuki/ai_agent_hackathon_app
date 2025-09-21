@@ -215,26 +215,6 @@ onMounted(() => {
       </button>
       <div class="header-content">
         <h1>チャット</h1>
-        <p>旅行に関するご質問をどうぞ</p>
-      </div>
-      <div class="location-toggle">
-        <button 
-          v-if="!locationEnabled"
-          @click="enableLocation"
-          :disabled="locationLoading"
-          class="location-btn enable"
-          aria-label="位置情報を有効にする"
-        >
-          <v-icon name="crosshairs-gps" :size="18" color="#ffffff" aria-label="位置情報" />
-        </button>
-        <button 
-          v-else
-          @click="disableLocation"
-          class="location-btn enabled"
-          aria-label="位置情報を無効にする"
-        >
-          <v-icon name="map-marker" :size="18" color="#ffffff" aria-label="位置情報有効" />
-        </button>
       </div>
     </div>
 
@@ -295,6 +275,23 @@ onMounted(() => {
           class="message-input"
         ></textarea>
         <button 
+          v-if="!locationEnabled"
+          @click="enableLocation"
+          :disabled="locationLoading"
+          class="location-btn enable"
+          aria-label="位置情報を有効にする"
+        >
+          <v-icon name="crosshairs-gps" :size="18" color="#6b7280" aria-label="位置情報" />
+        </button>
+        <button 
+          v-else
+          @click="disableLocation"
+          class="location-btn enabled"
+          aria-label="位置情報を無効にする"
+        >
+          <v-icon name="map-marker" :size="18" color="#16a34a" aria-label="位置情報有効" />
+        </button>
+        <button 
           @click="sendMessage" 
           :disabled="loading || !inputMessage.trim()"
           class="send-btn"
@@ -323,9 +320,9 @@ onMounted(() => {
   justify-content: space-between;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   color: white;
-  padding: 12px 16px;
-  padding-top: calc(12px + env(safe-area-inset-top));
-  min-height: 64px;
+  padding: 8px 16px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+  min-height: 48px;
   flex-shrink: 0;
 }
 
@@ -353,45 +350,11 @@ onMounted(() => {
 
 .header-content h1 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 
-.header-content p {
-  margin: 2px 0 0;
-  font-size: 12px;
-  opacity: 0.9;
-}
 
-.location-toggle {
-  display: flex;
-  align-items: center;
-}
-
-.location-btn {
-  background: rgba(255,255,255,0.2);
-  border: none;
-  border-radius: 8px;
-  padding: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.location-btn:hover {
-  background: rgba(255,255,255,0.3);
-}
-
-.location-btn.enabled {
-  background: rgba(34,197,94,0.8);
-}
-
-.location-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 /* Chat Container */
 .chat-container {
@@ -590,6 +553,39 @@ onMounted(() => {
   border-color: #3b82f6;
 }
 
+.location-btn {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.location-btn:hover:not(:disabled) {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.location-btn.enabled {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.location-btn.enabled:hover {
+  background: #dcfce7;
+}
+
+.location-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .send-btn {
   background: #3b82f6;
   border: none;
@@ -616,17 +612,13 @@ onMounted(() => {
 /* Mobile Optimizations */
 @media (max-width: 768px) {
   .chat-header {
-    padding: 8px 12px;
-    padding-top: calc(8px + env(safe-area-inset-top));
-    min-height: 56px;
+    padding: 6px 12px;
+    padding-top: calc(6px + env(safe-area-inset-top));
+    min-height: 44px;
   }
   
   .header-content h1 {
-    font-size: 16px;
-  }
-  
-  .header-content p {
-    font-size: 11px;
+    font-size: 15px;
   }
   
   .chat-container {
