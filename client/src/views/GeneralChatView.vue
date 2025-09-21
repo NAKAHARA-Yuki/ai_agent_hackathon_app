@@ -146,12 +146,16 @@ async function sendMessage() {
       authHeader: auth.authHeader()
     })
     
-    // Add assistant response
+    // Add assistant response (prefer new JSON schema: message, with fallback to reply)
     messages.value.push({
       id: Date.now() + 1,
       type: 'assistant',
-      content: response.reply || 'すみません、応答を生成できませんでした。',
+      content: response.message || response.reply || 'すみません、応答を生成できませんでした。',
       timestamp: new Date(),
+      // keep optional fields if present
+      suggestions: response.suggestions || [],
+      places: response.places || [],
+      route_info: response.route_info || null,
       citations: response.citations || [],
       grounding_html: response.grounding_html || null
     })

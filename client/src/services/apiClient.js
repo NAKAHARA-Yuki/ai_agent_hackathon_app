@@ -159,17 +159,17 @@ export async function generalChat({ message, user_id, session_id, location, auth
   }
   // Mock: Return location-aware response if location provided
   await new Promise(r=>setTimeout(r, 600))
-  let reply = `「${message}」についてお答えします。`
-  
-  if (location && location.latitude && location.longitude) {
-    reply += `\n\n現在位置（緯度: ${location.latitude}, 経度: ${location.longitude}）周辺の情報を調べています。\n` +
-            '実際のサービスでは、この位置情報を使って周辺の観光スポットやレストラン、交通情報をご案内します。'
-  }
-  
+  const locNote = (location && location.latitude && location.longitude)
+    ? `（現在位置: lat=${location.latitude}, lng=${location.longitude}）`
+    : ''
+  const messageOut = `「${message}」についてのご案内です。${locNote}`.trim()
   return {
-    reply,
-    citations: [],
-    grounding_html: null
+    message: messageOut,
+    places: [],
+    response_type: 'information',
+    route_info: null,
+    suggestions: [],
+    trace_id: Math.random().toString(16).slice(2, 18),
   }
 }
 
