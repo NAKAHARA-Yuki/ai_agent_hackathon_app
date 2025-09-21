@@ -14,6 +14,7 @@ import InterestsView from '../views/InterestsView.vue'
 import TasksView from '../views/TasksView.vue'
 import MemoriesView from '../views/MemoriesView.vue'
 import MemoryDetailView from '../views/MemoryDetailView.vue'
+import GeneralChatView from '../views/GeneralChatView.vue'
 
 import PlanDetailView from '../views/PlanDetailView.vue'
 import PlanChatView from '../views/PlanChatView.vue'
@@ -62,6 +63,7 @@ const router = createRouter({
   ,{ path: '/tasks', name: 'tasks', component: TasksView }
   ,{ path: '/memories', name: 'memories', component: MemoriesView }
   ,{ path: '/memories/:id', name: 'memory-detail', component: MemoryDetailView }
+  ,{ path: '/chat', name: 'general-chat', component: GeneralChatView }
 
   ,{ path: '/plans/:id', name: 'plan-detail', component: PlanDetailView }
   ,{ path: '/plans/:id/chat', name: 'plan-chat', component: PlanChatView }

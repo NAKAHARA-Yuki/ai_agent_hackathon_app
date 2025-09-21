@@ -141,6 +141,38 @@ export async function dayAdvice({ plan, user_message, current_context, session_i
   }
 }
 
+export async function generalChat({ message, user_id, session_id, location, authHeader }){
+  if (!useMock) {
+    const payload = { message, user_id, session_id }
+    if (location) {
+      payload.location = location
+    }
+    const data = await realFetch('/api/agent/general_chat', { 
+      method:'POST', 
+      headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, 
+      body: JSON.stringify(payload) 
+    })
+    if (import.meta.env.DEV) {
+      try { console.log('[generalChat response]', data) } catch {}
+    }
+    return data
+  }
+  // Mock: Return location-aware response if location provided
+  await new Promise(r=>setTimeout(r, 600))
+  let reply = `「${message}」についてお答えします。`
+  
+  if (location && location.latitude && location.longitude) {
+    reply += `\n\n現在位置（緯度: ${location.latitude}, 経度: ${location.longitude}）周辺の情報を調べています。\n` +
+            '実際のサービスでは、この位置情報を使って周辺の観光スポットやレストラン、交通情報をご案内します。'
+  }
+  
+  return {
+    reply,
+    citations: [],
+    grounding_html: null
+  }
+}
+
 export async function listPlans(authHeader){
   if (!useMock) {
     try { return await realFetch('/api/plans', { headers:{ 'Content-Type':'application/json', ...(authHeader||{}) } }) } catch(e){ throw e }

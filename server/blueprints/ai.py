@@ -743,6 +743,106 @@ def agent_day_advice():
         return jsonify({"error": "internal_error"}), 500
 
 
+@ai_bp.post('/api/agent/general_chat')
+def general_chat():
+    """General chat endpoint for location-based queries and general travel assistance"""
+    try:
+        # Get user authentication
+        claims = claims_or_dev()
+        if not claims:
+            return jsonify({'reply': '認証が必要です。ログインしてから再試行してください。'}), 401
+        
+        req_user_id = claims['sub']
+        data = request.get_json() or {}
+        message = data.get('message', '')
+        req_session_id = data.get('session_id', 'default')
+        location = data.get('location', None)  # Optional location data
+        
+        tid = getattr(request, '_trace_id', None)
+        
+        if not message:
+            return jsonify({'reply': '何かご質問やご要望をお聞かせください。'}), 400
+        
+        # Add location context if provided
+        context_message = message
+        if location and isinstance(location, dict):
+            lat = location.get('latitude')
+            lng = location.get('longitude')
+            if lat and lng:
+                context_message = f"[位置情報: 緯度{lat}, 経度{lng}]\n{message}"
+        
+        # Fallback to Gemini if agent not configured
+        if not agent_configured:
+            try:
+                if not genai_configured:
+                    return jsonify({
+                        'reply': 'AIサービスが設定されていません。管理者にお問い合わせください。',
+                        'citations': [],
+                        'grounding_html': None
+                    }), 503
+                
+                # Simple Gemini fallback for general chat
+                prompt = f"""
+                あなたは日本の旅行案内の専門家です。
+                位置情報が提供された場合は、その周辺の観光スポット、レストラン、交通情報を案内してください。
+                日本語で親しみやすく回答してください。
+                
+                ユーザーの質問: {context_message}
+                """
+                api_response = call_gemini_api(prompt)
+                reply = api_response['candidates'][0]['content']['parts'][0]['text']
+                
+                return jsonify({
+                    'reply': reply,
+                    'citations': [],
+                    'grounding_html': None
+                })
+            except Exception as e:
+                logger.exception("Gemini fallback error in general_chat")
+                return jsonify({
+                    'reply': 'AIサービスでエラーが発生しました。しばらく待ってから再試行してください。'
+                }), 500
+        
+        # Call general chat agent via ADK
+        try:
+            agent_reply = call_adk_agent_chat(
+                agent="general_chat",
+                message=context_message,
+                user_id=req_user_id,
+                session_id=req_session_id,
+                ensure_session=True,
+            )
+            
+            if LOG_PAYLOADS:
+                try:
+                    logger.info(f"/api/agent/general_chat response: {snip_text(agent_reply)} trace={tid}")
+                except Exception:
+                    logger.info(f"/api/agent/general_chat response: <unavailable> trace={tid}")
+            
+            resp = {'reply': agent_reply}
+            if tid:
+                resp['trace_id'] = tid
+            
+            return jsonify(resp)
+            
+        except Exception as e:
+            logger.exception("ADK general_chat agent error")
+            return jsonify({
+                'reply': 'チャットサービスでエラーが発生しました。しばらく待ってから再試行してください。'
+            }), 500
+    
+    except Exception as e:
+        logger.exception("general_chat error")
+        resp = {'reply': 'エラーが発生しました。時間をおいて再試行してください。'}
+        try:
+            _tid = getattr(request, '_trace_id', None)
+            if _tid:
+                resp['trace_id'] = _tid
+        except Exception:
+            pass
+        return jsonify(resp), 500
+
+
 @ai_bp.post('/api/agent/generate_plan_image')
 def generate_plan_image():
     """Generate an illustrative image from a travel plan via Vertex AI (Gemini image preview model).
