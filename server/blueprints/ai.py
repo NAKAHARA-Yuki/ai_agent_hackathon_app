@@ -803,29 +803,43 @@ def general_chat():
                     'reply': 'AIサービスでエラーが発生しました。しばらく待ってから再試行してください。'
                 }), 500
         
-        # Call general chat agent via ADK
+        # Call general chat agent via ADK (root_coordinator with general_chat prefix)
         try:
-            agent_reply = call_adk_agent_chat(
-                agent="general_chat",
-                message=context_message,
+            events = call_adk_agent_chat(
+                app_name='general_chat',
                 user_id=req_user_id,
                 session_id=req_session_id,
+                message_text=context_message,
+                timeout_sec=AGENT_HTTP_TIMEOUT,
+                base_url=AGENT_BASE_URL,
                 ensure_session=True,
+                prefix='general_chat\n',
             )
-            
+
+            # Join final model parts into plain text reply
+            reply_text = ''
+            if isinstance(events, list) and events:
+                final = events[-1] or {}
+                content = final.get('content') or {}
+                if content.get('role') == 'model':
+                    reply_text = "\n".join(p.get('text', '') for p in (content.get('parts') or []))
+
             if LOG_PAYLOADS:
                 try:
-                    logger.info(f"/api/agent/general_chat response: {snip_text(agent_reply)} trace={tid}")
+                    logger.info(f"/api/agent/general_chat response: {snip_text(snip_json(events))} trace={tid}")
                 except Exception:
                     logger.info(f"/api/agent/general_chat response: <unavailable> trace={tid}")
-            
-            resp = {'reply': agent_reply}
+
+            if not reply_text:
+                return jsonify({'reply': '応答の解釈に失敗しました。もう一度お試しください。'}), 502
+
+            resp = {'reply': reply_text}
             if tid:
                 resp['trace_id'] = tid
-            
+
             return jsonify(resp)
-            
-        except Exception as e:
+
+        except Exception:
             logger.exception("ADK general_chat agent error")
             return jsonify({
                 'reply': 'チャットサービスでエラーが発生しました。しばらく待ってから再試行してください。'
