@@ -59,7 +59,3 @@ cd server && pytest --cov=app
 - **デプロイ先**: Google Cloud Run
 - **データベース**: Google Firestore
 - **CI/CD**: GitHub Actions
-
----
-
-**最終更新**: 2025年9月
