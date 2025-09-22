@@ -96,7 +96,7 @@ docker compose -f docker-compose.dev.yml up
 2. **サーバーヘルス**: サーバーを開始し、`/api/health`が200 OKを返すことを確認
 3. **フロントエンド接続**: クライアントデベロッパーサーバーとバックエンドの両方を開始し、プロキシが動作することを確認
 4. **APIエンドポイント**: `/api/questions`、`/api/hobbies`などの主要エンドポイントをテスト
-5. **テストスイート実行**: 163+ テストケース（フロントエンド81個、バックエンド82個）が全て成功することを確認
+5. **テストスイート実行**: 111 テストケース（フロントエンド63個、バックエンド48個）が全て成功することを確認
 
 ### 本番デプロイメント検証  
 1. **Dockerビルド**: マルチステージビルドが成功することを確認
@@ -148,7 +148,7 @@ AGENT_BASE_URL=http://localhost:8080         # ADKエージェントエンドポ
 ### エージェントサービス (`agent/`)
 - **フレームワーク**: Google ADK（Agent Development Kit）マルチエージェントシステム
 - **目的**: Gemini AIを使用したインテリジェント旅行計画
-- **構成**: Root Coordinator + 4サブエージェント（Travel Planner, Travel Modifier, Travel Advisor, Day Advice）
+- **構成**: 2つのRootエージェント + 4サブエージェント（General Chat standalone, Root Coordinator with Travel Planner, Travel Modifier, Travel Advisor, General Chat）
 - **依存関係**: httpx、google-adk（制限された環境では失敗する可能性）
 - **エンドポイント**: 旅行プラン生成、修正、アドバイス用API
 
@@ -220,7 +220,7 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 
 ## 最新の改善・修正点
 
-### Flask Blueprint リファクタリング (2025年9月-2025年1月)
+### Flask Blueprint リファクタリング
 - **2,686行のapp.py → 388行に削減** (85.5%の複雑性削減)
 - **7個のBlueprint**: auth, health, quiz, personas, plans, ai, memories
 - **3個のユーティリティモジュール**: utils/auth.py, utils/data_processing.py, utils/ai_processing.py
@@ -233,16 +233,16 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 - **Agent Structure**: Root Coordinator + Sub-Agents (Travel Planner, Travel Advisor)
 
 ### 包括的テストスイート実装
-- **163+ テストケース**: フロントエンド81個、バックエンド82個
+- **111 テストケース**: フロントエンド63個、バックエンド48個
 - **C1カバレッジ100%目標**: Jest + pytest による完全カバレッジ
 - **テスト技術**: Mock/Real API両対応、エラーハンドリング、境界値テスト
 - **CI/CD対応**: GitHub Actions での自動テスト実行
 
-### ドキュメント最新化 (2025年1月)
+### ドキュメント最新化
 - **全READMEファイル更新**: 実装状況に基づく正確な情報反映
 - **API エンドポイント完全整理**: 実際のBlueprint実装に基づく20+エンドポイント
-- **コンポーネント詳細文書化**: 17 Vue views、11コンポーネント、8 Blueprint詳細
-- **マルチエージェント仕様書更新**: Root Coordinator + 4サブエージェント構成
+- **コンポーネント詳細文書化**: 18 Vue views、11コンポーネント、7 Blueprint詳細
+- **マルチエージェント仕様書更新**: 2つのRootエージェント + 4サブエージェント構成
 - **開発手順最新化**: セットアップ、ビルド、テスト、デプロイの正確な手順
 
 ### 実行コマンド更新
