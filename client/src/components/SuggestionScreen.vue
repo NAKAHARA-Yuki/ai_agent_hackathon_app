@@ -17,6 +17,7 @@
       >
         <div class="card-overlay"></div>
         <div class="card-content">
+          <div v-if="plan.raw.category_label" class="category-badge">{{ plan.raw.category_label }}</div>
           <h2 class="title">{{ plan.raw.title }}</h2>
           <p class="tags">{{ plan.raw.tags }}</p>
         </div>
@@ -216,6 +217,7 @@ async function handleRegenerate() {
 .card::before { content:""; position:absolute; inset:0; background:var(--bg-img) center/cover no-repeat; filter:brightness(1) saturate(1.1); transition:transform .6s ease; }
 .card-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.05)); mix-blend-mode:multiply; }
 .card-content { position:relative; z-index:2; margin-top:auto; padding:14px 16px 14px; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:6px; }
+.category-badge { align-self: flex-start; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: #fff; font-weight: 700; font-size: 12px; padding: 4px 8px; border-radius: 10px; backdrop-filter: blur(2px); }
 .title { font-size:16px; font-weight:600; line-height:1.3; margin:0; letter-spacing:.2px; }
 .tags { margin:0; font-size:12px; opacity:.9; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
 .card:focus-visible { outline:2px solid var(--color-focus); outline-offset:2px; }

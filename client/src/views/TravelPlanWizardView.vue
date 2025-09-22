@@ -56,10 +56,11 @@ async function handleCreatePlan(keyword) {
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
     // 画像生成の進捗表示に切替
     loadingTitle.value = 'プランのイメージ画像を生成中...'
-    const enriched = plans.map((p, i) => {
+  const enriched = plans.map((p, i) => {
       const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
       return {
         id: i+1,
+    category_label: typeof p?.category_label === 'string' ? p.category_label : null,
         title: p?.title || `プラン ${i+1}`,
         tags: tagsStr,
         brief: typeof p?.brief === 'string' ? p.brief : (typeof p?.description === 'string' ? p.description : ''),
@@ -69,7 +70,7 @@ async function handleCreatePlan(keyword) {
         text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
         image_base64: null,
         image_mime_type: null,
-        __raw: p,
+  __raw: { ...p, category_label: typeof p?.category_label === 'string' ? p.category_label : null },
         __full: data
       }
     })
@@ -201,10 +202,11 @@ async function handleCreatePlanForRegeneration(keyword) {
     const data = await resp.json()
     const plans = Array.isArray(data?.plans) ? data.plans.slice(0,3) : []
     loadingTitle.value = 'プランのイメージ画像を生成中...'
-    const enriched = plans.map((p, i) => {
+  const enriched = plans.map((p, i) => {
       const tagsStr = Array.isArray(p?.tags) ? p.tags.map(t => String(t)).join('・') : (typeof p?.tags === 'string' ? p.tags : '')
       return {
         id: i+1,
+    category_label: typeof p?.category_label === 'string' ? p.category_label : null,
         title: p?.title || `プラン ${i+1}`,
         tags: tagsStr,
         brief: typeof p?.brief === 'string' ? p.brief : (typeof p?.description === 'string' ? p.description : ''),
@@ -214,7 +216,7 @@ async function handleCreatePlanForRegeneration(keyword) {
         text: typeof p?.text === 'string' ? p.text : (typeof p?.brief === 'string' ? p.brief : ''),
         image_base64: null,
         image_mime_type: null,
-        __raw: p,
+  __raw: { ...p, category_label: typeof p?.category_label === 'string' ? p.category_label : null },
         __full: data
       }
     })
