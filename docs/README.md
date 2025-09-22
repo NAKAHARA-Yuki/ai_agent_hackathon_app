@@ -5,7 +5,7 @@
 ## 📖 ドキュメント構成
 
 ### 📋 テスト関連 (`testing/`)
-- **[TEST_SUMMARY.md](testing/TEST_SUMMARY.md)** - テストスイート実装の完了サマリー（164テストケース）
+- **[TEST_SUMMARY.md](testing/TEST_SUMMARY.md)** - テストスイート実装の完了サマリー（111テストケース）
 - **[test_mapping.md](testing/test_mapping.md)** - 包括的テスト設計書・テスト項目とコードの対応表
 
 ### 🔧 保守・メンテナンス (`maintenance/`)
@@ -42,7 +42,7 @@ cd client && npm run test:coverage
 # バックエンドテスト (pytest) - 82個のテストケース
 cd server && pytest --cov=app
 
-# 全テストスイート実行 (合計164テストケース)
+# 全テストスイート実行 (合計111テストケース)
 # フロントエンド: apiClient (36), authStore (45)
 # バックエンド: auth (20), health (14), quiz (18), 他多数
 ```

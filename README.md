@@ -756,7 +756,7 @@ adk api_server --host 0.0.0.0 --port 8082 ./agents  # ADK APIサーバー起動
 
 ### 詳細ドキュメント (`docs/` ディレクトリ)
 - **[AIエージェント実装](docs/AGENT_IMPLEMENTATION.md)** - ADK統合・マルチエージェントシステム詳細仕様
-- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書（164テストケース）
+- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書（111テストケース）
 - **[非同期プラン生成](docs/async_plan_generation_analysis.md)** - 非同期処理実装方法検討書
 - **[保守関連](docs/maintenance/)** - 未使用ファイル整理レポート等
 
