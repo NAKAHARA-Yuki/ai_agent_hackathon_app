@@ -5,7 +5,7 @@
 ## 📖 ドキュメント構成
 
 ### 📋 テスト関連 (`testing/`)
-- **[TEST_SUMMARY.md](testing/TEST_SUMMARY.md)** - テストスイート実装の完了サマリー（163+ テストケース）
+- **[TEST_SUMMARY.md](testing/TEST_SUMMARY.md)** - テストスイート実装の完了サマリー（164テストケース）
 - **[test_mapping.md](testing/test_mapping.md)** - 包括的テスト設計書・テスト項目とコードの対応表
 
 ### 🔧 保守・メンテナンス (`maintenance/`)
@@ -18,7 +18,7 @@
 
 ### 🏗️ コンポーネント情報
 コンポーネントの詳細情報は以下に記載されています：
-- **[メイン README](../README.md)** - 全コンポーネントの概要（17個のビュー、11個のUIコンポーネント、7個のBlueprint）
+- **[メイン README](../README.md)** - 全コンポーネントの概要（18個のビュー、11個のUIコンポーネント、7個のBlueprint）
 - **agent/** - エージェント関連ドキュメント（`../agent/` 内に配置）
   - `agent/README.md` - ADKマルチエージェントサービスの詳細（Root Coordinator + 4サブエージェント）
   - `agent/AGENT_FIX_NOTES.md` - エージェント設定修正履歴（Tool Configuration、Circular Import修正）
@@ -42,7 +42,7 @@ cd client && npm run test:coverage
 # バックエンドテスト (pytest) - 82個のテストケース
 cd server && pytest --cov=app
 
-# 全テストスイート実行 (合計163+ テストケース)
+# 全テストスイート実行 (合計164テストケース)
 # フロントエンド: apiClient (36), authStore (45)
 # バックエンド: auth (20), health (14), quiz (18), 他多数
 ```

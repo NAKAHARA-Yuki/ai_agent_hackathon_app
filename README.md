@@ -16,7 +16,7 @@ AIを活用した旅行診断・プランニングアプリケーションです
 - **Veo動画生成**: Vertex AI Veo 3.0による思い出動画自動生成
 - **輸送情報表示**: 移動手段のアイコン・ラベル・所要時間・距離の詳細表示
 - **マルチプラン管理**: 複数の旅行プランの作成・保存・比較機能
-- **レスポンシブUI**: 17の画面・11のコンポーネントによる包括的UX
+- **レスポンシブUI**: 18の画面・11のコンポーネントによる包括的UX
 
 ## 🏗️ システム構成
 
@@ -80,7 +80,7 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 ai_agent_hackathon_app/
 ├── client/                 # Vue.js フロントエンド
 │   ├── src/
-│   │   ├── views/         # ページコンポーネント（17個）
+│   │   ├── views/         # ページコンポーネント（18個）
 │   │   │   ├── StartView.vue          # ランディングページ
 │   │   │   ├── LoginView.vue          # ログイン画面
 │   │   │   ├── SignupView.vue         # ユーザー登録画面
@@ -92,6 +92,7 @@ ai_agent_hackathon_app/
 │   │   │   ├── PlansListView.vue      # 旅行プラン一覧
 │   │   │   ├── PlanDetailView.vue     # プラン詳細表示
 │   │   │   ├── PlanChatView.vue       # プランチャット
+│   │   │   ├── GeneralChatView.vue    # 一般チャット
 │   │   │   ├── TravelDayChatView.vue  # 当日サポートチャット
 │   │   │   ├── TasksView.vue          # タスク管理
 │   │   │   ├── MemoriesView.vue       # 思い出アルバム一覧
@@ -209,7 +210,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 
 #### フロントエンド（client/src/）
 
-**ビューコンポーネント（views/）** - 17画面
+**ビューコンポーネント（views/）** - 18画面
 - `StartView.vue` - 診断開始画面（ホーム）
 - `InterestsView.vue` - 趣味・興味設定
 - `MainView.vue` - メイン画面（診断完了後）
@@ -223,6 +224,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 - `PlansListView.vue` - 旅行プラン一覧
 - `PlanDetailView.vue` - プラン詳細表示
 - `PlanChatView.vue` - AIチャット旅行プランニング
+- `GeneralChatView.vue` - 一般チャット（位置情報対応）
 - `TravelDayChatView.vue` - 旅行日チャット
 - `MemoriesView.vue` - 思い出（アルバム）一覧画面
 - `MemoryDetailView.vue` - 思い出詳細・Veo動画表示画面
@@ -754,7 +756,7 @@ adk api_server --host 0.0.0.0 --port 8082 ./agents  # ADK APIサーバー起動
 
 ### 詳細ドキュメント (`docs/` ディレクトリ)
 - **[AIエージェント実装](docs/AGENT_IMPLEMENTATION.md)** - ADK統合・マルチエージェントシステム詳細仕様
-- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書（163+ テストケース）
+- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書（164テストケース）
 - **[非同期プラン生成](docs/async_plan_generation_analysis.md)** - 非同期処理実装方法検討書
 - **[保守関連](docs/maintenance/)** - 未使用ファイル整理レポート等
 

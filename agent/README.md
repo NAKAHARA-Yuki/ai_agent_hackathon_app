@@ -119,9 +119,9 @@ Root Coordinator (Gemini 2.5 Flash Lite)
 ### Tool Configuration
 - **Primary**: Google Search（主要情報検索）
 - **Fallback**: Google Maps MCP（Maps情報補完）
-- **競合解決**: 2025年9月修正済み
+- **競合解決**: 2025年1月修正済み
 
-## ⚠️ 最近の改善・修正 (2025年9月)
+## ⚠️ 最近の改善・修正 (2025年1月)
 
 ### Tool Configuration 競合修正
 - Google Search (Primary) + MCP (Fallback) による競合を解決
