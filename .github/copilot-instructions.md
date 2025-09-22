@@ -148,7 +148,7 @@ AGENT_BASE_URL=http://localhost:8080         # ADKエージェントエンドポ
 ### エージェントサービス (`agent/`)
 - **フレームワーク**: Google ADK（Agent Development Kit）マルチエージェントシステム
 - **目的**: Gemini AIを使用したインテリジェント旅行計画
-- **構成**: Root Coordinator + 4サブエージェント（Travel Planner, Travel Modifier, Travel Advisor, Day Advice）
+- **構成**: 2つのRootエージェント + 4サブエージェント（General Chat standalone, Root Coordinator with Travel Planner, Travel Modifier, Travel Advisor, General Chat）
 - **依存関係**: httpx、google-adk（制限された環境では失敗する可能性）
 - **エンドポイント**: 旅行プラン生成、修正、アドバイス用API
 
@@ -220,7 +220,7 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 
 ## 最新の改善・修正点
 
-### Flask Blueprint リファクタリング (2025年1月)
+### Flask Blueprint リファクタリング
 - **2,686行のapp.py → 388行に削減** (85.5%の複雑性削減)
 - **7個のBlueprint**: auth, health, quiz, personas, plans, ai, memories
 - **3個のユーティリティモジュール**: utils/auth.py, utils/data_processing.py, utils/ai_processing.py
@@ -238,11 +238,11 @@ curl -f http://localhost:8080/api/questions || echo "Server not running"
 - **テスト技術**: Mock/Real API両対応、エラーハンドリング、境界値テスト
 - **CI/CD対応**: GitHub Actions での自動テスト実行
 
-### ドキュメント最新化 (2025年1月)
+### ドキュメント最新化
 - **全READMEファイル更新**: 実装状況に基づく正確な情報反映
 - **API エンドポイント完全整理**: 実際のBlueprint実装に基づく20+エンドポイント
 - **コンポーネント詳細文書化**: 18 Vue views、11コンポーネント、7 Blueprint詳細
-- **マルチエージェント仕様書更新**: Root Coordinator + 4サブエージェント構成
+- **マルチエージェント仕様書更新**: 2つのRootエージェント + 4サブエージェント構成
 - **開発手順最新化**: セットアップ、ビルド、テスト、デプロイの正確な手順
 
 ### 実行コマンド更新
