@@ -897,29 +897,3 @@ Cloud Run では `LOG_FORMAT=json` 推奨。`X-Cloud-Trace-Context` ヘッダが
 
 ライセンスに関するお問い合わせは、プロジェクト所有者までご連絡ください。
 
----
-
-## 📝 更新履歴
-
-### 最新更新 (2025年1月)
-- ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、7個のBlueprintと3個のユーティリティモジュールに分割
-- ✅ **思い出（アルバム）機能追加**: memories.py Blueprint による画像管理・Vertex AI Veo動画生成統合
-- ✅ **ADK マルチエージェント拡張**: 4つのサブエージェント（Planner, Modifier, Advisor, Day Advice）による階層型システム
-- ✅ **Vue.js UI拡張**: 思い出関連画面（MemoriesView, MemoryDetailView）追加、計17画面・11コンポーネント
-- ✅ **Veo動画生成機能**: 思い出作成時の自動動画生成（Vertex AI Veo 3.0 Fast Generate）
-- ✅ **ドキュメント最新化**: 実装状況に基づくREADME全面更新・正確性向上
-- ✅ **テスト環境修正**: Frontend (Jest) + Backend (pytest) による包括的テストスイート
-- ✅ 輸送情報表示機能の追加（移動手段のアイコン・ラベル・所要時間・距離）
-- ✅ ドキュメント構造の整理・統合
-- ✅ コンポーネント情報の正確性向上
-- ✅ API エンドポイント一覧の完全化
-- ✅ テスト関連ドキュメントの体系化
-- ✅ 未使用ファイルの削除・整理
-
-### 主要機能実装完了
-- ✅ Vue.js 3.4.21 フロントエンド
-- ✅ Flask 3.0.3 バックエンド  
-- ✅ Google ADK エージェント統合
-- ✅ 包括的テストスイート (163+ テストケース)
-- ✅ Google Cloud Run デプロイメント対応
-
