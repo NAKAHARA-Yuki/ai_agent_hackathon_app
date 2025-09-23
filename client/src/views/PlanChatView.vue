@@ -264,93 +264,6 @@ function closeDetailModal() {
 }
 
 onMounted(loadPlan)
-
-// ===== Diff 表示用ユーティリティ =====
-function fieldLabelFromPath(path) {
-  try {
-    if (!path) return '項目'
-    if (path.startsWith('itinerary')) {
-      const dayIdx = path.match(/itinerary\[(\d+)\]/)?.[1]
-      const itemIdx = path.match(/items\[(\d+)\]/)?.[1]
-      const dayLabel = dayIdx != null ? `Day ${Number(dayIdx) + 1}` : '日程'
-      const itemLabel = itemIdx != null ? ` 行程${Number(itemIdx) + 1}` : ''
-      if (path.endsWith('.time')) return `${dayLabel}${itemLabel} 開始時刻`
-      if (path.endsWith('.detail')) return `${dayLabel}${itemLabel} 詳細`
-      if (path.endsWith('.title')) return `${dayLabel}${itemLabel} タイトル`
-      return `${dayLabel} の変更`
-    }
-    if (path.startsWith('places')) return 'スポット'
-    if (path.startsWith('title')) return 'タイトル'
-    if (path.startsWith('summary')) return 'サマリー'
-    return path
-  } catch {
-    return path
-  }
-}
-
-function valuePreview(v) {
-  if (v == null) return ''
-  if (typeof v === 'string') {
-    return v.length > 140 ? v.slice(0, 140) + '…' : v
-  }
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  if (Array.isArray(v)) {
-    const mapped = v.map(s => typeof s === 'string' ? s : (s?.name || s?.title || s?.label || tryJson(s)))
-    return mapped.join('、')
-  }
-  if (typeof v === 'object') {
-    const name = v.name || v.title || v.label
-    if (name) return String(name)
-    return tryJson(v)
-  }
-  return String(v)
-}
-
-function tryJson(obj) {
-  try { return JSON.stringify(obj) } catch { return String(obj) }
-}
-
-function isPlacesField(path) {
-  return /^places(\.|\[|$)/.test(path || '')
-}
-
-function arrayDelta(fromArr = [], toArr = []) {
-  const normalize = (x) => typeof x === 'string' ? x : (x?.name || x?.title || x?.label || tryJson(x))
-  const fromSet = new Set((fromArr || []).map(normalize))
-  const toSet = new Set((toArr || []).map(normalize))
-  const added = []
-  const removed = []
-  toSet.forEach(v => { if (!fromSet.has(v)) added.push(v) })
-  fromSet.forEach(v => { if (!toSet.has(v)) removed.push(v) })
-  return { added, removed }
-}
-
-function isTimeField(path) {
-  return typeof path === 'string' && /\.time$/.test(path)
-}
-
-function timeDelta(from, to) {
-  const parse = (t) => {
-    const m = typeof t === 'string' && t.match(/^(\d{1,2}):(\d{2})$/)
-    if (!m) return null
-    const h = Number(m[1])
-    const mi = Number(m[2])
-    if (Number.isNaN(h) || Number.isNaN(mi)) return null
-    return h * 60 + mi
-  }
-  const a = parse(from)
-  const b = parse(to)
-  if (a == null || b == null) return ''
-  const diff = b - a
-  if (diff === 0) return ''
-  const sign = diff > 0 ? '+' : '-'
-  const adiff = Math.abs(diff)
-  const hr = Math.floor(adiff / 60)
-  const mn = adiff % 60
-  if (hr > 0 && mn > 0) return `(${sign}${hr}時間${mn}分)`
-  if (hr > 0) return `(${sign}${hr}時間)`
-  return `(${sign}${mn}分)`
-}
 </script>
 
 <template>
@@ -402,60 +315,31 @@ function timeDelta(from, to) {
             <div class="message-text">{{ message.content }}</div>
             <div v-if="message.type==='assistant' && (message.diff || message.updated_plan)" class="assistant-result">
               <div v-if="message.diff" class="diff-block">
-                <!-- 追加 -->
                 <div v-if="message.diff.added && message.diff.added.length" class="diff-section added">
                   <h4>追加</h4>
                   <ul>
                     <li v-for="(a,i) in message.diff.added" :key="'add-'+i">{{ a }}</li>
                   </ul>
                 </div>
-
-                <!-- 削除 -->
                 <div v-if="message.diff.removed && message.diff.removed.length" class="diff-section removed">
                   <h4>削除</h4>
                   <ul>
                     <li v-for="(r,i) in message.diff.removed" :key="'rem-'+i">{{ r }}</li>
                   </ul>
                 </div>
-
-                <!-- 変更 -->
                 <div v-if="message.diff.changed && message.diff.changed.length" class="diff-section changed">
                   <h4>変更</h4>
-                  <ul class="changed-list">
-                    <li v-for="(c,i) in message.diff.changed" :key="'chg-'+i" class="changed-item">
-                      <template v-if="isPlacesField(c.field) && Array.isArray(c.from) && Array.isArray(c.to)">
-                        <div class="change-row">
-                          <strong>スポット</strong>
-                          <div class="places-diff" v-if="arrayDelta(c.from, c.to).added.length || arrayDelta(c.from, c.to).removed.length">
-                            <div v-if="arrayDelta(c.from, c.to).added.length" class="delta add">+ {{ arrayDelta(c.from, c.to).added.join('、') }}</div>
-                            <div v-if="arrayDelta(c.from, c.to).removed.length" class="delta remove">- {{ arrayDelta(c.from, c.to).removed.join('、') }}</div>
-                          </div>
-                          <div v-else class="change-detail">
-                            <span class="from">{{ valuePreview(c.from) }}</span>
-                            <span class="arrow">→</span>
-                            <span class="to">{{ valuePreview(c.to) }}</span>
-                          </div>
-                          <div v-if="c.reason" class="reason">理由: {{ c.reason }}</div>
+                  <ul>
+                    <li v-for="(c,i) in message.diff.changed" :key="'chg-'+i">
+                      <div class="change-row">
+                        <strong>{{ c.field }}</strong>
+                        <div class="change-detail">
+                          <span v-if="c.from != null" class="from">{{ String(c.from) }}</span>
+                          <span class="arrow">→</span>
+                          <span v-if="c.to != null" class="to">{{ String(c.to) }}</span>
                         </div>
-                      </template>
-                      <template v-else>
-                        <div class="change-row">
-                          <strong>{{ fieldLabelFromPath(c.field) }}</strong>
-                          <div class="change-detail" v-if="!(Array.isArray(c.from) && Array.isArray(c.to))">
-                            <span v-if="c.from !== undefined" class="from">{{ valuePreview(c.from) }}</span>
-                            <span class="arrow">→</span>
-                            <span v-if="c.to !== undefined" class="to">{{ valuePreview(c.to) }}</span>
-                            <span v-if="isTimeField(c.field)" class="time-diff">{{ timeDelta(c.from, c.to) }}</span>
-                          </div>
-                          <div v-else class="change-detail">
-                            <span class="from">{{ valuePreview(c.from) }}</span>
-                            <span class="arrow">→</span>
-                            <span class="to">{{ valuePreview(c.to) }}</span>
-                            <span v-if="isTimeField(c.field)" class="time-diff">{{ timeDelta(c.from, c.to) }}</span>
-                          </div>
-                          <div v-if="c.reason" class="reason">理由: {{ c.reason }}</div>
-                        </div>
-                      </template>
+                        <div v-if="c.reason" class="reason">理由: {{ c.reason }}</div>
+                      </div>
                     </li>
                   </ul>
                 </div>
@@ -824,14 +708,6 @@ function timeDelta(from, to) {
 .change-detail { display:flex; align-items:center; gap:6px; color:#334155; }
 .change-detail .arrow { color:#64748b; }
 .reason { color:#64748b; font-size:12px; }
-/* Enhanced changed list and places delta */
-.changed-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.changed-item { padding: 8px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; }
-.places-diff { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
-.delta { font-size: 13px; padding: 2px 8px; border-radius: 999px; display: inline-block; width: fit-content; }
-.delta.add { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-.delta.remove { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-.time-diff { color:#0f766e; background:#ccfbf1; border:1px solid #99f6e4; border-radius:999px; padding:2px 8px; font-size:12px; }
 
 /* Typing indicator */
 .typing-indicator {
