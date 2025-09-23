@@ -91,7 +91,35 @@ export async function agentChat({ message, user_id, session_id, authHeader }){
 
 export async function modifyPlan({ plan, change_requests, constraints, context, session_id, authHeader }){
   if (!useMock) {
-    const payload = { plan, change_requests, constraints, context, session_id }
+    // Sanitize image payloads before sending
+    const scrub = (obj)=>{
+      try{
+        if (!obj || typeof obj !== 'object') return obj
+        const clone = JSON.parse(JSON.stringify(obj))
+        const dropKeys = ['image_base64','imageBase64','image_url','imageUrl','thumbnail','photo','photos','hero_image','heroImage']
+        const walk=(v)=>{
+          if (!v || typeof v !== 'object') return v
+          if (Array.isArray(v)) return v.map(walk)
+          for (const k of Object.keys(v)){
+            const lk = k.toLowerCase()
+            if (dropKeys.includes(k) || lk.endsWith('_image') || lk.endsWith('_images') || lk.endsWith('_image_url') || lk.includes('base64')){
+              delete v[k]
+            } else {
+              v[k] = walk(v[k])
+            }
+          }
+          return v
+        }
+        return walk(clone)
+      }catch{ return obj }
+    }
+    const payload = { 
+      plan: scrub(plan), 
+      change_requests, 
+      constraints: scrub(constraints), 
+      context: scrub(context), 
+      session_id 
+    }
     const data = await realFetch('/api/agent/modify_plan', { 
       method:'POST', 
       headers:{ 'Content-Type':'application/json', ...(authHeader||{}) }, 
@@ -115,7 +143,29 @@ export async function modifyPlan({ plan, change_requests, constraints, context, 
 
 export async function dayAdvice({ plan, user_message, current_context, session_id, authHeader }){
   if (!useMock) {
-    const payload = { plan, user_message, current_context, session_id }
+    // Same sanitization for day advice
+    const scrub = (obj)=>{
+      try{
+        if (!obj || typeof obj !== 'object') return obj
+        const clone = JSON.parse(JSON.stringify(obj))
+        const dropKeys = ['image_base64','imageBase64','image_url','imageUrl','thumbnail','photo','photos','hero_image','heroImage']
+        const walk=(v)=>{
+          if (!v || typeof v !== 'object') return v
+          if (Array.isArray(v)) return v.map(walk)
+          for (const k of Object.keys(v)){
+            const lk = k.toLowerCase()
+            if (dropKeys.includes(k) || lk.endsWith('_image') || lk.endsWith('_images') || lk.endsWith('_image_url') || lk.includes('base64')){
+              delete v[k]
+            } else {
+              v[k] = walk(v[k])
+            }
+          }
+          return v
+        }
+        return walk(clone)
+      }catch{ return obj }
+    }
+    const payload = { plan: scrub(plan), user_message, current_context: scrub(current_context), session_id }
     const data = await realFetch('/api/agent/day_advice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(authHeader||{}) },
