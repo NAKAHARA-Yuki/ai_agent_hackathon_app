@@ -16,7 +16,7 @@ AIを活用した旅行診断・プランニングアプリケーションです
 - **Veo動画生成**: Vertex AI Veo 3.0による思い出動画自動生成
 - **輸送情報表示**: 移動手段のアイコン・ラベル・所要時間・距離の詳細表示
 - **マルチプラン管理**: 複数の旅行プランの作成・保存・比較機能
-- **レスポンシブUI**: 17の画面・11のコンポーネントによる包括的UX
+- **レスポンシブUI**: 18の画面・11のコンポーネントによる包括的UX
 
 ## 🏗️ システム構成
 
@@ -80,7 +80,7 @@ Frontend (Vue.js) ──→ Backend (Flask + Blueprints) ──→ ADK Agent Ser
 ai_agent_hackathon_app/
 ├── client/                 # Vue.js フロントエンド
 │   ├── src/
-│   │   ├── views/         # ページコンポーネント（17個）
+│   │   ├── views/         # ページコンポーネント（18個）
 │   │   │   ├── StartView.vue          # ランディングページ
 │   │   │   ├── LoginView.vue          # ログイン画面
 │   │   │   ├── SignupView.vue         # ユーザー登録画面
@@ -92,6 +92,7 @@ ai_agent_hackathon_app/
 │   │   │   ├── PlansListView.vue      # 旅行プラン一覧
 │   │   │   ├── PlanDetailView.vue     # プラン詳細表示
 │   │   │   ├── PlanChatView.vue       # プランチャット
+│   │   │   ├── GeneralChatView.vue    # 一般チャット
 │   │   │   ├── TravelDayChatView.vue  # 当日サポートチャット
 │   │   │   ├── TasksView.vue          # タスク管理
 │   │   │   ├── MemoriesView.vue       # 思い出アルバム一覧
@@ -209,7 +210,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 
 #### フロントエンド（client/src/）
 
-**ビューコンポーネント（views/）** - 17画面
+**ビューコンポーネント（views/）** - 18画面
 - `StartView.vue` - 診断開始画面（ホーム）
 - `InterestsView.vue` - 趣味・興味設定
 - `MainView.vue` - メイン画面（診断完了後）
@@ -223,6 +224,7 @@ FLASK_ENV=development JWT_SECRET=dev-secret-change-me ENABLE_VEO_VIDEO=false pyt
 - `PlansListView.vue` - 旅行プラン一覧
 - `PlanDetailView.vue` - プラン詳細表示
 - `PlanChatView.vue` - AIチャット旅行プランニング
+- `GeneralChatView.vue` - 一般チャット（位置情報対応）
 - `TravelDayChatView.vue` - 旅行日チャット
 - `MemoriesView.vue` - 思い出（アルバム）一覧画面
 - `MemoryDetailView.vue` - 思い出詳細・Veo動画表示画面
@@ -657,18 +659,25 @@ adk api_server --host 0.0.0.0 --port 8080 ./agents/root_coordinator
 ### テスト実行
 
 ```bash
-# フロントエンドテスト
+# フロントエンドテスト（Jest）
 cd client
+npm install                 # 依存関係のインストール
 npm test                    # 全テスト実行
 npm run test:coverage      # カバレッジ付き実行
-npm test -- --watch        # 監視モード
+npm run test:watch         # 監視モード
 
-# バックエンドテスト（Flask Blueprint アーキテクチャ）
+# バックエンドテスト（pytest + Flask Blueprint アーキテクチャ）
 cd server
-pip install -r requirements.txt  # テスト依存関係のインストールが必要
-pytest                     # 全テスト実行（Blueprint統合後の構造をテスト）
-pytest --cov=app          # カバレッジ付き実行
-pytest -v                 # 詳細出力
+pip install -r requirements.txt  # テスト依存関係のインストール
+FLASK_ENV=development JWT_SECRET=dev-secret-change-me pytest                     # 全テスト実行（Blueprint統合後の構造をテスト）
+FLASK_ENV=development JWT_SECRET=dev-secret-change-me pytest --cov=app          # カバレッジ付き実行
+FLASK_ENV=development JWT_SECRET=dev-secret-change-me pytest -v                 # 詳細出力
+
+# ADKエージェントテスト（エージェント設定修正済み）
+cd agent
+# 注意: ネットワーク制限により、サンドボックス環境では依存関係のインストールが失敗する場合があります
+pip install -r requirements.txt  # Google ADK依存関係
+adk api_server --host 0.0.0.0 --port 8082 ./agents  # ADK APIサーバー起動
 ```
 
 > **注意**: テストを実行するには、依存関係のインストールと適切な環境設定が必要です。詳細は [テスト関連ドキュメント](docs/testing/) を参照してください。
@@ -703,15 +712,15 @@ pytest -v                 # 詳細出力
 - **テスト**: Jest 29.7.0
 
 ### Backend (Python Flask)
-- **フレームワーク**: Flask 3.0.3 + Blueprint アーキテクチャ
+- **フレームワーク**: Flask 3.0.3 + Flask-CORS 6.0.1 + Blueprint アーキテクチャ
 - **認証**: JWT (PyJWT 2.8.0)
-- **データベースORM**: Google Cloud Firestore SDK 2.16.0
+- **データベース**: Google Cloud Firestore SDK 2.16.0 (本番) / DevDB (開発)
 - **AI**: Google Generative AI 0.7.1
 - **API**: RESTful API（7個のBlueprint + 3個のユーティリティモジュール）
-- **ログ**: Python logging
+- **ログ**: Python logging + 構造化ログ
 - **デプロイ**: Gunicorn 22.0.0
-- **テスト**: pytest 7.4.4（163+ テストケース、完全カバレッジ）
-- **アーキテクチャ**: モジュラー設計（85.5%の複雑性削減）
+- **テスト**: pytest 7.4.4, pytest-flask 1.3.0, pytest-cov 4.1.0（包括的テストスイート）
+- **アーキテクチャ**: モジュラー設計（2,686行→388行、85.5%の複雑性削減）
 
 ### ADK Agent Service (Multi-Agent)
 - **フレームワーク**: Google Agent Development Kit (ADK)
@@ -731,10 +740,10 @@ pytest -v                 # 詳細出力
 - **外部API**: Gemini API
 
 ### テスト・品質保証
-- **Frontend**: Jest 29.7.0 + @vue/test-utils
-- **Backend**: pytest 7.4.4 + pytest-flask
-- **カバレッジ**: C1カバレッジ100%目標
-- **テスト項目**: 163+ 包括的テストケース
+- **Frontend**: Jest (package.json設定) + @vue/test-utils
+- **Backend**: pytest 7.4.4 + pytest-flask 1.3.0 + pytest-mock 3.12.0
+- **カバレッジ**: pytest-cov 4.1.0、C1カバレッジ100%目標
+- **テスト項目**: 包括的テストスイート（フロントエンド + バックエンド）
 - **CI/CD**: GitHub Actions 自動テスト実行
 
 ## 📚 ドキュメント
@@ -747,7 +756,7 @@ pytest -v                 # 詳細出力
 
 ### 詳細ドキュメント (`docs/` ディレクトリ)
 - **[AIエージェント実装](docs/AGENT_IMPLEMENTATION.md)** - ADK統合・マルチエージェントシステム詳細仕様
-- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書（163+ テストケース）
+- **[テスト関連](docs/testing/)** - テストスイート実装サマリー・設計書（111テストケース）
 - **[非同期プラン生成](docs/async_plan_generation_analysis.md)** - 非同期処理実装方法検討書
 - **[保守関連](docs/maintenance/)** - 未使用ファイル整理レポート等
 
@@ -889,29 +898,4 @@ Cloud Run では `LOG_FORMAT=json` 推奨。`X-Cloud-Trace-Context` ヘッダが
 このソフトウェアの使用、複製、配布、修正、またはその他の利用には、著作権者の事前の書面による許可が必要です。詳細については、[LICENSE](LICENSE) ファイルをご確認ください。
 
 ライセンスに関するお問い合わせは、プロジェクト所有者までご連絡ください。
-
----
-
-## 📝 更新履歴
-
-### 最新更新 (2025年9月)
-- ✅ **Flask Blueprint リファクタリング**: 2,686行のapp.pyを388行に削減、8個のBlueprintと3個のユーティリティモジュールに分割
-- ✅ **思い出（アルバム）機能追加**: memories.py Blueprint による画像管理・Vertex AI Veo動画生成統合
-- ✅ **ADK マルチエージェント拡張**: 4つのサブエージェント（Planner, Modifier, Advisor, Day Advice）による階層型システム
-- ✅ **Vue.js UI拡張**: 思い出関連画面（MemoriesView, MemoryDetailView）追加、計17画面・11コンポーネント
-- ✅ **Veo動画生成機能**: 思い出作成時の自動動画生成（Vertex AI Veo 3.0 Fast Generate）
-- ✅ **ドキュメント最新化**: 実装状況に基づくREADME全面更新・正確性向上
-- ✅ 輸送情報表示機能の追加（移動手段のアイコン・ラベル・所要時間・距離）
-- ✅ ドキュメント構造の整理・統合
-- ✅ コンポーネント情報の正確性向上
-- ✅ API エンドポイント一覧の完全化
-- ✅ テスト関連ドキュメントの体系化
-- ✅ 未使用ファイルの削除・整理
-
-### 主要機能実装完了
-- ✅ Vue.js 3.4.21 フロントエンド
-- ✅ Flask 3.0.3 バックエンド  
-- ✅ Google ADK エージェント統合
-- ✅ 包括的テストスイート (163+ テストケース)
-- ✅ Google Cloud Run デプロイメント対応
 

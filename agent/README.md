@@ -4,10 +4,17 @@ Google Agent Development Kit (ADK) 基盤の階層型マルチエージェント
 
 ## 🏗️ エージェントアーキテクチャ
 
-### Root Coordinator Agent
-- **役割**: リクエストの振り分け・ルーティング
+### Root Agents（2個）
+
+#### Root Coordinator Agent
+- **役割**: 旅行プランニング関連リクエストの振り分け・ルーティング
 - **モデル**: Gemini 2.5 Flash Lite（高速判定）
 - **機能**: ユーザーリクエストを適切なサブエージェントに振り分け
+
+#### General Chat Agent (Standalone)
+- **役割**: 一般的な旅行相談・位置情報案内
+- **モデル**: Gemini 2.5 Flash
+- **機能**: 現在位置ベースの観光案内・飲食店案内・移動案内
 
 ### サブエージェント構成
 
@@ -22,14 +29,9 @@ Google Agent Development Kit (ADK) 基盤の階層型マルチエージェント
 - **機能**: 既存プランの改善提案・カスタマイズ
 
 #### Travel Advisor Agent (`travel_advisor/`)
-- **役割**: 当日サポート・リアルタイム対応
+- **役割**: 当日サポート・リアルタイム対応・日別詳細アドバイス
 - **モデル**: Gemini 2.5 Pro
-- **機能**: 旅行中のリアルタイムアドバイス・問題解決
-
-#### Day Advice Agent (`day_advice/`)
-- **役割**: 日別詳細アドバイス
-- **モデル**: Gemini 2.5 Pro
-- **機能**: 各日程の詳細な行動指針・現地情報提供
+- **機能**: 旅行中のリアルタイムアドバイス・問題解決・各日程の詳細指針
 
 ## 🔧 技術仕様
 
@@ -109,19 +111,21 @@ export MAPS_MCP_ENDPOINT_URL="http://localhost:3000/tools/retrieve-google-maps-p
 
 ### 階層型マルチエージェント設計
 ```
+General Chat (Standalone, Gemini 2.5 Flash)    # 一般相談・位置情報案内
+
 Root Coordinator (Gemini 2.5 Flash Lite)
 ├── Travel Planner (Gemini 2.5 Pro)     # 新規プラン作成
 ├── Travel Modifier (Gemini 2.5 Pro)    # プラン修正・最適化
 ├── Travel Advisor (Gemini 2.5 Pro)     # 当日サポート
-└── Day Advice (Gemini 2.5 Pro)         # 日別詳細アドバイス
+└── General Chat (Gemini 2.5 Flash)     # 一般相談（サブエージェント版）
 ```
 
 ### Tool Configuration
 - **Primary**: Google Search（主要情報検索）
 - **Fallback**: Google Maps MCP（Maps情報補完）
-- **競合解決**: 2025年9月修正済み
+- **競合解決**: 修正済み
 
-## ⚠️ 最近の改善・修正 (2025年9月)
+## ⚠️ 最近の改善・修正
 
 ### Tool Configuration 競合修正
 - Google Search (Primary) + MCP (Fallback) による競合を解決
