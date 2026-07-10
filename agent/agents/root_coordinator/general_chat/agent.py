@@ -6,7 +6,7 @@ from google.adk.tools import google_search  # type: ignore
 
 log = logging.getLogger("agent.general_chat")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 log.info(f"General Chat Agent model: {MODEL}")
 
 # Fallback for ADK/google-genai API key in local dev

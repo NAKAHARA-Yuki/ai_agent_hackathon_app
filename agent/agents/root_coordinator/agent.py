@@ -16,8 +16,7 @@ if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
 	os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY") or ""
 	log.info("GOOGLE_API_KEY not set; using GEMINI_API_KEY as fallback for local dev")
 
-# MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
-MODEL = "gemini-2.5-flash-lite"
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 log.info(f"Root Coordinator Agent model: {MODEL}")
 
 ROOT_COORDINATOR_INSTRUCTION = (

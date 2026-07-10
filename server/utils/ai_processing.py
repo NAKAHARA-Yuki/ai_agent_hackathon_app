@@ -103,7 +103,7 @@ def retry_on_503(func, max_retries=3, base_delay=1.0, *args, **kwargs):
         raise last_exception
 
 
-def call_gemini_api(prompt: str, model_name: str = 'gemini-2.5-flash') -> Dict[str, Any]:
+def call_gemini_api(prompt: str, model_name: str = 'gemini-2.0-flash') -> Dict[str, Any]:
     """
     Gemini APIをRESTで呼び出す共通関数。503エラー時は自動リトライを行う。
     """
@@ -113,7 +113,7 @@ def call_gemini_api(prompt: str, model_name: str = 'gemini-2.5-flash') -> Dict[s
         raise Exception("GEMINI_API_KEY is not configured.")
 
     def _make_request():
-        url = f"https://aiplatform.googleapis.com/v1/publishers/google/models/{model_name}:generateContent?key={_api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={_api_key}"
         headers = {
             'Content-Type': 'application/json',
         }
