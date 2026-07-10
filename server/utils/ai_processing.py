@@ -12,9 +12,10 @@ from .data_processing import normalize_places_list, normalize_route_info, snip_j
 logger = logging.getLogger(__name__)
 
 # Gemini API configuration
-# Note: genai_configured は後方互換のため残すが、実呼び出しでは毎回環境変数を参照して検証する
 api_key = os.getenv("GEMINI_API_KEY")
-genai_configured = bool(api_key and api_key != "YOUR_API_KEY_HERE")
+use_vertex = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "false").lower() == "true"
+project = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+genai_configured = bool(api_key and api_key != "YOUR_API_KEY_HERE") or (use_vertex and bool(project))
 
 # Agent JSON-only compliance counters - will be managed by the main app
 def get_agent_json_ok():
