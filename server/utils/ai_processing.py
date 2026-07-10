@@ -103,12 +103,15 @@ def retry_on_503(func, max_retries=3, base_delay=1.0, *args, **kwargs):
         raise last_exception
 
 
-def call_gemini_api(prompt: str, model_name: str = 'gemini-2.0-flash') -> Dict[str, Any]:
+def call_gemini_api(prompt: str, model_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Gemini APIをSDK (google-genai) で呼び出す共通関数。
     Google Cloud (Vertex AI) または APIキーによる呼び出しを自動で解決する。
     503エラー時は自動リトライを行う。
     """
+    if not model_name:
+        model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+
     def _make_request():
         from google import genai
         from google.genai import types
