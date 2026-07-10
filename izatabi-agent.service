@@ -1,0 +1,15 @@
+[Unit]
+Description=Izatabi ADK Agent Server
+After=network.target
+
+[Service]
+Type=simple
+User=nakahara
+WorkingDirectory=/home/nakahara/03_ai_agent_hackathon_app/agent
+EnvironmentFile=/home/nakahara/.env.izatabi
+Environment=PORT=8082 PYTHONPATH=/home/nakahara/03_ai_agent_hackathon_app/agent:/home/nakahara/03_ai_agent_hackathon_app/agent/agents
+ExecStart=/home/nakahara/03_ai_agent_hackathon_app/.venv/bin/adk api_server --host 127.0.0.1 --port 8082 --log_level info ./agents
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
