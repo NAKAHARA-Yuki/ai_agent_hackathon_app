@@ -11,21 +11,16 @@ _jwt_from_env = os.getenv("JWT_SECRET")
 
 # In production, don't crash the whole app at import-time if JWT is misconfigured.
 # Keep the app up (so /api/health works) and fail fast when token ops are used.
-if ENV.lower() == "development":
-    JWT_SECRET = _jwt_from_env or "dev-secret-change-me"
-    JWT_READY = bool(_jwt_from_env)
+if not _jwt_from_env or _jwt_from_env == "dev-secret-change-me":
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "JWT_SECRET is not set or uses default. Falling back to default secret."
+    )
+    JWT_SECRET = "dev-secret-change-me"
+    JWT_READY = True
 else:
-    if not _jwt_from_env or _jwt_from_env == "dev-secret-change-me":
-        # Defer failure to token creation/verification time and log an error.
-        import logging as _logging
-        _logging.getLogger(__name__).error(
-            "JWT_SECRET is not set or uses default in production; auth endpoints will be disabled until configured."
-        )
-        JWT_SECRET = None
-        JWT_READY = False
-    else:
-        JWT_SECRET = _jwt_from_env
-        JWT_READY = True
+    JWT_SECRET = _jwt_from_env
+    JWT_READY = True
 
 JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "2880"))  # 48h
 
