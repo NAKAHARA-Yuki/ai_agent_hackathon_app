@@ -105,31 +105,38 @@ def retry_on_503(func, max_retries=3, base_delay=1.0, *args, **kwargs):
 
 def call_gemini_api(prompt: str, model_name: str = 'gemini-2.0-flash') -> Dict[str, Any]:
     """
-    Gemini APIをRESTで呼び出す共通関数。503エラー時は自動リトライを行う。
+    Gemini APIをSDK (google-genai) で呼び出す共通関数。
+    Google Cloud (Vertex AI) または APIキーによる呼び出しを自動で解決する。
+    503エラー時は自動リトライを行う。
     """
-    # 毎回最新の環境変数を参照し、誤検知（プロセス起動後に設定変更された場合など）を避ける
-    _api_key = os.getenv("GEMINI_API_KEY")
-    if not _api_key or _api_key == "YOUR_API_KEY_HERE":
-        raise Exception("GEMINI_API_KEY is not configured.")
-
     def _make_request():
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={_api_key}"
-        headers = {
-            'Content-Type': 'application/json',
-        }
-        data = {
-            "contents": [{
-                "role": "user",
-                "parts": [{"text": prompt}]
-            }],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-            }
-        }
+        from google import genai
+        from google.genai import types
         
-        response = requests.post(url, headers=headers, json=data, timeout=120)
-        response.raise_for_status()
-        return response.json()
+        # Vertex AI の利用状況を確認
+        use_vertex = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "false").lower() == "true"
+        project = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = os.getenv("GCP_LOCATION", "asia-northeast1")
+        
+        if use_vertex:
+            # Vertex AIモード
+            client = genai.Client(vertexai=True, project=project, location=location)
+        else:
+            # APIキーモード
+            _api_key = os.getenv("GEMINI_API_KEY")
+            if not _api_key or _api_key == "YOUR_API_KEY_HERE":
+                raise Exception("GEMINI_API_KEY is not configured.")
+            client = genai.Client(api_key=_api_key)
+            
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            )
+        )
+        # 結果テキストをパースして dict 形式で返す
+        return json.loads(response.text)
     
     return retry_on_503(_make_request)
 
