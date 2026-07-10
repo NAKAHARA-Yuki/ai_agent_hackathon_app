@@ -6,6 +6,10 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
+# Prevent google.cloud.firestore from importing and raising tp_new metaclass error in python 3.14
+sys.modules['google.cloud'] = MagicMock()
+sys.modules['google.cloud.firestore'] = MagicMock()
+
 # Add app module to path
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -57,27 +61,48 @@ def auth_headers():
 
 @pytest.fixture
 def mock_gemini():
-    """Mock Gemini AI API calls."""
-    with patch('utils.ai_processing.call_gemini_api') as mock:
-        mock.return_value = {'text': 'Mock AI response'}
-        yield mock
+    """Mock Gemini AI API calls across all imports."""
+    mock = MagicMock()
+    mock.return_value = {'text': 'Mock AI response'}
+    
+    targets = [
+        'utils.ai_processing.call_gemini_api',
+        'blueprints.quiz.call_gemini_api',
+        'blueprints.personas.call_gemini_api',
+        'blueprints.ai.call_gemini_api'
+    ]
+    
+    patched_mocks = []
+    for target in targets:
+        try:
+            p = patch(target, mock)
+            p.start()
+            patched_mocks.append(p)
+        except Exception:
+            pass
+            
+    yield mock
+    
+    for p in patched_mocks:
+        p.stop()
 
 @pytest.fixture
-def mock_firestore_client():
+def mock_firestore_client(app):
     """Mock Firestore client."""
-    with patch('app.firestore') as mock_fs:
-        # Setup mock Firestore structure
-        mock_client = MagicMock()
-        mock_collection = MagicMock()
-        mock_document = MagicMock()
-        
-        mock_client.collection.return_value = mock_collection
-        mock_collection.document.return_value = mock_document
-        mock_document.get.return_value.exists = True
-        mock_document.get.return_value.to_dict.return_value = {}
-        
-        mock_fs.Client.return_value = mock_client
-        yield mock_client
+    # Setup mock Firestore structure
+    mock_client = MagicMock()
+    mock_collection = MagicMock()
+    mock_document = MagicMock()
+    
+    mock_client.collection.return_value = mock_collection
+    mock_collection.document.return_value = mock_document
+    mock_document.get.return_value.exists = True
+    mock_document.get.return_value.to_dict.return_value = {}
+    
+    original_db = getattr(app, 'db', None)
+    app.db = mock_client
+    yield mock_client
+    app.db = original_db
 
 @pytest.fixture
 def mock_maps_api():

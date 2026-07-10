@@ -165,7 +165,7 @@ class TestHealthEndpoint:
     def test_health_endpoint_exception_handling(self, mock_logger, client):
         """Test health endpoint exception handling"""
         # Force an exception in the health check
-        with patch('app.jsonify', side_effect=Exception('Test exception')):
+        with patch('blueprints.health.get_agent_metrics', side_effect=Exception('Test exception')):
             response = client.get('/api/health')
             
             # Should return 500 on unhandled exception

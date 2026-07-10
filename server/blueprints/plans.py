@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime
 from flask import Blueprint, request, jsonify
-from google.cloud import firestore
+from utils.firestore_dummy import firestore
 
 from utils.auth import claims_or_dev
 from utils.data_processing import normalize_places_list, normalize_route_info, sanitize_title, sanitize_text

@@ -4,13 +4,14 @@ Refactored Flask application using Blueprints for better organization and mainta
 import os
 import sys
 import logging
+import threading
 import random
 from pathlib import Path
 from time import monotonic
 from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify, send_from_directory, request
 from dotenv import load_dotenv
-from google.cloud import firestore
+from utils.firestore_dummy import firestore
 import uuid
 from copy import deepcopy
 from utils.data_processing import snip_json
@@ -133,126 +134,137 @@ logger = logging.getLogger("server")
 app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
 # Database setup
-FIRESTORE_PROJECT = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+# Always use persistent DevDB for local execution and ignore Firestore setup
+class _DevDocSnapshot:
+    def __init__(self, data):
+        self._data = deepcopy(data) if data is not None else None
+        self.id = None  # Will be set by the collection stream method
 
-db = None
-try:
-    db = firestore.Client(project=FIRESTORE_PROJECT) if FIRESTORE_PROJECT else firestore.Client()
-    logger.info("Firestore client initialized.")
-except Exception as e:
-    logger.warning(f"Firestore client init failed: {e}")
-    db = None
+    @property
+    def exists(self):
+        return self._data is not None
 
-# Force mock DB in development when explicitly requested
-if (os.getenv('USE_MOCK_DATA', 'false').lower() == 'true') and (ENV.lower() == 'development'):
-    logger.info("USE_MOCK_DATA=true detected. Forcing DevDB (in-memory) for local mock data.")
-    db = None  # trigger DevDB fallback below
+    def to_dict(self):
+        return deepcopy(self._data) if self._data is not None else None
 
-# Development fallback: in-memory DB when Firestore is unavailable
-if db is None:
-    class _DevDocSnapshot:
-        def __init__(self, data):
-            self._data = deepcopy(data) if data is not None else None
-            self.id = None  # Will be set by the collection stream method
+class _DevDocumentRef:
+    def __init__(self, db, store, path):
+        self._db = db
+        self._store = store
+        self._path = path  # tuple of segments
+        self.id = path[-1] if path else None
 
-        @property
-        def exists(self):
-            return self._data is not None
+    def _now_iso(self):
+        try:
+            jst = timezone(timedelta(hours=9))
+            return datetime.now(jst).isoformat()
+        except Exception:
+            return datetime.utcnow().isoformat() + "Z"
 
-        def to_dict(self):
-            return deepcopy(self._data) if self._data is not None else None
+    def _resolve(self):
+        cur = self._store
+        for seg in self._path:
+            cur = cur.setdefault(seg, {})
+        return cur
 
-    class _DevDocumentRef:
-        def __init__(self, store, path):
-            self._store = store
-            self._path = path  # tuple of segments
-            self.id = path[-1] if path else None
+    def get(self, *args, **kwargs):
+        self._db._load_silent()
+        node = self._resolve()
+        data = node.get("__doc__")
+        return _DevDocSnapshot(data)
 
-        def _now_iso(self):
+    def set(self, data, *args, **kwargs):
+        self._db._load_silent()
+        node = self._resolve()
+        doc = deepcopy(data)
+        for k, v in list(doc.items()):
+            if v == firestore.SERVER_TIMESTAMP:
+                doc[k] = self._now_iso()
+        node["__doc__"] = doc
+        self._db._save()
+
+    def update(self, data, *args, **kwargs):
+        self._db._load_silent()
+        node = self._resolve()
+        base = node.get("__doc__", {})
+        for k, v in data.items():
+            if v == firestore.SERVER_TIMESTAMP:
+                base[k] = self._now_iso()
+            else:
+                base[k] = v
+        node["__doc__"] = base
+        self._db._save()
+
+    def collection(self, name):
+        return _DevCollectionRef(self._db, self._store, self._path + (name,))
+
+class _DevCollectionRef:
+    def __init__(self, db, store, path):
+        self._db = db
+        self._store = store
+        self._path = path  # tuple of segments
+
+    def document(self, doc_id=None):
+        if not doc_id:
+            doc_id = uuid.uuid4().hex
+        cur = self._store
+        for seg in self._path:
+            cur = cur.setdefault(seg, {})
+        cur.setdefault(doc_id, {})
+        return _DevDocumentRef(self._db, self._store, self._path + (doc_id,))
+
+    def stream(self):
+        self._db._load_silent()
+        cur = self._store
+        for seg in self._path:
+            cur = cur.get(seg, {})
+            if not isinstance(cur, dict):
+                return
+        for doc_id, doc_data in cur.items():
+            if isinstance(doc_data, dict) and "__doc__" in doc_data:
+                doc_snapshot = _DevDocSnapshot(doc_data["__doc__"])
+                doc_snapshot.id = doc_id
+                yield doc_snapshot
+
+class DevDB:
+    def __init__(self, filepath=None):
+        if filepath is None:
+            filepath = os.getenv("LOCAL_DB_PATH") or os.path.join(os.path.dirname(__file__), "dev_db.json")
+        self._filepath = filepath
+        self._lock = threading.Lock()
+        self._store = {}
+        self._load(silent=False)
+
+    def _load(self, silent=False):
+        with self._lock:
+            if os.path.exists(self._filepath):
+                try:
+                    with open(self._filepath, 'r', encoding='utf-8') as f:
+                        self._store = json.load(f)
+                    if not silent:
+                        logger.info(f"DevDB loaded from {self._filepath}")
+                except Exception as e:
+                    if not silent:
+                        logger.error(f"Failed to load DevDB from {self._filepath}: {e}")
+            else:
+                self._store = {}
+
+    def _load_silent(self):
+        self._load(silent=True)
+
+    def _save(self):
+        with self._lock:
             try:
-                jst = timezone(timedelta(hours=9))
-                return datetime.now(jst).isoformat()
-            except Exception:
-                # Fallback to UTC if timezone fails
-                return datetime.utcnow().isoformat() + "Z"
+                os.makedirs(os.path.dirname(self._filepath), exist_ok=True)
+                with open(self._filepath, 'w', encoding='utf-8') as f:
+                    json.dump(self._store, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                logger.error(f"Failed to save DevDB to {self._filepath}: {e}")
 
-        def _resolve(self):
-            cur = self._store
-            for seg in self._path:
-                cur = cur.setdefault(seg, {})
-            return cur
+    def collection(self, name):
+        return _DevCollectionRef(self, self._store, (name,))
 
-        def get(self, *args, **kwargs):
-            node = self._resolve()
-            data = node.get("__doc__")
-            return _DevDocSnapshot(data)
-
-        def set(self, data, *args, **kwargs):
-            node = self._resolve()
-            doc = deepcopy(data)
-            # replace Firestore server timestamps if present
-            for k, v in list(doc.items()):
-                if v is getattr(firestore, "SERVER_TIMESTAMP", object()):
-                    doc[k] = self._now_iso()
-            node["__doc__"] = doc
-
-        def update(self, data, *args, **kwargs):
-            node = self._resolve()
-            base = node.get("__doc__", {})
-            for k, v in data.items():
-                # replace Firestore server timestamps if present
-                if v is getattr(firestore, "SERVER_TIMESTAMP", object()):
-                    base[k] = self._now_iso()
-                else:
-                    base[k] = v
-            node["__doc__"] = base
-
-        def collection(self, name):
-            return _DevCollectionRef(self._store, self._path + (name,))
-
-    class _DevCollectionRef:
-        def __init__(self, store, path):
-            self._store = store
-            self._path = path  # tuple of segments
-
-        def document(self, doc_id=None):
-            if not doc_id:
-                doc_id = uuid.uuid4().hex
-            # ensure collection container exists
-            cur = self._store
-            for seg in self._path:
-                cur = cur.setdefault(seg, {})
-            # create doc node
-            cur.setdefault(doc_id, {})
-            return _DevDocumentRef(self._store, self._path + (doc_id,))
-
-        def stream(self):
-            """Stream all documents in the collection for DevDB compatibility with Firestore"""
-            # Navigate to the collection in the store
-            cur = self._store
-            for seg in self._path:
-                cur = cur.get(seg, {})
-                if not isinstance(cur, dict):
-                    return  # Collection doesn't exist
-            
-            # Yield document snapshots for each document in the collection
-            for doc_id, doc_data in cur.items():
-                if isinstance(doc_data, dict) and "__doc__" in doc_data:
-                    doc_ref = _DevDocumentRef(self._store, self._path + (doc_id,))
-                    doc_snapshot = _DevDocSnapshot(doc_data["__doc__"])
-                    # Set the document ID on the snapshot to match Firestore behavior
-                    doc_snapshot.id = doc_id
-                    yield doc_snapshot
-
-    class DevDB:
-        def __init__(self):
-            self._store = {}
-
-        def collection(self, name):
-            return _DevCollectionRef(self._store, (name,))
-
-    db = DevDB()
-    logger.info("DevDB initialized (in-memory) as fallback. Firestore is not used.")
+db = DevDB()
 
 # Attach db to app for blueprints to use
 app.db = db
