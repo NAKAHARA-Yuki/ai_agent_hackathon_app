@@ -7,7 +7,7 @@ from mcp import StdioServerParameters
 
 log = logging.getLogger("agent.travel_modifier")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 log.info(f"Travel Modifier Agent model: {MODEL}")
 
 google_maps_api_key = os.getenv("VITE_GOOGLE_MAPS_API_KEY")
