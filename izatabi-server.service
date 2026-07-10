@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 WorkingDirectory=/home/nakahara/03_ai_agent_hackathon_app/server
 EnvironmentFile=/home/nakahara/.env.izatabi
-Environment=FLASK_ENV=production PORT=8080 AGENT_BASE_URL=http://localhost:8082
-ExecStart=/home/nakahara/03_ai_agent_hackathon_app/.venv/bin/gunicorn --workers 2 --threads 8 --bind 0.0.0.0:8080 app:app
+Environment=FLASK_ENV=production PORT=8088 AGENT_BASE_URL=http://localhost:8089
+ExecStart=/home/nakahara/03_ai_agent_hackathon_app/.venv/bin/gunicorn --workers 2 --threads 8 --bind 0.0.0.0:8088 app:app
 Restart=on-failure
 
 [Install]
