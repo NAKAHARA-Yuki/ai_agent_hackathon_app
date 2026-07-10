@@ -104,7 +104,7 @@ def retry_on_503(func, max_retries=3, base_delay=1.0, *args, **kwargs):
         raise last_exception
 
 
-def call_gemini_api(prompt: str, model_name: Optional[str] = None) -> Dict[str, Any]:
+def call_gemini_api(prompt: str, model_name: Optional[str] = None, response_mime_type: Optional[str] = None) -> Dict[str, Any]:
     """
     Gemini APIをSDK (google-genai) で呼び出す共通関数。
     Google Cloud (Vertex AI) または APIキーによる呼び出しを自動で解決する。
@@ -132,15 +132,35 @@ def call_gemini_api(prompt: str, model_name: Optional[str] = None) -> Dict[str, 
                 raise Exception("GEMINI_API_KEY is not configured.")
             client = genai.Client(api_key=_api_key)
             
+        # Determine mime type: prefer explicit, fallback to auto-detection
+        mime_type = response_mime_type
+        if not mime_type and "json" in prompt.lower():
+            mime_type = "application/json"
+            
+        config = types.GenerateContentConfig(response_mime_type=mime_type) if mime_type else None
+            
         response = client.models.generate_content(
             model=model_name,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            )
+            config=config
         )
-        # 結果テキストをパースして dict 形式で返す
-        return json.loads(response.text)
+        
+        generated_text = response.text or ""
+        
+        # Return legacy structure for backward compatibility
+        return {
+            'candidates': [
+                {
+                    'content': {
+                        'parts': [
+                            {
+                                'text': generated_text
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
     
     return retry_on_503(_make_request)
 
