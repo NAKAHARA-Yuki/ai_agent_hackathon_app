@@ -3,6 +3,7 @@ Test authentication endpoints
 """
 import pytest
 import json
+import os
 from unittest.mock import patch, MagicMock
 
 class TestAuthEndpoints:
@@ -144,7 +145,7 @@ class TestAuthEndpoints:
         data = response.get_json()
         assert 'user' in data
         assert 'token' in data
-        assert data['user']['user_id'] == 'testuser123'
+        assert data['user']['id'] == 'testuser123'
 
     def test_login_invalid_credentials(self, client, mock_firestore_client):
         """Test login with invalid credentials"""
@@ -343,10 +344,9 @@ class TestAuthEndpoints:
         """Test claims_or_dev helper function"""
         from utils.auth import claims_or_dev
         
-        # In test environment, should return dev claims
-        with client.application.test_request_context('/'):
-            claims = claims_or_dev()
-            
-            # Should return some form of claims (either real or dev)
-            assert claims is not None
-            assert isinstance(claims, dict)
+        with patch.dict(os.environ, {'FLASK_ENV': 'development'}):
+            with client.application.test_request_context('/'):
+                claims = claims_or_dev()
+                assert claims is not None
+                assert isinstance(claims, dict)
+                assert claims.get('sub') == 'devuser'

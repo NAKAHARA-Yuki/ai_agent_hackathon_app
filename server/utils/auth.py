@@ -75,9 +75,11 @@ def claims_or_dev() -> Optional[Dict[str, Any]]:
     """Return JWT claims if present; in development, fall back to a dummy dev user.
     This avoids 401 spam in local no-auth sessions.
     """
-    claims = require_auth(request)
-    if claims:
-        return claims
+    authz = request.headers.get("Authorization", "")
+    if authz.startswith("Bearer "):
+        token = authz.split(" ", 1)[1]
+        return verify_jwt(token)
+        
     if (os.getenv("FLASK_ENV", "").lower() == "development") or (ENV.lower() == "development"):
         return {'sub': 'devuser'}
     return None

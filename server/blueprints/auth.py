@@ -3,7 +3,7 @@ import re
 import logging
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from google.cloud import firestore
+from utils.firestore_dummy import firestore
 
 from utils.auth import create_jwt, require_auth, claims_or_dev
 

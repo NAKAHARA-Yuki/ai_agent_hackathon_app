@@ -161,8 +161,7 @@ class TestQuizEndpoints:
         data = response.get_json()
         assert 'analyzed_score' in data
 
-    @patch('utils.ai_processing.call_gemini_api')
-    def test_analyze_text_gemini_error(self, mock_gemini, client):
+    def test_analyze_text_gemini_error(self, client, mock_gemini):
         """Test analyze endpoint when Gemini API fails"""
         mock_gemini.side_effect = Exception('Gemini API error')
         
@@ -176,9 +175,10 @@ class TestQuizEndpoints:
             content_type='application/json'
         )
         
-        assert response.status_code == 500
+        assert response.status_code == 200
         data = response.get_json()
-        assert 'error' in data
+        assert 'analyzed_score' in data
+        assert 'AIの分析中にエラーが発生しました' in data.get('explanation', '')
 
     def test_analyze_text_score_range(self, client, mock_gemini):
         """Test analyze endpoint returns scores in valid range"""

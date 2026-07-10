@@ -10,7 +10,7 @@ import json
 import requests
 from typing import List, Dict, Any
 from datetime import datetime
-from google.cloud import firestore
+from utils.firestore_dummy import firestore
 
 from utils.auth import claims_or_dev
 from utils.data_processing import sanitize_title

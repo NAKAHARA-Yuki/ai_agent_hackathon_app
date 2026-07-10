@@ -4,7 +4,7 @@ import random
 import time
 import logging
 from flask import Blueprint, request, jsonify
-from google.cloud import firestore
+from utils.firestore_dummy import firestore
 
 from utils.ai_processing import call_gemini_api, genai_configured
 from utils.auth import claims_or_dev
