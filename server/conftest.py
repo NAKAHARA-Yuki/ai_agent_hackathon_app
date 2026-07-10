@@ -123,6 +123,12 @@ def mock_maps_api():
 @pytest.fixture(autouse=True)
 def setup_test_environment():
     """Setup test environment variables and cleanup after tests."""
+    import tempfile
+    
+    # Create temporary database file for isolation
+    fd, temp_db_path = tempfile.mkstemp(suffix='.json')
+    os.close(fd)
+    
     # Setup
     original_env = dict(os.environ)
     
@@ -131,14 +137,20 @@ def setup_test_environment():
         'JWT_SECRET': 'test-secret-key',
         'FLASK_ENV': 'testing',
         'GEMINI_API_KEY': 'test-gemini-key',
-        'GOOGLE_MAPS_API_KEY': 'test-maps-key'
+        'GOOGLE_MAPS_API_KEY': 'test-maps-key',
+        'LOCAL_DB_PATH': temp_db_path
     })
     
     yield
     
-    # Cleanup - restore original environment
+    # Cleanup - restore original environment and delete temp file
     os.environ.clear()
     os.environ.update(original_env)
+    try:
+        if os.path.exists(temp_db_path):
+            os.unlink(temp_db_path)
+    except Exception:
+        pass
 
 @pytest.fixture
 def sample_user_data():

@@ -269,25 +269,20 @@ class TestAuthEndpoints:
         
         assert response.status_code == 401
 
-    @patch('app.db')
-    def test_auth_with_devdb_fallback(self, mock_db, client):
+    def test_auth_with_devdb_fallback(self, client):
         """Test authentication with DevDB fallback when Firestore is unavailable"""
-        # Mock DevDB behavior
-        mock_devdb = MagicMock()
-        mock_db.return_value = mock_devdb
-        
         # Test signup with DevDB
         response = client.post('/api/auth/signup',
             json={
                 'name': 'Test User',
-                'user_id': 'devdbuser',
+                'user_id': 'devdbuser_test_unique',
                 'password': 'password123'
             },
             content_type='application/json'
         )
         
         # Should still work with DevDB fallback
-        assert response.status_code in [200, 400]  # May exist in DevDB or succeed
+        assert response.status_code == 200  # May exist in DevDB or succeed
 
     def test_jwt_token_validation(self, client):
         """Test JWT token creation and validation"""
