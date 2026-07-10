@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  basePath: '/izatabi',
+  assetPrefix: '/izatabi',
   async rewrites() {
     return [
       {
