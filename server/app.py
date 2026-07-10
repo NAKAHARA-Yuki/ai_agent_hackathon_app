@@ -149,7 +149,7 @@ if (os.getenv('USE_MOCK_DATA', 'false').lower() == 'true') and (ENV.lower() == '
     db = None  # trigger DevDB fallback below
 
 # Development fallback: in-memory DB when Firestore is unavailable
-if db is None and ENV.lower() == "development":
+if db is None:
     class _DevDocSnapshot:
         def __init__(self, data):
             self._data = deepcopy(data) if data is not None else None
@@ -252,7 +252,7 @@ if db is None and ENV.lower() == "development":
             return _DevCollectionRef(self._store, (name,))
 
     db = DevDB()
-    logger.info("DevDB initialized (in-memory). Firestore is not used in development mode.")
+    logger.info("DevDB initialized (in-memory) as fallback. Firestore is not used.")
 
 # Attach db to app for blueprints to use
 app.db = db
