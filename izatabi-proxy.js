@@ -26,7 +26,10 @@ nextProcess.on('exit', (code) => {
 
 // 2. プレフィックス再付与プロキシサーバーの起動
 const server = http.createServer((req, res) => {
-  const targetPath = BASE_PATH + req.url;
+  let targetPath = BASE_PATH + req.url;
+  if (req.url === '/') {
+    targetPath = BASE_PATH;
+  }
   
   const options = {
     hostname: '127.0.0.1',
