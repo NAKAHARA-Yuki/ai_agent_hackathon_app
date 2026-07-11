@@ -6,7 +6,6 @@ import { useQuizStore } from '@/stores/quizStore';
 import { useAuthStore } from '@/stores/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Compass, ShieldAlert } from 'lucide-react';
-import { appPath } from '@/utils/pathHelper';
 
 export default function ProcessingPage() {
   const router = useRouter();
@@ -23,7 +22,7 @@ export default function ProcessingPage() {
         
         // Wait 1 second on success to let the user see the 100% stage
         setTimeout(() => {
-          router.replace(appPath('/results'));
+          router.replace('/results');
         }, 1000);
       } catch (e: any) {
         console.error('Quiz processing failed:', e);
@@ -146,7 +145,7 @@ export default function ProcessingPage() {
         {error && (
           <motion.button
             whileTap={{ scale: 0.98 }}
-            onClick={() => router.replace(appPath('/results'))}
+            onClick={() => router.replace('/results')}
             className="w-full py-3 rounded-xl text-xs font-semibold text-slate-600 border border-gray-200 hover:bg-gray-100 transition-all cursor-pointer"
           >
             処理を中断して結果へ進む

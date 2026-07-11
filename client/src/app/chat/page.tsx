@@ -4,7 +4,6 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { generalChat } from '@/services/apiClient';
-import { appPath } from '@/utils/pathHelper';
 import BottomNav from '@/components/BottomNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Compass, User, RefreshCw, MapPin, Compass as CompassIcon, ShieldAlert } from 'lucide-react';
@@ -51,7 +50,7 @@ export default function GeneralChatPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace(appPath('/login'));
+      router.replace('/login');
       return;
     }
 

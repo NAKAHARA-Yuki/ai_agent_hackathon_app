@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/nakahara/develop/03_ai_agent_hackathon_app/client
-Environment=PORT=8087 NODE_ENV=production
-ExecStart=/usr/bin/npm run start -- -p 8087
+WorkingDirectory=/home/nakahara/develop/03_ai_agent_hackathon_app
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node proxy.js
 Restart=on-failure
 
 [Install]

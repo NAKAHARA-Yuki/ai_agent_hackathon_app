@@ -4,17 +4,15 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Compass, Image, MessageSquare, User } from 'lucide-react';
-import { appPath } from '@/utils/pathHelper';
-
 export default function BottomNav() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: 'ホーム', href: appPath('/main'), icon: <Home className="w-5 h-5" /> },
-    { name: 'プラン', href: appPath('/plans'), icon: <Compass className="w-5 h-5" /> },
-    { name: 'チャット', href: appPath('/chat'), icon: <MessageSquare className="w-5 h-5" /> },
-    { name: '思い出', href: appPath('/memories'), icon: <Image className="w-5 h-5" /> },
-    { name: 'マイページ', href: appPath('/me'), icon: <User className="w-5 h-5" /> },
+    { name: 'ホーム', href: '/main', icon: <Home className="w-5 h-5" /> },
+    { name: 'プラン', href: '/plans', icon: <Compass className="w-5 h-5" /> },
+    { name: 'チャット', href: '/chat', icon: <MessageSquare className="w-5 h-5" /> },
+    { name: '思い出', href: '/memories', icon: <Image className="w-5 h-5" /> },
+    { name: 'マイページ', href: '/me', icon: <User className="w-5 h-5" /> },
   ];
 
   return (

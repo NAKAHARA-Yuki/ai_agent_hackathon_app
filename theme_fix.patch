@@ -1,0 +1,2862 @@
+diff --git a/client/src/app/chat/page.tsx b/client/src/app/chat/page.tsx
+index a9ee170..c9e10d2 100644
+--- a/client/src/app/chat/page.tsx
++++ b/client/src/app/chat/page.tsx
+@@ -185,12 +185,12 @@ export default function GeneralChatPage() {
+   };
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-[#090b11]">
++    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-[#f5f7fa]">
+       {/* Top Header */}
+-      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/5 bg-[#090b11]/80 backdrop-blur-md z-10">
++      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200 bg-white/90 backdrop-blur-md z-10">
+         <div>
+-          <h1 className="text-xl font-bold text-white font-outfit">AIコンシェルジュ</h1>
+-          <p className="text-[10px] text-slate-400">旅行に関するフリートーク相談を承ります</p>
++          <h1 className="text-xl font-bold text-slate-800 font-outfit">AIコンシェルジュ</h1>
++          <p className="text-[10px] text-slate-500">旅行に関するフリートーク相談を承ります</p>
+         </div>
+ 
+         {/* GPS Button */}
+@@ -199,13 +199,13 @@ export default function GeneralChatPage() {
+           disabled={locationLoading}
+           className={`p-2.5 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+             locationEnabled
+-              ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+-              : 'border-white/5 bg-white/5 text-slate-400 hover:text-white'
++              ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
++              : 'border-gray-200 bg-white text-slate-500 hover:text-slate-800 shadow-sm'
+           }`}
+           title={locationEnabled ? '位置情報をオフにする' : '位置情報をオンにする'}
+         >
+           {locationLoading ? (
+-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-indigo-500" />
++            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-blue-500" />
+           ) : (
+             <MapPin className={`w-4 h-4 ${locationEnabled ? 'animate-pulse' : ''}`} />
+           )}
+@@ -222,12 +222,12 @@ export default function GeneralChatPage() {
+             <div
+               className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                 msg.type === 'user'
+-                  ? 'bg-indigo-600 text-white'
++                  ? 'bg-blue-600 text-white'
+                   : msg.type === 'system'
+-                  ? 'bg-slate-800 text-indigo-400 border border-indigo-500/20'
++                  ? 'bg-white text-blue-600 border border-blue-200 shadow-sm'
+                   : msg.type === 'error'
+-                  ? 'bg-rose-950/20 border border-rose-900/20 text-rose-400'
+-                  : 'bg-indigo-950/40 border border-indigo-500/10 text-indigo-400'
++                  ? 'bg-rose-50 border border-rose-200 text-rose-600 shadow-sm'
++                  : 'bg-blue-50 border border-blue-200 text-blue-600 shadow-sm'
+               }`}
+             >
+               {msg.type === 'user' ? <User className="w-4 h-4" /> : <CompassIcon className="w-4 h-4" />}
+@@ -237,10 +237,10 @@ export default function GeneralChatPage() {
+               <div
+                 className={`rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                   msg.type === 'user'
+-                    ? 'bg-indigo-600 text-white rounded-tr-none'
++                    ? 'bg-blue-600 text-white rounded-tr-none'
+                     : msg.type === 'error'
+-                    ? 'bg-rose-950/20 border border-rose-900/30 text-rose-300 rounded-tl-none'
+-                    : 'bg-white/5 border border-white/5 text-slate-300 rounded-tl-none'
++                    ? 'bg-rose-50 border border-rose-200 text-rose-700 rounded-tl-none'
++                    : 'bg-white border border-gray-200 text-slate-700 rounded-tl-none shadow-sm'
+                 }`}
+               >
+                 {msg.content}
+@@ -252,14 +252,14 @@ export default function GeneralChatPage() {
+                   {msg.places.map((place: any, pIdx: number) => (
+                     <div
+                       key={pIdx}
+-                      className="bg-white/5 border border-white/5 rounded-2xl p-3 shadow-md space-y-1"
++                      className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm space-y-1"
+                     >
+-                      <h4 className="text-xs font-bold text-white flex items-center gap-1">
+-                        <MapPin className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
++                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1">
++                        <MapPin className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+                         {place.name}
+                       </h4>
+                       {place.description && (
+-                        <p className="text-[10px] text-slate-400 leading-normal">
++                        <p className="text-[10px] text-slate-500 leading-normal">
+                           {place.description}
+                         </p>
+                       )}
+@@ -272,10 +272,10 @@ export default function GeneralChatPage() {
+         ))}
+         {loading && (
+           <div className="flex gap-3 max-w-[85%]">
+-            <div className="w-7 h-7 rounded-xl bg-indigo-950/40 border border-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs">
++            <div className="w-7 h-7 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center text-xs shadow-sm">
+               <CompassIcon className="w-4 h-4 animate-spin" />
+             </div>
+-            <div className="rounded-2xl px-4 py-3 bg-white/5 border border-white/5 text-slate-400 rounded-tl-none flex items-center gap-1.5">
++            <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200 text-slate-500 rounded-tl-none flex items-center gap-1.5 shadow-sm">
+               <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-100" />
+               <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-200" />
+               <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-300" />
+@@ -295,12 +295,12 @@ export default function GeneralChatPage() {
+               <button
+                 key={idx}
+                 onClick={() => handleSend(s.text)}
+-                className="glass-panel-interactive rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[100px] select-none"
++                className="bg-white border border-gray-200 hover:border-blue-300 hover:shadow-md rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[100px] select-none shadow-sm transition-all"
+               >
+-                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
++                <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">
+                   {s.label}
+                 </span>
+-                <span className="text-[11px] text-slate-300 font-medium leading-relaxed">
++                <span className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                   {s.text}
+                 </span>
+               </button>
+@@ -310,7 +310,7 @@ export default function GeneralChatPage() {
+       </div>
+ 
+       {/* Message input area */}
+-      <div className="p-4 bg-[#090b11] border-t border-white/5 z-10 flex flex-col gap-3">
++      <div className="p-4 bg-[#f5f7fa] border-t border-gray-200 z-10 flex flex-col gap-3">
+         <form
+           onSubmit={(e) => {
+             e.preventDefault();
+@@ -324,16 +324,16 @@ export default function GeneralChatPage() {
+             onChange={(e) => setInput(e.target.value)}
+             placeholder="全国のおすすめスポットや計画方法を聞く..."
+             disabled={loading}
+-            className="flex-1 px-4 py-3 glass-input text-white text-xs focus:outline-none"
++            className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+           />
+           <motion.button
+             whileTap={{ scale: 0.95 }}
+             type="submit"
+             disabled={loading || !input.trim()}
+-            className={`p-3 rounded-xl flex items-center justify-center shadow-lg transition-all ${
++            className={`p-3 rounded-xl flex items-center justify-center shadow-md transition-all ${
+               !input.trim() || loading
+-                ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'
+-                : 'animated-gradient text-white cursor-pointer'
++                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
++                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+             }`}
+           >
+             <Send className="w-4 h-4" />
+diff --git a/client/src/app/globals.css b/client/src/app/globals.css
+index 4592c33..1685bdb 100644
+--- a/client/src/app/globals.css
++++ b/client/src/app/globals.css
+@@ -1,72 +1,103 @@
+ @import "tailwindcss";
+ 
+ :root {
+-  /* Premium Dark Theme variables by default for luxurious vibe */
+-  --background: #090b11;
+-  --foreground: #e2e8f0;
++  /* Light Theme - 元のデザイン配色 */
++  --background: #f5f7fa;
++  --foreground: #1e293b;
+   
+-  --primary: #6366f1;
+-  --primary-glow: rgba(99, 102, 241, 0.15);
++  --primary: #2563eb;
++  --primary-hover: #1d4ed8;
++  --primary-active: #1e40af;
+   
+-  --card-bg: rgba(17, 22, 37, 0.6);
+-  --card-border: rgba(255, 255, 255, 0.06);
++  --surface: #ffffff;
++  --surface-alt: #f9fafb;
++  --border: #e5e7eb;
++  --border-strong: #d1d5db;
++  --text-subtle: #64748b;
++  --accent: #0f766e;
++  --danger: #dc2626;
++  --success: #059669;
++  --warning: #d97706;
+ }
+ 
+ @theme inline {
+   --color-background: var(--background);
+   --color-foreground: var(--foreground);
+   --color-primary: var(--primary);
+-  --color-card-bg: var(--card-bg);
+-  --color-card-border: var(--card-border);
++  --color-surface: var(--surface);
++  --color-border: var(--border);
+ }
+ 
+ body {
+-  background: #030407; /* Dark background behind mobile frame */
++  background: var(--background);
+   color: var(--foreground);
+   font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+   overflow-x: hidden;
+   -webkit-font-smoothing: antialiased;
++  -webkit-text-size-adjust: 100%;
++  text-size-adjust: 100%;
+ }
+ 
+-/* Glassmorphism custom classes */
++/* カードパネル */
++.card-panel {
++  background: #ffffff;
++  border: 1px solid #e5e7eb;
++  border-radius: 14px;
++  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
++}
++
++.card-panel-interactive {
++  background: #ffffff;
++  border: 1px solid #e5e7eb;
++  border-radius: 14px;
++  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
++  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
++}
++
++.card-panel-interactive:hover {
++  border-color: #2563eb;
++  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
++  transform: translateY(-2px);
++}
++
++/* 旧glass系クラスの互換性 (ライトテーマ版) */
+ .glass-panel {
+-  background: rgba(17, 22, 37, 0.7);
+-  backdrop-filter: blur(16px);
+-  -webkit-backdrop-filter: blur(16px);
+-  border: 1px solid rgba(255, 255, 255, 0.07);
++  background: #ffffff;
++  border: 1px solid #e5e7eb;
++  border-radius: 14px;
++  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+ }
+ 
+ .glass-panel-interactive {
+-  background: rgba(17, 22, 37, 0.7);
+-  backdrop-filter: blur(16px);
+-  -webkit-backdrop-filter: blur(16px);
+-  border: 1px solid rgba(255, 255, 255, 0.07);
++  background: #ffffff;
++  border: 1px solid #e5e7eb;
++  border-radius: 14px;
++  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+ }
+ 
+ .glass-panel-interactive:hover {
+-  background: rgba(26, 32, 53, 0.85);
+-  border-color: rgba(99, 102, 241, 0.35);
+-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.15);
++  border-color: #2563eb;
++  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
+   transform: translateY(-2px);
+ }
+ 
+ .glass-input {
+-  background: rgba(10, 12, 20, 0.8);
+-  border: 1px solid rgba(255, 255, 255, 0.07);
++  background: #ffffff;
++  border: 1px solid #d1d5db;
+   border-radius: 12px;
+-  color: #fff;
++  color: #1e293b;
+   transition: all 0.2s ease;
+ }
+ 
+ .glass-input:focus {
+-  border-color: #6366f1;
+-  background: rgba(10, 12, 20, 0.9);
+-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
++  border-color: #2563eb;
++  background: #ffffff;
++  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+   outline: none;
+ }
+ 
+-/* Smooth gradient animations */
++/* アクセントグラデーション */
+ @keyframes gradient-bg {
+   0% { background-position: 0% 50%; }
+   50% { background-position: 100% 50%; }
+@@ -74,35 +105,40 @@ body {
+ }
+ 
+ .animated-gradient {
+-  background: linear-gradient(-45deg, #6366f1, #a855f7, #2563eb, #db2777);
++  background: linear-gradient(-45deg, #2563eb, #0f766e, #2563eb, #0ea5e9);
+   background-size: 400% 400%;
+   animation: gradient-bg 12s ease infinite;
+ }
+ 
+-/* Mobile framework style layout container for desktop view */
++/* モバイルフレーム */
+ .mobile-container {
+   max-width: 480px;
+   margin: 0 auto;
+   min-height: 100vh;
+   position: relative;
+-  background: #090b11;
+-  box-shadow: 0 0 50px rgba(0, 0, 0, 0.85);
+-  border-left: 1px solid rgba(255, 255, 255, 0.04);
+-  border-right: 1px solid rgba(255, 255, 255, 0.04);
++  background: #ffffff;
++  box-shadow: 0 0 30px rgba(0, 0, 0, 0.08);
+ }
+ 
+-/* Hide scrollbar default */
++/* スクロールバー */
+ ::-webkit-scrollbar {
+   width: 6px;
+   height: 6px;
+ }
+ ::-webkit-scrollbar-track {
+-  background: rgba(0, 0, 0, 0.05);
++  background: rgba(0, 0, 0, 0.03);
+ }
+ ::-webkit-scrollbar-thumb {
+-  background: rgba(255, 255, 255, 0.1);
++  background: rgba(0, 0, 0, 0.12);
+   border-radius: 3px;
+ }
+ ::-webkit-scrollbar-thumb:hover {
+-  background: rgba(255, 255, 255, 0.2);
++  background: rgba(0, 0, 0, 0.2);
++}
++
++/* タッチターゲット */
++@media (max-width: 480px) {
++  button, [role="button"], input, select, textarea {
++    min-height: 44px;
++  }
+ }
+diff --git a/client/src/app/interests/page.tsx b/client/src/app/interests/page.tsx
+index dec2d39..e428e79 100644
+--- a/client/src/app/interests/page.tsx
++++ b/client/src/app/interests/page.tsx
+@@ -58,7 +58,7 @@ export default function InterestsPage() {
+   if (!initialized) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+       </div>
+     );
+   }
+@@ -71,7 +71,7 @@ export default function InterestsPage() {
+       <div className="flex items-center justify-between">
+         <button
+           onClick={handleBack}
+-          className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++          className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-600 hover:text-slate-800 transition-all cursor-pointer"
+         >
+           <ArrowLeft className="w-4 h-4" />
+         </button>
+@@ -84,10 +84,10 @@ export default function InterestsPage() {
+       {/* Main content header */}
+       <div className="my-6">
+         <div className="text-center mb-6">
+-          <h1 className="text-xl font-bold text-white mb-2 font-outfit">
++          <h1 className="text-xl font-bold text-slate-800 mb-2 font-outfit">
+             好きなことを教えてください
+           </h1>
+-          <p className="text-xs text-slate-400">
++          <p className="text-xs text-slate-500">
+             あなたの好みに合う旅行プランを調整します。直感的に最低{MIN_REQUIRED}個以上選択してください。
+           </p>
+         </div>
+@@ -102,8 +102,8 @@ export default function InterestsPage() {
+                 onClick={() => toggleOption(opt.id)}
+                 className={`flex flex-col items-center justify-center p-4 rounded-2xl border text-center transition-all cursor-pointer select-none min-h-[96px] ${
+                   isActive
+-                    ? 'border-indigo-500 bg-indigo-950/20 text-white font-semibold shadow-md shadow-indigo-500/5'
+-                    : 'border-white/5 bg-white/5 text-slate-300 hover:bg-white/10'
++                    ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-md shadow-blue-500/5'
++                    : 'border-gray-200 bg-white text-slate-600 hover:bg-gray-50 hover:border-gray-300'
+                 }`}
+               >
+                 <span className="text-2xl mb-2" role="img" aria-label={opt.label}>
+@@ -119,11 +119,11 @@ export default function InterestsPage() {
+       </div>
+ 
+       {/* Action Footer (Sticky) */}
+-      <div className="border-t border-white/5 pt-4 bg-[#090b11]/80 backdrop-blur-md -mx-6 px-6">
++      <div className="border-t border-gray-200 pt-4 bg-white/90 backdrop-blur-md -mx-6 px-6">
+         <div className="flex items-center justify-between mb-4">
+-          <div className="text-xs text-slate-400">
++          <div className="text-xs text-slate-500">
+             選択数:{' '}
+-            <span className={canNext ? 'text-indigo-400 font-bold' : 'text-slate-500'}>
++            <span className={canNext ? 'text-blue-600 font-bold' : 'text-slate-400'}>
+               {selected.size}
+             </span>{' '}
+             / {MIN_REQUIRED} 以上
+@@ -132,7 +132,7 @@ export default function InterestsPage() {
+             <motion.div
+               initial={{ opacity: 0, scale: 0.8 }}
+               animate={{ opacity: 1, scale: 1 }}
+-              className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1 font-bold"
++              className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-600 px-2 py-0.5 rounded-full flex items-center gap-1 font-bold"
+             >
+               <Check className="w-3 h-3" /> 条件クリア
+             </motion.div>
+@@ -145,7 +145,7 @@ export default function InterestsPage() {
+           disabled={!canNext}
+           className={`w-full py-4 rounded-xl text-sm font-semibold text-white shadow-lg transition-all flex justify-center items-center gap-1 ${
+             !canNext
+-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
++              ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200'
+               : 'animated-gradient cursor-pointer'
+           }`}
+         >
+diff --git a/client/src/app/layout.tsx b/client/src/app/layout.tsx
+index be5d495..bccf60b 100644
+--- a/client/src/app/layout.tsx
++++ b/client/src/app/layout.tsx
+@@ -27,7 +27,7 @@ export default function RootLayout({
+       lang="ja"
+       className={`${outfit.variable} ${inter.variable} h-full antialiased`}
+     >
+-      <body className="min-h-full bg-[#030407]">
++      <body className="min-h-full bg-[#f5f7fa]">
+         <div className="mobile-container flex flex-col min-h-screen">
+           {children}
+         </div>
+diff --git a/client/src/app/login/page.tsx b/client/src/app/login/page.tsx
+index ab05638..b18f649 100644
+--- a/client/src/app/login/page.tsx
++++ b/client/src/app/login/page.tsx
+@@ -48,8 +48,8 @@ function LoginContent() {
+   return (
+     <div className="flex-1 flex flex-col justify-center px-6 py-12 relative overflow-hidden">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/4 left-1/10 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl -z-10" />
+-      <div className="absolute bottom-1/4 right-1/10 w-72 h-72 bg-pink-600/10 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/4 left-1/10 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -z-10" />
++      <div className="absolute bottom-1/4 right-1/10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl -z-10" />
+ 
+       <motion.div
+         initial={{ opacity: 0, y: 20 }}
+@@ -58,17 +58,17 @@ function LoginContent() {
+         className="w-full glass-panel rounded-2xl p-8 shadow-2xl relative"
+       >
+         <div className="text-center mb-8">
+-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2 font-outfit">
++          <h1 className="text-3xl font-bold tracking-tight text-slate-800 mb-2 font-outfit">
+             ログイン
+           </h1>
+-          <p className="text-sm text-slate-400">
++          <p className="text-sm text-slate-500">
+             アカウントでログインして、いざ旅を始めましょう。
+           </p>
+         </div>
+ 
+         <form onSubmit={handleSubmit} className="space-y-6">
+           <div className="space-y-2">
+-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
++            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+               ユーザーID
+             </label>
+             <input
+@@ -77,13 +77,13 @@ function LoginContent() {
+               onChange={(e) => setUserId(e.target.value.trim())}
+               placeholder="例: gemini_user"
+               required
+-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
++              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
+               autoComplete="username"
+             />
+           </div>
+ 
+           <div className="space-y-2">
+-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
++            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+               パスワード
+             </label>
+             <input
+@@ -92,7 +92,7 @@ function LoginContent() {
+               onChange={(e) => setPassword(e.target.value)}
+               placeholder="••••••••"
+               required
+-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
++              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
+               autoComplete="current-password"
+             />
+             <p className="text-[11px] text-slate-500">
+@@ -104,7 +104,7 @@ function LoginContent() {
+             <motion.p
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+-              className="text-xs font-medium text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-lg px-3 py-2"
++              className="text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200/60 rounded-lg px-3 py-2"
+             >
+               {error}
+             </motion.p>
+@@ -114,7 +114,7 @@ function LoginContent() {
+             whileTap={{ scale: 0.98 }}
+             type="submit"
+             disabled={loading}
+-            className="w-full py-3.5 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-indigo-500/10 transition-all flex justify-center items-center cursor-pointer"
++            className="w-full py-3.5 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-blue-500/10 transition-all flex justify-center items-center cursor-pointer"
+           >
+             {loading ? (
+               <span className="flex items-center gap-2">
+@@ -130,12 +130,12 @@ function LoginContent() {
+           </motion.button>
+         </form>
+ 
+-        <div className="mt-8 text-center border-t border-white/5 pt-6">
+-          <p className="text-xs text-slate-400">
++        <div className="mt-8 text-center border-t border-gray-200 pt-6">
++          <p className="text-xs text-slate-500">
+             アカウントをお持ちでないですか？{' '}
+             <Link
+               href={`/signup${searchParams.toString() ? '?' + searchParams.toString() : ''}`}
+-              className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors"
++              className="text-blue-600 font-semibold hover:text-blue-500 transition-colors"
+             >
+               新規登録してはじめる
+             </Link>
+@@ -150,7 +150,7 @@ export default function LoginPage() {
+   return (
+     <Suspense fallback={
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+       </div>
+     }>
+       <LoginContent />
+diff --git a/client/src/app/main/page.tsx b/client/src/app/main/page.tsx
+index 90296c4..447f1ec 100644
+--- a/client/src/app/main/page.tsx
++++ b/client/src/app/main/page.tsx
+@@ -93,23 +93,23 @@ export default function MainPage() {
+   if (loading && !persona) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+       </div>
+     );
+   }
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden">
++    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden bg-white">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
+ 
+       {/* Main dashboard content */}
+       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[85vh]">
+         {/* Top Header */}
+         <div className="flex justify-between items-center">
+           <div>
+-            <h1 className="text-xl font-bold text-white font-outfit">マイページ</h1>
+-            <p className="text-[10px] text-slate-400">旅行スタイルに基づきパーソナライズされています</p>
++            <h1 className="text-xl font-bold text-slate-800 font-outfit">マイページ</h1>
++            <p className="text-[10px] text-slate-500">旅行スタイルに基づきパーソナライズされています</p>
+           </div>
+           <button
+             onClick={() => {
+@@ -118,7 +118,7 @@ export default function MainPage() {
+               loadLatestPersona();
+               loadRecentPlans();
+             }}
+-            className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
++            className="p-2 rounded-xl bg-gray-50 border border-gray-200 text-slate-500 hover:text-slate-800 hover:bg-gray-100 transition-all cursor-pointer"
+           >
+             <RefreshCw className="w-4 h-4" />
+           </button>
+@@ -129,20 +129,20 @@ export default function MainPage() {
+           <motion.div
+             initial={{ scale: 0.95, opacity: 0 }}
+             animate={{ scale: 1, opacity: 1 }}
+-            className="rounded-2xl animated-gradient p-[1px] shadow-lg shadow-indigo-500/10"
++            className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 p-[1px] shadow-md shadow-blue-100"
+           >
+-            <div className="bg-[#090b11]/90 rounded-2xl p-4 flex items-center justify-between">
++            <div className="bg-white rounded-2xl p-4 flex items-center justify-between">
+               <div>
+-                <span className="text-[9px] font-bold text-indigo-400 tracking-wider block mb-1">
++                <span className="text-[9px] font-bold text-blue-600 tracking-wider block mb-1">
+                   TRAVEL DAY MODE ACTIVE
+                 </span>
+-                <h3 className="text-sm font-bold text-white max-w-[200px] truncate">
++                <h3 className="text-sm font-bold text-slate-800 max-w-[200px] truncate">
+                   {activePlanStore.activePlan.title}
+                 </h3>
+               </div>
+               <button
+                 onClick={openTravelDayChat}
+-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md flex items-center gap-1.5 cursor-pointer"
++                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md flex items-center gap-1.5 cursor-pointer"
+               >
+                 <MessageCircle className="w-4 h-4" />
+                 対話を開く
+@@ -153,10 +153,10 @@ export default function MainPage() {
+ 
+         {/* Error handling */}
+         {error && (
+-          <div className="glass-panel border-rose-900/50 p-4 rounded-2xl flex items-start gap-3">
+-            <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
++          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-start gap-3">
++            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+             <div className="space-y-2">
+-              <p className="text-xs text-rose-400 font-medium">{error}</p>
++              <p className="text-xs text-rose-700 font-medium">{error}</p>
+               <button
+                 onClick={loadLatestPersona}
+                 className="px-3 py-1.5 rounded-lg text-[10px] font-semibold text-white bg-rose-600 hover:bg-rose-500"
+@@ -170,32 +170,32 @@ export default function MainPage() {
+         {/* Persona Profile Card */}
+         {persona?.profile ? (
+           <div className="space-y-4">
+-            <div className="glass-panel rounded-2xl p-5 shadow-md">
+-              <span className="text-[10px] font-bold text-indigo-400 tracking-wider block mb-1">
++            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-5 shadow-md">
++              <span className="text-[10px] font-bold text-blue-600 tracking-wider block mb-1">
+                 CURRENT STYLE
+               </span>
+-              <h2 className="text-lg font-bold text-white mb-2">
++              <h2 className="text-lg font-bold text-slate-800 mb-2">
+                 {persona.profile.title}
+               </h2>
+-              <p className="text-xs text-slate-400 leading-relaxed">
++              <p className="text-xs text-slate-600 leading-relaxed">
+                 {persona.profile.description || '旅行のパーソナライズプロファイルです。'}
+               </p>
+ 
+               {/* Traits Breakdown */}
+               {persona.profile.traitScores && Object.keys(persona.profile.traitScores).length > 0 && (
+-                <div className="mt-5 border-t border-white/5 pt-4 space-y-3">
+-                  <h3 className="text-xs font-bold text-slate-300">📊 旅行特性サマリー</h3>
++                <div className="mt-5 border-t border-gray-200 pt-4 space-y-3">
++                  <h3 className="text-xs font-bold text-slate-700">📊 旅行特性サマリー</h3>
+                   <div className="grid grid-cols-2 gap-2">
+                     {Object.entries(persona.profile.traitScores).slice(0, 4).map(([trait, score]: any) => (
+-                      <div key={trait} className="bg-white/5 border border-white/5 rounded-xl p-2.5 space-y-1">
++                      <div key={trait} className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 space-y-1">
+                         <div className="flex justify-between items-center text-[10px]">
+-                          <span className="text-slate-400 font-medium truncate max-w-[60px]">{trait}</span>
+-                          <span className="text-indigo-400 font-bold font-mono">{score.toFixed(1)}</span>
++                          <span className="text-slate-600 font-medium truncate max-w-[60px]">{trait}</span>
++                          <span className="text-blue-600 font-bold font-mono">{score.toFixed(1)}</span>
+                         </div>
+-                        <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
++                        <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                           <div
+                             style={{ width: `${(score / 4) * 100}%` }}
+-                            className="h-full bg-indigo-500 rounded-full"
++                            className="h-full bg-blue-600 rounded-full"
+                           />
+                         </div>
+                       </div>
+@@ -204,7 +204,7 @@ export default function MainPage() {
+                   <div className="text-center pt-2">
+                     <button
+                       onClick={() => router.push(appPath('/results'))}
+-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors font-semibold"
++                      className="text-[10px] text-blue-600 hover:text-blue-700 transition-colors font-semibold"
+                     >
+                       詳細な診断グラフを表示する &rarr;
+                     </button>
+@@ -214,15 +214,15 @@ export default function MainPage() {
+             </div>
+           </div>
+         ) : (
+-          <div className="glass-panel rounded-2xl p-6 text-center space-y-4">
+-            <User className="w-8 h-8 text-slate-500 mx-auto" />
++          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 text-center space-y-4">
++            <User className="w-8 h-8 text-slate-400 mx-auto" />
+             <div>
+-              <p className="text-xs text-slate-400">診断データが登録されていません。</p>
++              <p className="text-xs text-slate-600">診断データが登録されていません。</p>
+               <p className="text-[10px] text-slate-500 mt-1">旅行スタイルを分析してパーソナライズを開始しましょう。</p>
+             </div>
+             <button
+               onClick={() => router.push(appPath('/'))}
+-              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
++              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-md cursor-pointer"
+             >
+               スタイル診断を受ける
+             </button>
+@@ -233,7 +233,7 @@ export default function MainPage() {
+         <div className="grid grid-cols-1 gap-3">
+           <button
+             onClick={() => router.push(appPath('/travel-wizard'))}
+-            className="w-full py-4 rounded-2xl font-semibold text-white animated-gradient shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-2 cursor-pointer text-sm"
++            className="w-full py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg shadow-blue-100 flex items-center justify-center gap-2 cursor-pointer text-sm"
+           >
+             <PlusCircle className="w-5 h-5" /> 新しい旅行計画を作成
+           </button>
+@@ -242,13 +242,13 @@ export default function MainPage() {
+         {/* Recent Travel Plans */}
+         <div className="space-y-3">
+           <div className="flex justify-between items-center">
+-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+-              <Compass className="w-4 h-4 text-indigo-400" />
++            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
++              <Compass className="w-4 h-4 text-blue-600" />
+               最近の旅行プラン
+             </h3>
+             <button
+               onClick={() => router.push(appPath('/plans'))}
+-              className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
++              className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold"
+             >
+               すべて見る
+             </button>
+@@ -262,11 +262,11 @@ export default function MainPage() {
+                 <div
+                   key={plan.id}
+                   onClick={() => router.push(appPath(`/plans/${plan.id}`))}
+-                  className="glass-panel-interactive rounded-2xl p-4 flex items-center justify-between cursor-pointer"
++                  className="bg-white border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all shadow-sm rounded-2xl p-4 flex items-center justify-between cursor-pointer"
+                 >
+                   <div className="space-y-1.5 max-w-[240px]">
+-                    <h4 className="text-xs font-bold text-white truncate">{plan.title}</h4>
+-                    <p className="text-[10px] text-slate-400 line-clamp-1 leading-normal">
++                    <h4 className="text-xs font-bold text-slate-800 truncate">{plan.title}</h4>
++                    <p className="text-[10px] text-slate-600 line-clamp-1 leading-normal">
+                       {plan.summary || '旅程プランの詳細を表示します。'}
+                     </p>
+                     <div className="flex items-center gap-2 text-[9px] text-slate-500 font-mono">
+@@ -279,12 +279,12 @@ export default function MainPage() {
+                       </span>
+                     </div>
+                   </div>
+-                  <ChevronRight className="w-4 h-4 text-slate-600" />
++                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                 </div>
+               ))}
+             </div>
+           ) : (
+-            <div className="glass-panel rounded-2xl py-8 px-4 text-center text-xs text-slate-500">
++            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl py-8 px-4 text-center text-xs text-slate-500">
+               まだ保存されたプランはありません。
+             </div>
+           )}
+diff --git a/client/src/app/me/page.tsx b/client/src/app/me/page.tsx
+index bc76230..2949ff9 100644
+--- a/client/src/app/me/page.tsx
++++ b/client/src/app/me/page.tsx
+@@ -172,37 +172,37 @@ export default function MyPage() {
+   if (loading) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+       </div>
+     );
+   }
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden h-screen bg-[#090b11]">
++    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden h-screen bg-[#f5f7fa] text-slate-800">
+       {/* Top Background glowing decorations */}
+-      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
+ 
+       {/* Main Form content (Scrollable) */}
+       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[80vh]">
+         {/* Title */}
+         <div className="flex justify-between items-center">
+           <div>
+-            <h1 className="text-xl font-bold text-white font-outfit">マイページ</h1>
+-            <p className="text-[10px] text-slate-400">プロフィールの編集とシステム設定</p>
++            <h1 className="text-xl font-bold text-slate-800 font-outfit">マイページ</h1>
++            <p className="text-[10px] text-slate-500">プロフィールの編集とシステム設定</p>
+           </div>
+           <button
+             onClick={handleLogout}
+-            className="p-2 rounded-xl bg-rose-950/20 border border-rose-900/30 text-rose-400 hover:bg-rose-950/40 transition-all flex items-center justify-center gap-1 cursor-pointer text-[10px] font-bold"
++            className="p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition-all flex items-center justify-center gap-1 cursor-pointer text-[10px] font-bold shadow-sm"
+           >
+             <LogOut className="w-3.5 h-3.5" /> ログアウト
+           </button>
+         </div>
+ 
+         <form onSubmit={handleSubmit} className="space-y-4">
+-          <div className="glass-panel rounded-2xl p-5 space-y-4 shadow-lg">
++          <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-sm">
+             {/* Display Name */}
+             <div className="space-y-1.5">
+-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                 お名前
+               </label>
+               <input
+@@ -211,28 +211,28 @@ export default function MyPage() {
+                 onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
+                 required
+                 placeholder="山田 太郎"
+-                className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none"
++                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+               />
+             </div>
+ 
+             {/* Birthday and Gender */}
+             <div className="grid grid-cols-2 gap-3">
+               <div className="space-y-1.5">
+-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                   生年月日
+                 </label>
+                 <input
+                   type="date"
+                   value={profile.birthdate}
+                   onChange={handleBirthdateChange}
+-                  className="w-full px-3 py-2 glass-input text-xs text-white focus:outline-none"
++                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 />
+               </div>
+               <div className="space-y-1.5">
+-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                   年齢
+                 </label>
+-                <div className="w-full px-3 py-2 bg-slate-900/50 border border-white/5 text-xs text-slate-300 rounded-xl min-h-[38px] flex items-center select-none font-mono">
++                <div className="w-full px-3 py-2 bg-gray-100 border border-gray-200 text-xs text-slate-600 rounded-xl min-h-[38px] flex items-center select-none font-mono">
+                   {profile.age ? `${profile.age} 歳` : '未入力'}
+                 </div>
+               </div>
+@@ -241,22 +241,22 @@ export default function MyPage() {
+             {/* Gender and Departure location */}
+             <div className="grid grid-cols-2 gap-3">
+               <div className="space-y-1.5">
+-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                   性別
+                 </label>
+                 <select
+                   value={profile.gender}
+                   onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+-                  className="w-full px-3 py-2 glass-input text-xs text-white bg-slate-900 border border-white/5 focus:outline-none rounded-xl"
++                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
+                 >
+-                  <option value="" className="bg-slate-950">選択なし</option>
+-                  <option value="male" className="bg-slate-950">男性</option>
+-                  <option value="female" className="bg-slate-950">女性</option>
+-                  <option value="other" className="bg-slate-950">その他</option>
++                  <option value="" className="bg-white text-slate-800">選択なし</option>
++                  <option value="male" className="bg-white text-slate-800">男性</option>
++                  <option value="female" className="bg-white text-slate-800">女性</option>
++                  <option value="other" className="bg-white text-slate-800">その他</option>
+                 </select>
+               </div>
+               <div className="space-y-1.5">
+-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                   出発地
+                 </label>
+                 <input
+@@ -264,14 +264,14 @@ export default function MyPage() {
+                   value={profile.location}
+                   onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                   placeholder="例: 東京都"
+-                  className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none"
++                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 />
+               </div>
+             </div>
+ 
+             {/* Budget */}
+             <div className="space-y-1.5">
+-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                 ご予算（概算）
+               </label>
+               <input
+@@ -279,13 +279,13 @@ export default function MyPage() {
+                 value={profile.budget}
+                 onChange={(e) => setProfile({ ...profile, budget: e.target.value })}
+                 placeholder="例: 1回あたり 5万円程度"
+-                className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none"
++                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+               />
+             </div>
+ 
+             {/* Hobbies list with Badge tags */}
+             <div className="space-y-1.5">
+-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                 趣味・関心（Enterで追加、最大10個）
+               </label>
+               <input
+@@ -294,34 +294,34 @@ export default function MyPage() {
+                 onChange={(e) => setHobbyInput(e.target.value)}
+                 onKeyDown={handleAddHobby}
+                 placeholder="例: サウナ、日本酒、アート"
+-                className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none mb-2"
++                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none mb-2"
+               />
+ 
+               <div className="flex flex-wrap gap-1.5">
+                 {profile.hobbies.map((hobby, index) => (
+                   <span
+                     key={index}
+-                    className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 font-semibold"
++                    className="bg-blue-50 border border-blue-200 text-blue-600 text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 font-semibold"
+                   >
+                     {hobby}
+                     <button
+                       type="button"
+                       onClick={() => handleRemoveHobby(index)}
+-                      className="hover:text-indigo-200"
++                      className="hover:text-blue-800"
+                     >
+                       <X className="w-3 h-3" />
+                     </button>
+                   </span>
+                 ))}
+                 {profile.hobbies.length === 0 && (
+-                  <span className="text-[10px] text-slate-600 font-bold">趣味タグが登録されていません</span>
++                  <span className="text-[10px] text-slate-400 font-bold">趣味タグが登録されていません</span>
+                 )}
+               </div>
+             </div>
+ 
+             {/* Travel Memo / Preference Notes */}
+             <div className="space-y-1.5">
+-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                 旅行に関するメモ・アレルギーなど
+               </label>
+               <textarea
+@@ -329,7 +329,7 @@ export default function MyPage() {
+                 onChange={(e) => setProfile({ ...profile, notes: e.target.value })}
+                 rows={3}
+                 placeholder="例: 移動中の車酔いがあります。人混みが少ない静かな場所を好みます。"
+-                className="w-full p-3 glass-input text-xs text-white focus:outline-none"
++                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none"
+               />
+             </div>
+           </div>
+@@ -339,7 +339,7 @@ export default function MyPage() {
+             whileTap={{ scale: 0.98 }}
+             type="submit"
+             disabled={saving}
+-            className="w-full py-4 rounded-2xl font-semibold text-white animated-gradient shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm"
++            className="w-full py-4 rounded-2xl font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md flex items-center justify-center gap-2 cursor-pointer text-sm"
+           >
+             <Save className="w-4 h-4" />
+             {saving ? 'プロフィール更新中...' : 'プロフィールを更新する'}
+@@ -354,9 +354,9 @@ export default function MyPage() {
+             initial={{ opacity: 0, y: 30, scale: 0.95 }}
+             animate={{ opacity: 1, y: 0, scale: 1 }}
+             exit={{ opacity: 0, y: 30, scale: 0.95 }}
+-            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 px-4 py-2.5 rounded-xl text-xs font-medium text-white shadow-xl flex items-center gap-2 z-50 whitespace-nowrap"
++            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl text-xs font-medium text-slate-800 shadow-xl flex items-center gap-2 z-50 whitespace-nowrap"
+           >
+-            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
++            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />
+             {toast}
+           </motion.div>
+         )}
+diff --git a/client/src/app/memories/[id]/page.tsx b/client/src/app/memories/[id]/page.tsx
+index af77a35..a9081b0 100644
+--- a/client/src/app/memories/[id]/page.tsx
++++ b/client/src/app/memories/[id]/page.tsx
+@@ -143,7 +143,7 @@ export default function MemoryDetailPage() {
+   if (loading) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+       </div>
+     );
+   }
+@@ -151,11 +151,11 @@ export default function MemoryDetailPage() {
+   if (error || !memory) {
+     return (
+       <div className="flex-1 flex flex-col justify-center items-center px-6 text-center space-y-4">
+-        <ShieldAlert className="w-8 h-8 text-rose-400" />
+-        <p className="text-slate-400 text-sm">{error || '思い出が見つかりませんでした。'}</p>
++        <ShieldAlert className="w-8 h-8 text-rose-600" />
++        <p className="text-slate-600 text-sm">{error || '思い出が見つかりませんでした。'}</p>
+         <button
+           onClick={() => router.push(appPath('/memories'))}
+-          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer"
++          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all cursor-pointer"
+         >
+           アルバム一覧へ戻る
+         </button>
+@@ -164,19 +164,19 @@ export default function MemoryDetailPage() {
+   }
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen">
++    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen bg-[#f5f7fa] text-slate-800">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/3 left-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/3 left-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
+ 
+       {/* Header */}
+       <div className="flex items-center justify-between mb-6">
+         <button
+           onClick={() => router.push(appPath('/memories'))}
+-          className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++          className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
+         >
+           <ArrowLeft className="w-4 h-4" />
+         </button>
+-        <span className="text-xs font-bold text-slate-500 tracking-wider font-outfit">
++        <span className="text-xs font-bold text-slate-400 tracking-wider font-outfit">
+           ALBUM DETAIL
+         </span>
+         <div className="w-8" />
+@@ -185,9 +185,9 @@ export default function MemoryDetailPage() {
+       <div className="space-y-6 pb-24">
+         {/* Album Header Info */}
+         <div className="space-y-2">
+-          <h1 className="text-lg font-bold text-white leading-snug">{planTitle}</h1>
++          <h1 className="text-lg font-bold text-slate-800 leading-snug">{planTitle}</h1>
+           {(memory.trip_start_date || memory.trip_end_date) && (
+-            <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
++            <p className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+               <Calendar className="w-3.5 h-3.5" />
+               {fmtDate(memory.trip_start_date)} ~ {fmtDate(memory.trip_end_date)}
+             </p>
+@@ -196,12 +196,12 @@ export default function MemoryDetailPage() {
+ 
+         {/* Video slideshow player */}
+         <div className="space-y-3">
+-          <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1">
+-            <Film className="w-4 h-4 text-indigo-400" /> スライドショー動画
++          <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1">
++            <Film className="w-4 h-4 text-blue-600" /> スライドショー動画
+           </h3>
+ 
+           {videoUrlsList.length > 0 ? (
+-            <div className="glass-panel rounded-2xl overflow-hidden aspect-video relative bg-black/40 border border-white/5 shadow-lg flex items-center justify-center">
++            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden aspect-video relative shadow-sm flex items-center justify-center">
+               <video
+                 src={videoUrlsList[0]}
+                 controls
+@@ -216,21 +216,21 @@ export default function MemoryDetailPage() {
+             </div>
+           ) : !allDone ? (
+             /* Video generating / waiting status */
+-            <div className="glass-panel rounded-2xl p-6 text-center space-y-4 shadow-lg border border-indigo-500/20 bg-indigo-950/10">
++            <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+               <div className="relative w-12 h-12 mx-auto">
+-                <div className="animate-spin rounded-full h-full w-full border-2 border-indigo-500 border-t-transparent" />
+-                <Film className="w-5 h-5 text-indigo-400 absolute inset-3.5 animate-pulse" />
++                <div className="animate-spin rounded-full h-full w-full border-2 border-blue-500 border-t-transparent" />
++                <Film className="w-5 h-5 text-blue-600 absolute inset-3.5 animate-pulse" />
+               </div>
+               <div>
+-                <p className="text-xs font-bold text-white">AIスライドショー動画を生成中...</p>
+-                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">
++                <p className="text-xs font-bold text-slate-800">AIスライドショー動画を生成中...</p>
++                <p className="text-[9px] text-slate-500 mt-1 leading-relaxed">
+                   アップロードされた写真から自動で想い出ムービーを作成しています。<br />
+                   このまま少々お待ちください。
+                 </p>
+               </div>
+             </div>
+           ) : (
+-            <div className="glass-panel rounded-2xl py-8 text-center text-xs text-slate-500">
++            <div className="bg-white border border-gray-200 rounded-2xl py-8 text-center text-xs text-slate-500 shadow-sm">
+               動画生成のリクエストがありません。
+             </div>
+           )}
+@@ -239,8 +239,8 @@ export default function MemoryDetailPage() {
+         {/* Photos grid */}
+         {memory.images && memory.images.length > 0 && (
+           <div className="space-y-3">
+-            <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1">
+-              <ImageIcon className="w-4 h-4 text-indigo-400" /> 想い出の写真
++            <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1">
++              <ImageIcon className="w-4 h-4 text-blue-600" /> 想い出の写真
+             </h3>
+ 
+             <div className="grid grid-cols-3 gap-2">
+@@ -251,7 +251,7 @@ export default function MemoryDetailPage() {
+                     key={idx}
+                     whileTap={{ scale: 0.96 }}
+                     onClick={() => setSelectedPhoto(src)}
+-                    className="aspect-square bg-slate-900 rounded-xl overflow-hidden cursor-pointer shadow-md hover:opacity-90 transition-opacity border border-white/5"
++                    className="aspect-square bg-gray-100 rounded-xl overflow-hidden cursor-pointer shadow-sm hover:opacity-90 transition-opacity border border-gray-200"
+                   >
+                     <img src={src} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                   </motion.div>
+@@ -264,22 +264,22 @@ export default function MemoryDetailPage() {
+         {/* Itinerary details */}
+         {memory.itinerary && memory.itinerary.length > 0 && (
+           <div className="space-y-3">
+-            <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1">
+-              <MapPin className="w-4 h-4 text-indigo-400" /> 当日の活動ルート
++            <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1">
++              <MapPin className="w-4 h-4 text-blue-600" /> 当日の活動ルート
+             </h3>
+-            <div className="glass-panel rounded-2xl p-4 space-y-4">
++            <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4 shadow-sm">
+               {memory.itinerary.map((day: any, dIdx: number) => (
+-                <div key={dIdx} className="space-y-2 border-b border-white/5 last:border-b-0 pb-3 last:pb-0">
+-                  <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
++                <div key={dIdx} className="space-y-2 border-b border-gray-200 last:border-b-0 pb-3 last:pb-0">
++                  <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                     Day {day.day || dIdx + 1}
+                   </div>
+                   <div className="space-y-1.5">
+                     {(day.items || day.activities || []).map((item: any, iIdx: number) => (
+-                      <div key={iIdx} className="text-xs flex items-start gap-1.5 leading-relaxed text-slate-300">
+-                        <span className="font-semibold text-white">•</span>
++                      <div key={iIdx} className="text-xs flex items-start gap-1.5 leading-relaxed text-slate-700">
++                        <span className="font-semibold text-slate-800">•</span>
+                         <div>
+-                          <span className="font-semibold text-white text-xs">{item.title}</span>
+-                          {item.detail && <span className="text-[10px] text-slate-400 ml-1.5">— {item.detail}</span>}
++                          <span className="font-semibold text-slate-800 text-xs">{item.title}</span>
++                          {item.detail && <span className="text-[10px] text-slate-500 ml-1.5">— {item.detail}</span>}
+                         </div>
+                       </div>
+                     ))}
+diff --git a/client/src/app/memories/page.tsx b/client/src/app/memories/page.tsx
+index 30af681..1c926f5 100644
+--- a/client/src/app/memories/page.tsx
++++ b/client/src/app/memories/page.tsx
+@@ -148,22 +148,22 @@ export default function MemoriesPage() {
+   const canSave = selectedPlanId && images.some((img) => img !== null);
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden">
++    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden bg-[#f5f7fa] text-slate-800">
+       {/* Background glowing decorations */}
+-      <div className="absolute bottom-1/4 right-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
++      <div className="absolute bottom-1/4 right-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
+ 
+       {/* Scrollable Container */}
+       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[85vh]">
+         {/* Header */}
+         <div className="flex justify-between items-center">
+           <div>
+-            <h1 className="text-xl font-bold text-white font-outfit">思い出アルバム</h1>
+-            <p className="text-[10px] text-slate-400">訪れた場所の記録とスライド動画</p>
++            <h1 className="text-xl font-bold text-slate-800 font-outfit">思い出アルバム</h1>
++            <p className="text-[10px] text-slate-500">訪れた場所の記録とスライド動画</p>
+           </div>
+           {plans.length > 0 && (
+             <button
+               onClick={openAddModal}
+-              className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition-all flex items-center gap-1 shadow-md cursor-pointer text-xs font-semibold"
++              className="p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center gap-1 shadow-md cursor-pointer text-xs font-semibold"
+             >
+               <Plus className="w-4 h-4" /> 追加
+             </button>
+@@ -174,9 +174,9 @@ export default function MemoriesPage() {
+         {loading ? (
+           <div className="text-center py-12 text-xs text-slate-500">読み込み中...</div>
+         ) : error ? (
+-          <div className="glass-panel border-rose-900/50 p-4 rounded-2xl flex items-center gap-3">
+-            <ShieldAlert className="w-5 h-5 text-rose-400 flex-shrink-0" />
+-            <span className="text-xs text-rose-400 font-medium">{error}</span>
++          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-center gap-3 shadow-sm">
++            <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
++            <span className="text-xs text-rose-600 font-medium">{error}</span>
+           </div>
+         ) : memories.length > 0 ? (
+           <div className="grid grid-cols-1 gap-4">
+@@ -190,14 +190,14 @@ export default function MemoriesPage() {
+                 <div
+                   key={mem.id}
+                   onClick={() => router.push(appPath(`/memories/${mem.id}`))}
+-                  className="glass-panel-interactive rounded-2xl overflow-hidden cursor-pointer shadow-lg flex"
++                  className="bg-white border border-gray-200 hover:border-blue-300 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md flex transition-all"
+                 >
+                   {/* Image Thumbnail */}
+-                  <div className="w-28 h-28 flex-shrink-0 bg-slate-900 flex items-center justify-center relative">
++                  <div className="w-28 h-28 flex-shrink-0 bg-gray-100 flex items-center justify-center relative">
+                     {hasImages ? (
+                       <img src={firstImg} alt="Thumbnail" className="w-full h-full object-cover" />
+                     ) : (
+-                      <Image className="w-6 h-6 text-slate-700" />
++                      <Image className="w-6 h-6 text-slate-400" />
+                     )}
+                     {mem.images && mem.images.length > 1 && (
+                       <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md font-mono">
+@@ -209,15 +209,15 @@ export default function MemoriesPage() {
+                   {/* Text Description */}
+                   <div className="p-4 flex flex-col justify-between flex-1 min-w-0">
+                     <div className="space-y-1">
+-                      <h3 className="text-xs font-bold text-white truncate">
++                      <h3 className="text-xs font-bold text-slate-800 truncate">
+                         {getMemoryTitle(mem)}
+                       </h3>
+-                      <p className="text-[9px] text-slate-400 leading-normal flex items-center gap-0.5 font-mono">
++                      <p className="text-[9px] text-slate-500 leading-normal flex items-center gap-0.5 font-mono">
+                         <Calendar className="w-3.5 h-3.5" />
+                         {getMemoryRange(mem)}
+                       </p>
+                     </div>
+-                    <span className="text-[8px] text-indigo-400 font-bold self-end hover:underline">
++                    <span className="text-[8px] text-blue-600 font-bold self-end hover:underline">
+                       アルバムを開く &rarr;
+                     </span>
+                   </div>
+@@ -226,21 +226,21 @@ export default function MemoriesPage() {
+             })}
+           </div>
+         ) : (
+-          <div className="glass-panel rounded-2xl py-16 px-6 text-center space-y-4">
+-            <Image className="w-8 h-8 text-slate-500 mx-auto" />
++          <div className="bg-white border border-gray-200 rounded-2xl py-16 px-6 text-center space-y-4 shadow-sm">
++            <Image className="w-8 h-8 text-slate-400 mx-auto" />
+             <div>
+-              <p className="text-xs text-slate-400">登録された想い出がありません。</p>
++              <p className="text-xs font-medium text-slate-700">登録された想い出がありません。</p>
+               <p className="text-[10px] text-slate-500 mt-1">旅行先で撮った写真をアップロードしてアルバムにしましょう。</p>
+             </div>
+             {plans.length > 0 ? (
+               <button
+                 onClick={openAddModal}
+-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
++                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md cursor-pointer"
+               >
+                 想い出アルバムを作る
+               </button>
+             ) : (
+-              <p className="text-[10px] text-slate-600">※思い出の作成には旅行プランの登録が必要です。</p>
++              <p className="text-[10px] text-slate-400">※思い出の作成には旅行プランの登録が必要です。</p>
+             )}
+           </div>
+         )}
+@@ -253,24 +253,24 @@ export default function MemoriesPage() {
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-6"
++            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+           >
+             <motion.div
+               initial={{ scale: 0.95, y: 20 }}
+               animate={{ scale: 1, y: 0 }}
+               exit={{ scale: 0.95, y: 20 }}
+-              className="w-full max-w-sm glass-panel rounded-2xl p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto"
++              className="w-full max-w-sm bg-white border border-gray-200 rounded-2xl p-6 shadow-xl relative max-h-[85vh] overflow-y-auto"
+             >
+               <button
+                 onClick={() => setShowModal(false)}
+-                className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white"
++                className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600"
+               >
+                 <X className="w-4 h-4" />
+               </button>
+ 
+               <div className="text-center mb-6">
+-                <h2 className="text-base font-bold text-white font-outfit">思い出の追加</h2>
+-                <p className="text-[10px] text-slate-400 mt-1">
++                <h2 className="text-base font-bold text-slate-800 font-outfit">思い出の追加</h2>
++                <p className="text-[10px] text-slate-500 mt-1">
+                   旅行の計画と写真を選択してアルバムを作成します。
+                 </p>
+               </div>
+@@ -278,16 +278,16 @@ export default function MemoriesPage() {
+               <form onSubmit={handleSave} className="space-y-4">
+                 {/* Plan Selector */}
+                 <div className="space-y-1.5">
+-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                     対象の旅行プラン
+                   </label>
+                   <select
+                     value={selectedPlanId}
+                     onChange={(e) => setSelectedPlanId(e.target.value)}
+-                    className="w-full px-3 py-2.5 glass-input text-xs text-white bg-slate-900 border border-white/5 focus:outline-none rounded-xl"
++                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
+                   >
+                     {plans.map((p) => (
+-                      <option key={p.id} value={p.id} className="bg-slate-950 text-white">
++                      <option key={p.id} value={p.id} className="bg-white text-slate-800">
+                         {p.title}
+                       </option>
+                     ))}
+@@ -297,28 +297,28 @@ export default function MemoriesPage() {
+                 {/* Date Fields */}
+                 <div className="grid grid-cols-2 gap-3">
+                   <div className="space-y-1.5">
+-                    <label className="text-[10px] font-bold text-slate-400 block">開始日</label>
++                    <label className="text-[10px] font-bold text-slate-500 block">開始日</label>
+                     <input
+                       type="date"
+                       value={tripStart}
+                       onChange={(e) => setTripStart(e.target.value)}
+-                      className="w-full px-3 py-2 glass-input text-xs text-white focus:outline-none rounded-xl"
++                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
+                     />
+                   </div>
+                   <div className="space-y-1.5">
+-                    <label className="text-[10px] font-bold text-slate-400 block">終了日</label>
++                    <label className="text-[10px] font-bold text-slate-500 block">終了日</label>
+                     <input
+                       type="date"
+                       value={tripEnd}
+                       onChange={(e) => setTripEnd(e.target.value)}
+-                      className="w-full px-3 py-2 glass-input text-xs text-white focus:outline-none rounded-xl"
++                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
+                     />
+                   </div>
+                 </div>
+ 
+                 {/* Images Upload */}
+                 <div className="space-y-2">
+-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
++                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                     思い出の写真（最大3枚）
+                   </label>
+ 
+@@ -326,7 +326,7 @@ export default function MemoriesPage() {
+                     {images.map((img, idx) => (
+                       <div
+                         key={idx}
+-                        className="aspect-square bg-white/5 border border-dashed border-white/10 rounded-xl relative flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 transition-colors overflow-hidden"
++                        className="aspect-square bg-gray-50 border border-dashed border-gray-200 hover:border-blue-400 rounded-xl relative flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50/50 transition-colors overflow-hidden"
+                       >
+                         {img?.preview ? (
+                           <img src={img.preview} alt="Upload" className="w-full h-full object-cover" />
+@@ -352,10 +352,10 @@ export default function MemoriesPage() {
+                   whileTap={{ scale: 0.98 }}
+                   type="submit"
+                   disabled={!canSave || saving}
+-                  className={`w-full py-3.5 rounded-xl text-xs font-semibold text-white shadow-lg flex justify-center items-center gap-1.5 ${
++                  className={`w-full py-3.5 rounded-xl text-xs font-semibold text-white shadow-md flex justify-center items-center gap-1.5 ${
+                     !canSave || saving
+-                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
+-                      : 'animated-gradient cursor-pointer'
++                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
++                      : 'bg-blue-600 hover:bg-blue-700 cursor-pointer text-white'
+                   }`}
+                 >
+                   {saving ? '登録中...' : '登録して保存'}
+diff --git a/client/src/app/page.tsx b/client/src/app/page.tsx
+index bfea703..f62e2fe 100644
+--- a/client/src/app/page.tsx
++++ b/client/src/app/page.tsx
+@@ -13,17 +13,17 @@ const stepsData = [
+   {
+     title: '1. 直感的に答えるだけ',
+     desc: 'いくつかの簡単な質問に選択で回答。迷ったら自由記述であなたの好みを詳しく教えてください。',
+-    icon: <Compass className="w-12 h-12 text-indigo-400" />,
++    icon: <Compass className="w-12 h-12 text-blue-600" />,
+   },
+   {
+     title: '2. あなたの旅タイプを分析',
+     desc: 'AIが自由記述のニュアンスも精密に読み取り、あなたの10の特性別スコアを可視化します。',
+-    icon: <Activity className="w-12 h-12 text-purple-400" />,
++    icon: <Activity className="w-12 h-12 text-blue-500" />,
+   },
+   {
+     title: '3. AI旅行プランを自動生成',
+     desc: '分析された旅行スタイルに基づき、あなた専用に最適化された国内旅行プランを即座に提案します。',
+-    icon: <Sparkles className="w-12 h-12 text-pink-400" />,
++    icon: <Sparkles className="w-12 h-12 text-teal-600" />,
+   },
+ ];
+ 
+@@ -70,7 +70,7 @@ export default function StartPage() {
+   if (checkingAuth) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+       </div>
+     );
+   }
+@@ -78,13 +78,13 @@ export default function StartPage() {
+   return (
+     <div className="flex-1 flex flex-col justify-between px-6 py-12 relative overflow-hidden">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/6 left-1/10 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl -z-10" />
+-      <div className="absolute bottom-1/6 right-1/10 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/6 left-1/10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl -z-10" />
++      <div className="absolute bottom-1/6 right-1/10 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl -z-10" />
+ 
+       {/* Header Logged In User Status / Auth buttons */}
+       <div className="flex justify-end items-center gap-3">
+         {auth.isAuthenticated ? (
+-          <div className="text-xs text-slate-400 bg-white/5 border border-white/5 rounded-full px-3 py-1.5 flex items-center gap-1.5">
++          <div className="text-xs text-slate-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 flex items-center gap-1.5">
+             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+             {auth.user?.name} さん
+           </div>
+@@ -92,7 +92,7 @@ export default function StartPage() {
+           <div className="flex gap-2">
+             <Link
+               href="/login"
+-              className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all flex items-center gap-1"
++              className="text-xs font-semibold text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition-all flex items-center gap-1"
+             >
+               <LogIn className="w-3.5 h-3.5" /> ログイン
+             </Link>
+@@ -114,13 +114,13 @@ export default function StartPage() {
+           transition={{ duration: 0.5 }}
+           className="mb-8"
+         >
+-          <div className="w-16 h-16 rounded-2xl animated-gradient flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6 mx-auto">
++          <div className="w-16 h-16 rounded-2xl animated-gradient flex items-center justify-center shadow-lg shadow-blue-500/20 mb-6 mx-auto">
+             <Compass className="w-8 h-8 text-white animate-pulse" />
+           </div>
+-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-4 font-outfit leading-tight">
++          <h1 className="text-4xl font-extrabold tracking-tight text-slate-800 mb-4 font-outfit leading-tight">
+             AI旅行スタイル診断
+           </h1>
+-          <p className="text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
++          <p className="text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+             わずか数分で、あなたに最適化された旅行スタイルを可視化。AIがオリジナルの国内旅行プランも自動生成します。
+           </p>
+         </motion.div>
+@@ -137,10 +137,10 @@ export default function StartPage() {
+               className="flex flex-col items-center text-center py-2"
+             >
+               <div className="mb-4">{stepsData[step].icon}</div>
+-              <h3 className="text-base font-bold text-white mb-2">
++              <h3 className="text-base font-bold text-slate-800 mb-2">
+                 {stepsData[step].title}
+               </h3>
+-              <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
++              <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                 {stepsData[step].desc}
+               </p>
+             </motion.div>
+@@ -153,7 +153,7 @@ export default function StartPage() {
+                 key={i}
+                 onClick={() => setStep(i)}
+                 className={`h-1.5 rounded-full transition-all duration-300 ${
+-                  step === i ? 'w-5 bg-indigo-500' : 'w-1.5 bg-slate-700'
++                  step === i ? 'w-5 bg-blue-600' : 'w-1.5 bg-slate-300'
+                 }`}
+               />
+             ))}
+@@ -168,7 +168,7 @@ export default function StartPage() {
+             whileTap={{ scale: 0.98 }}
+             onClick={handleStart}
+             disabled={loading}
+-            className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-indigo-500/10 transition-all flex justify-center items-center gap-2 cursor-pointer"
++            className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-blue-500/10 transition-all flex justify-center items-center gap-2 cursor-pointer"
+           >
+             {loading ? (
+               <span className="animate-pulse">読み込み中...</span>
+diff --git a/client/src/app/plans/[id]/chat/page.tsx b/client/src/app/plans/[id]/chat/page.tsx
+index fd723bc..8424937 100644
+--- a/client/src/app/plans/[id]/chat/page.tsx
++++ b/client/src/app/plans/[id]/chat/page.tsx
+@@ -184,18 +184,18 @@ export default function PlanChatPage() {
+   };
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-[#090b11]">
++    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-white">
+       {/* Header */}
+-      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/5 bg-[#090b11]/80 backdrop-blur-md z-10">
++      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200 bg-white/80 backdrop-blur-md z-10">
+         <div className="flex items-center gap-3">
+           <button
+             onClick={() => router.push(appPath(`/plans/${planId}`))}
+-            className="p-2 rounded-xl border border-white/5 bg-white/5 text-white transition-all cursor-pointer"
++            className="p-2 rounded-xl border border-gray-200 bg-gray-50 text-slate-800 hover:bg-gray-100 transition-all cursor-pointer"
+           >
+             <ArrowLeft className="w-4 h-4" />
+           </button>
+           <div>
+-            <h1 className="text-xs font-bold text-white font-outfit truncate max-w-[150px]">
++            <h1 className="text-xs font-bold text-slate-800 font-outfit truncate max-w-[150px]">
+               {currentPlan?.title || 'プラン調整'}
+             </h1>
+             <span className="text-[9px] text-slate-500 font-bold block tracking-wider uppercase">
+@@ -207,7 +207,7 @@ export default function PlanChatPage() {
+         <button
+           onClick={handleSave}
+           disabled={saving}
+-          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md flex items-center gap-1.5 cursor-pointer"
++          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md flex items-center gap-1.5 cursor-pointer"
+         >
+           <Save className="w-3.5 h-3.5" />
+           {saving ? '保存中' : '保存'}
+@@ -215,13 +215,13 @@ export default function PlanChatPage() {
+       </div>
+ 
+       {/* Dynamic Selector Tabs */}
+-      <div className="flex border-b border-white/5 bg-[#090b11] px-6 py-2 gap-2">
++      <div className="flex border-b border-gray-200 bg-white px-6 py-2 gap-2">
+         <button
+           onClick={() => setActiveTab('chat')}
+           className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+             activeTab === 'chat'
+-              ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold shadow-sm'
+-              : 'text-slate-500 bg-white/5 border border-transparent'
++              ? 'bg-blue-50 border border-blue-200 text-blue-600 font-bold shadow-sm'
++              : 'text-slate-500 bg-gray-50 border border-transparent hover:bg-gray-100'
+           }`}
+         >
+           <MessageSquare className="w-3.5 h-3.5" /> チャット
+@@ -230,8 +230,8 @@ export default function PlanChatPage() {
+           onClick={() => setActiveTab('itinerary')}
+           className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+             activeTab === 'itinerary'
+-              ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold shadow-sm'
+-              : 'text-slate-500 bg-white/5 border border-transparent'
++              ? 'bg-blue-50 border border-blue-200 text-blue-600 font-bold shadow-sm'
++              : 'text-slate-500 bg-gray-50 border border-transparent hover:bg-gray-100'
+           }`}
+         >
+           <Calendar className="w-3.5 h-3.5" /> 旅程プレビュー
+@@ -250,10 +250,10 @@ export default function PlanChatPage() {
+                 <div
+                   className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                     msg.type === 'user'
+-                      ? 'bg-indigo-600 text-white'
++                      ? 'bg-blue-600 text-white'
+                       : msg.type === 'system'
+-                      ? 'bg-slate-800 text-indigo-400 border border-indigo-500/20'
+-                      : 'bg-indigo-950/40 border border-indigo-500/10 text-indigo-400'
++                      ? 'bg-slate-100 text-blue-600 border border-blue-200'
++                      : 'bg-blue-50 border border-blue-100 text-blue-600'
+                   }`}
+                 >
+                   {msg.type === 'user' ? <User className="w-4 h-4" /> : <Compass className="w-4 h-4" />}
+@@ -262,8 +262,8 @@ export default function PlanChatPage() {
+                 <div
+                   className={`rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                     msg.type === 'user'
+-                      ? 'bg-indigo-600 text-white rounded-tr-none'
+-                      : 'bg-white/5 border border-white/5 text-slate-300 rounded-tl-none'
++                      ? 'bg-blue-600 text-white rounded-tr-none'
++                      : 'bg-gray-100 border border-gray-200 text-slate-800 rounded-tl-none'
+                   }`}
+                 >
+                   {msg.content}
+@@ -272,10 +272,10 @@ export default function PlanChatPage() {
+             ))}
+             {loading && (
+               <div className="flex gap-3 max-w-[85%]">
+-                <div className="w-7 h-7 rounded-xl bg-indigo-950/40 border border-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs">
++                <div className="w-7 h-7 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center text-xs">
+                   <Compass className="w-4 h-4 animate-spin" />
+                 </div>
+-                <div className="rounded-2xl px-4 py-3 text-xs bg-white/5 border border-white/5 text-slate-400 rounded-tl-none flex items-center gap-1.5">
++                <div className="rounded-2xl px-4 py-3 text-xs bg-gray-100 border border-gray-200 text-slate-500 rounded-tl-none flex items-center gap-1.5">
+                   <span className="w-1 h-1 bg-slate-500 rounded-full animate-bounce delay-100" />
+                   <span className="w-1 h-1 bg-slate-500 rounded-full animate-bounce delay-200" />
+                   <span className="w-1 h-1 bg-slate-500 rounded-full animate-bounce delay-300" />
+@@ -292,31 +292,31 @@ export default function PlanChatPage() {
+             className="space-y-6 pb-24"
+           >
+             {currentPlan?.text && (
+-              <div className="glass-panel rounded-2xl p-4 space-y-1">
+-                <h3 className="text-[10px] font-bold text-slate-400 tracking-wider">SUMMARY</h3>
+-                <p className="text-xs text-slate-300 leading-relaxed font-outfit whitespace-pre-wrap">{currentPlan.text}</p>
++              <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-1">
++                <h3 className="text-[10px] font-bold text-slate-500 tracking-wider">SUMMARY</h3>
++                <p className="text-xs text-slate-600 leading-relaxed font-outfit whitespace-pre-wrap">{currentPlan.text}</p>
+               </div>
+             )}
+ 
+             {currentPlan?.itinerary && currentPlan.itinerary.length > 0 ? (
+-              <div className="space-y-6 pl-4 border-l border-white/5 relative">
++              <div className="space-y-6 pl-4 border-l border-gray-200 relative">
+                 {currentPlan.itinerary.map((day: any, dIdx: number) => (
+                   <div key={dIdx} className="space-y-4 relative">
+-                    <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-indigo-500 bg-[#090b11] flex items-center justify-center text-[8px] font-bold text-indigo-400 shadow-md">
++                    <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-blue-500 bg-white flex items-center justify-center text-[8px] font-bold text-blue-600 shadow-md">
+                       D{day.day || dIdx + 1}
+                     </div>
+-                    <div className="font-bold text-xs text-white pl-2">Day {day.day || dIdx + 1}</div>
++                    <div className="font-bold text-xs text-slate-800 pl-2">Day {day.day || dIdx + 1}</div>
+                     
+                     <div className="space-y-3 pl-2">
+                       {(day.items || day.activities || []).map((item: any, iIdx: number) => (
+                         <div key={iIdx} className="space-y-2">
+-                          <div className="bg-white/5 border border-white/5 rounded-xl p-3.5 space-y-1">
+-                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-400">
++                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-1">
++                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-blue-600">
+                               <Clock className="w-3.5 h-3.5" /> {item.time || '時間指定なし'}
+                             </div>
+-                            <h4 className="text-xs font-bold text-white leading-snug">{item.title}</h4>
++                            <h4 className="text-xs font-bold text-slate-800 leading-snug">{item.title}</h4>
+                             {(item.detail || item.description) && (
+-                              <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
++                              <p className="text-[10px] text-slate-650 leading-relaxed mt-1">
+                                 {item.detail || item.description}
+                               </p>
+                             )}
+@@ -360,7 +360,7 @@ export default function PlanChatPage() {
+ 
+       {/* Bottom Message Input (Sticky, only show on Chat tab) */}
+       {activeTab === 'chat' && (
+-        <div className="border-t border-white/5 bg-[#090b11] p-4 z-10 flex gap-2">
++        <div className="border-t border-gray-200 bg-white p-4 z-10 flex gap-2">
+           <form onSubmit={handleSend} className="w-full flex gap-2.5">
+             <input
+               type="text"
+@@ -368,7 +368,7 @@ export default function PlanChatPage() {
+               onChange={(e) => setInput(e.target.value)}
+               placeholder="例: 2日目を小樽運河の散策に変更して"
+               disabled={loading}
+-              className="flex-1 px-4 py-3 glass-input text-white text-xs focus:outline-none"
++              className="flex-1 px-4 py-3 border border-gray-200 bg-gray-50 text-slate-800 rounded-xl text-xs focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
+             />
+             <motion.button
+               whileTap={{ scale: 0.95 }}
+@@ -376,8 +376,8 @@ export default function PlanChatPage() {
+               disabled={loading || !input.trim()}
+               className={`p-3 rounded-xl flex items-center justify-center shadow-lg transition-all ${
+                 !input.trim() || loading
+-                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'
+-                  : 'animated-gradient text-white cursor-pointer'
++                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
++                  : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white cursor-pointer'
+               }`}
+             >
+               <Send className="w-4 h-4" />
+@@ -393,9 +393,9 @@ export default function PlanChatPage() {
+             initial={{ opacity: 0, y: 30, scale: 0.95 }}
+             animate={{ opacity: 1, y: 0, scale: 1 }}
+             exit={{ opacity: 0, y: 30, scale: 0.95 }}
+-            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 px-4 py-2.5 rounded-xl text-xs font-medium text-white shadow-xl flex items-center gap-2 z-50 whitespace-nowrap"
++            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl text-xs font-medium text-slate-800 shadow-lg flex items-center gap-2 z-50 whitespace-nowrap"
+           >
+-            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
++            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping" />
+             {toast}
+           </motion.div>
+         )}
+diff --git a/client/src/app/plans/[id]/page.tsx b/client/src/app/plans/[id]/page.tsx
+index 752c0e4..5688b5d 100644
+--- a/client/src/app/plans/[id]/page.tsx
++++ b/client/src/app/plans/[id]/page.tsx
+@@ -78,7 +78,7 @@ export default function PlanDetailPage() {
+   if (loading) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+       </div>
+     );
+   }
+@@ -86,11 +86,11 @@ export default function PlanDetailPage() {
+   if (error || !plan) {
+     return (
+       <div className="flex-1 flex flex-col justify-center items-center px-6 text-center space-y-4">
+-        <ShieldAlert className="w-8 h-8 text-rose-400" />
+-        <p className="text-slate-400 text-sm">{error || 'プランが見つかりませんでした。'}</p>
++        <ShieldAlert className="w-8 h-8 text-rose-600" />
++        <p className="text-slate-500 text-sm">{error || 'プランが見つかりませんでした。'}</p>
+         <button
+           onClick={() => router.push(appPath('/plans'))}
+-          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer"
++          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all cursor-pointer"
+         >
+           プラン一覧へ戻る
+         </button>
+@@ -101,7 +101,7 @@ export default function PlanDetailPage() {
+   const bgImg = getPlanImage(plan);
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-start relative overflow-y-auto max-h-screen">
++    <div className="flex-1 flex flex-col justify-start relative overflow-y-auto max-h-screen bg-white">
+       {/* Hero background image */}
+       <div
+         style={{ backgroundImage: `url(${bgImg})` }}
+@@ -129,21 +129,21 @@ export default function PlanDetailPage() {
+       <div className="p-6 space-y-6 pb-24">
+         {/* Brief/Summary */}
+         {plan.text && (
+-          <div className="glass-panel rounded-2xl p-4 space-y-2">
+-            <h3 className="text-xs font-bold text-slate-300">💡 旅の概要</h3>
+-            <p className="text-xs text-slate-300 leading-relaxed font-outfit whitespace-pre-wrap">{plan.text}</p>
++          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-2">
++            <h3 className="text-xs font-bold text-slate-700">💡 旅の概要</h3>
++            <p className="text-xs text-slate-600 leading-relaxed font-outfit whitespace-pre-wrap">{plan.text}</p>
+           </div>
+         )}
+ 
+         {/* Suggested keywords/tags */}
+         {plan.suggestions && plan.suggestions.length > 0 && (
+-          <div className="glass-panel rounded-2xl p-4 space-y-3">
+-            <h3 className="text-xs font-bold text-slate-300">📌 おすすめの観光地候補</h3>
++          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-3">
++            <h3 className="text-xs font-bold text-slate-700">📌 おすすめの観光地候補</h3>
+             <ul className="space-y-2">
+               {plan.suggestions.map((s: any, idx: number) => (
+-                <li key={idx} className="text-xs border-b border-white/5 pb-2 last:border-b-0 last:pb-0">
+-                  <div className="font-semibold text-white">{s.title}</div>
+-                  {s.brief && <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">{s.brief}</p>}
++                <li key={idx} className="text-xs border-b border-gray-200 pb-2 last:border-b-0 last:pb-0">
++                  <div className="font-semibold text-slate-800">{s.title}</div>
++                  {s.brief && <p className="text-[10px] text-slate-500 mt-0.5 leading-normal">{s.brief}</p>}
+                 </li>
+               ))}
+             </ul>
+@@ -153,32 +153,32 @@ export default function PlanDetailPage() {
+         {/* Itinerary Timeline */}
+         {plan.itinerary && plan.itinerary.length > 0 && (
+           <div className="space-y-4">
+-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+-              <Calendar className="w-4 h-4 text-indigo-400" />
++            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
++              <Calendar className="w-4 h-4 text-blue-600" />
+               旅程タイムライン
+             </h3>
+ 
+-            <div className="space-y-6 pl-4 border-l border-white/5 relative">
++            <div className="space-y-6 pl-4 border-l border-gray-200 relative">
+               {plan.itinerary.map((day: any, dIdx: number) => (
+                 <div key={dIdx} className="space-y-4 relative">
+                   {/* Day marker node */}
+-                  <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-indigo-500 bg-[#090b11] flex items-center justify-center text-[8px] font-bold text-indigo-400 shadow-md">
++                  <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-blue-500 bg-white flex items-center justify-center text-[8px] font-bold text-blue-600 shadow-md">
+                     D{day.day}
+                   </div>
+ 
+-                  <div className="font-bold text-xs text-white pl-2">Day {day.day}</div>
++                  <div className="font-bold text-xs text-slate-800 pl-2">Day {day.day}</div>
+                   
+                   <div className="space-y-3.5 pl-2">
+                     {(day.items || []).map((item: any, iIdx: number) => (
+                       <div key={iIdx} className="space-y-2">
+                         {/* Event Card */}
+-                        <div className="bg-white/5 border border-white/5 rounded-xl p-3.5 space-y-1">
+-                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-400">
++                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-1">
++                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-blue-600">
+                             <Clock className="w-3.5 h-3.5" /> {item.time || '時間指定なし'}
+                           </div>
+-                          <h4 className="text-xs font-bold text-white leading-snug">{item.title}</h4>
++                          <h4 className="text-xs font-bold text-slate-800 leading-snug">{item.title}</h4>
+                           {item.detail && (
+-                            <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
++                            <p className="text-[10px] text-slate-650 leading-relaxed mt-1">
+                               {item.detail}
+                             </p>
+                           )}
+@@ -219,16 +219,16 @@ export default function PlanDetailPage() {
+ 
+         {/* Place check marks */}
+         {plan.places && plan.places.length > 0 && (
+-          <div className="glass-panel rounded-2xl p-4 space-y-3">
+-            <h3 className="text-xs font-bold text-slate-300">📍 主要目的地・スポット</h3>
++          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-3">
++            <h3 className="text-xs font-bold text-slate-700">📍 主要目的地・スポット</h3>
+             <div className="grid grid-cols-1 gap-2">
+               {plan.places.map((place: any, pIdx: number) => (
+-                <div key={pIdx} className="bg-white/5 rounded-xl p-2.5 flex items-start gap-2">
+-                  <MapPin className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
++                <div key={pIdx} className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 flex items-start gap-2">
++                  <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                   <div>
+-                    <span className="text-xs font-semibold text-white block">{place.name}</span>
++                    <span className="text-xs font-semibold text-slate-800 block">{place.name}</span>
+                     {place.note && (
+-                      <span className="text-[9px] text-slate-400 leading-normal block mt-0.5">
++                      <span className="text-[9px] text-slate-500 leading-normal block mt-0.5">
+                         {place.note}
+                       </span>
+                     )}
+@@ -241,17 +241,17 @@ export default function PlanDetailPage() {
+       </div>
+ 
+       {/* Sticky Action Footer */}
+-      <div className="border-t border-white/5 pt-4 bg-[#090b11]/85 backdrop-blur-md px-6 py-4 absolute bottom-0 left-0 right-0 z-40 flex gap-3">
++      <div className="border-t border-gray-200 pt-4 bg-white/95 backdrop-blur-md px-6 py-4 absolute bottom-0 left-0 right-0 z-40 flex gap-3 shadow-lg">
+         <button
+           onClick={() => setShowDeleteConfirm(true)}
+-          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-rose-400 border border-rose-950 bg-rose-950/20 hover:bg-rose-950/40 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
++          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-rose-600 border border-rose-200 bg-rose-50 hover:bg-rose-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+         >
+           <Trash2 className="w-4 h-4" /> プランを削除
+         </button>
+ 
+         <button
+           onClick={() => router.push(appPath(`/plans/${planId}/chat`))}
+-          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-white animated-gradient shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
++          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+         >
+           <Edit className="w-4 h-4" /> ブラッシュアップ
+         </button>
+@@ -265,28 +265,28 @@ export default function PlanDetailPage() {
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             onClick={() => setShowDeleteConfirm(false)}
+-            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-6"
++            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+           >
+             <motion.div
+               initial={{ scale: 0.95, y: 15 }}
+               animate={{ scale: 1, y: 0 }}
+               exit={{ scale: 0.95, y: 15 }}
+               onClick={(e) => e.stopPropagation()}
+-              className="w-full max-w-xs glass-panel rounded-2xl p-5 space-y-4 border border-rose-900/40 shadow-2xl text-center"
++              className="w-full max-w-xs bg-white rounded-2xl p-5 space-y-4 border border-rose-200 shadow-2xl text-center"
+             >
+-              <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
++              <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto text-rose-600">
+                 <AlertTriangle className="w-5 h-5 animate-bounce" />
+               </div>
+               <div>
+-                <h3 className="text-sm font-bold text-white">プランを削除しますか？</h3>
+-                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
++                <h3 className="text-sm font-bold text-slate-800">プランを削除しますか？</h3>
++                <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                   「{plan.title}」を完全に削除します。<br />この操作は取り消せません。
+                 </p>
+               </div>
+               <div className="flex gap-2.5 pt-2">
+                 <button
+                   onClick={() => setShowDeleteConfirm(false)}
+-                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-slate-300 border border-white/5 bg-white/5 hover:bg-white/10"
++                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-slate-600 border border-gray-200 bg-gray-50 hover:bg-gray-100"
+                 >
+                   キャンセル
+                 </button>
+diff --git a/client/src/app/plans/page.tsx b/client/src/app/plans/page.tsx
+index b2798d5..4196672 100644
+--- a/client/src/app/plans/page.tsx
++++ b/client/src/app/plans/page.tsx
+@@ -90,9 +90,9 @@ export default function PlansPage() {
+   const isCurrentActive = (id: string) => activePlanStore.activePlan?.id === id;
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden">
++    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden bg-white">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
+ 
+       {/* Main Container */}
+       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[85vh]">
+@@ -100,13 +100,13 @@ export default function PlansPage() {
+         <div className="flex items-center gap-4">
+           <button
+             onClick={() => router.push(appPath('/main'))}
+-            className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++            className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
+           >
+             <ArrowLeft className="w-4 h-4" />
+           </button>
+           <div>
+-            <h1 className="text-xl font-bold text-white font-outfit">保存したプラン</h1>
+-            <p className="text-[10px] text-slate-400">作成済みの全旅行プランを表示しています</p>
++            <h1 className="text-xl font-bold text-slate-800 font-outfit">保存したプラン</h1>
++            <p className="text-[10px] text-slate-500">作成済みの全旅行プランを表示しています</p>
+           </div>
+         </div>
+ 
+@@ -115,20 +115,20 @@ export default function PlansPage() {
+           <motion.div
+             initial={{ y: -10, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+-            className="rounded-2xl animated-gradient p-[1px] shadow-lg shadow-indigo-500/10"
++            className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 p-[1px] shadow-md shadow-blue-100"
+           >
+-            <div className="bg-[#090b11]/90 rounded-2xl p-4 flex items-center justify-between">
++            <div className="bg-white rounded-2xl p-4 flex items-center justify-between">
+               <div>
+-                <span className="text-[9px] font-bold text-indigo-400 tracking-wider block mb-1">
++                <span className="text-[9px] font-bold text-blue-600 tracking-wider block mb-1">
+                   TRAVEL DAY ACTIVE
+                 </span>
+-                <h3 className="text-xs font-bold text-white max-w-[180px] truncate">
++                <h3 className="text-xs font-bold text-slate-800 max-w-[180px] truncate">
+                   {activePlanStore.activePlan.title}
+                 </h3>
+               </div>
+               <button
+                 onClick={openTravelDayChat}
+-                className="px-3 py-2 rounded-xl text-[10px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 flex items-center gap-1 cursor-pointer shadow-md"
++                className="px-3 py-2 rounded-xl text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-500 flex items-center gap-1 cursor-pointer shadow-md"
+               >
+                 <MessageSquare className="w-3.5 h-3.5" />
+                 当日チャットを開く
+@@ -141,9 +141,9 @@ export default function PlansPage() {
+         {loading ? (
+           <div className="text-center py-12 text-xs text-slate-500">読み込み中...</div>
+         ) : error ? (
+-          <div className="glass-panel border-rose-900/50 p-4 rounded-2xl flex items-center gap-3">
+-            <ShieldAlert className="w-5 h-5 text-rose-400 flex-shrink-0" />
+-            <span className="text-xs text-rose-400 font-medium">{error}</span>
++          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-center gap-3">
++            <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
++            <span className="text-xs text-rose-700 font-medium">{error}</span>
+           </div>
+         ) : plans.length > 0 ? (
+           <div className="space-y-4">
+@@ -160,7 +160,7 @@ export default function PlansPage() {
+                   onClick={() => router.push(appPath(`/plans/${p.id}`))}
+                   style={{ backgroundImage: `url(${bgImg})` }}
+                   className={`relative rounded-2xl bg-cover bg-center overflow-hidden shadow-lg h-36 flex flex-col justify-between p-4 cursor-pointer border group transition-all duration-300 ${
+-                    active ? 'border-indigo-500 scale-[1.01]' : 'border-white/5'
++                    active ? 'border-blue-500 scale-[1.01]' : 'border-gray-200'
+                   }`}
+                 >
+                   {/* Overlay background */}
+@@ -169,7 +169,7 @@ export default function PlansPage() {
+                   {/* Corner indicator / Active button */}
+                   <div className="flex justify-between items-start">
+                     {active ? (
+-                      <span className="bg-indigo-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
++                      <span className="bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
+                         <Sparkles className="w-3 h-3 animate-pulse" /> 旅行当日
+                       </span>
+                     ) : (
+@@ -180,7 +180,7 @@ export default function PlansPage() {
+                       onClick={(e) => toggleActivePlan(e, p)}
+                       className={`p-2 rounded-xl border backdrop-blur-md transition-all cursor-pointer ${
+                         active
+-                          ? 'border-indigo-500 bg-indigo-500/20 text-indigo-400'
++                          ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                           : 'border-white/10 bg-black/30 text-slate-400 hover:text-white hover:border-white/20'
+                       }`}
+                       title={active ? '当日モードを解除' : '当日モードを有効化'}
+@@ -208,15 +208,15 @@ export default function PlansPage() {
+             })}
+           </div>
+         ) : (
+-          <div className="glass-panel rounded-2xl py-16 px-6 text-center space-y-4">
+-            <Compass className="w-8 h-8 text-slate-500 mx-auto" />
++          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl py-16 px-6 text-center space-y-4">
++            <Compass className="w-8 h-8 text-slate-400 mx-auto" />
+             <div>
+-              <p className="text-xs text-slate-400">作成された旅行プランがありません。</p>
++              <p className="text-xs text-slate-650">作成された旅行プランがありません。</p>
+               <p className="text-[10px] text-slate-500 mt-1">最初のプランを作成して冒険に出かけましょう。</p>
+             </div>
+             <button
+               onClick={() => router.push(appPath('/travel-wizard'))}
+-              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
++              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-md cursor-pointer"
+             >
+               旅行計画を作成する
+             </button>
+@@ -231,9 +231,9 @@ export default function PlansPage() {
+             initial={{ opacity: 0, y: 30, scale: 0.95 }}
+             animate={{ opacity: 1, y: 0, scale: 1 }}
+             exit={{ opacity: 0, y: 30, scale: 0.95 }}
+-            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 px-4 py-2.5 rounded-xl text-xs font-medium text-white shadow-xl flex items-center gap-2 z-50 whitespace-nowrap"
++            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl text-xs font-medium text-slate-800 shadow-lg flex items-center gap-2 z-50 whitespace-nowrap"
+           >
+-            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
++            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping" />
+             {toast}
+           </motion.div>
+         )}
+diff --git a/client/src/app/processing/page.tsx b/client/src/app/processing/page.tsx
+index 3fbc715..6a167f5 100644
+--- a/client/src/app/processing/page.tsx
++++ b/client/src/app/processing/page.tsx
+@@ -57,7 +57,7 @@ export default function ProcessingPage() {
+   return (
+     <div className="flex-1 flex flex-col justify-center px-8 py-12 relative overflow-hidden">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl -z-10" />
+ 
+       <div className="w-full text-center space-y-8 max-w-sm mx-auto">
+         {/* Animated Spin Compass Header */}
+@@ -65,30 +65,30 @@ export default function ProcessingPage() {
+           <motion.div
+             animate={{ rotate: 360 }}
+             transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
+-            className="w-full h-full rounded-full border border-dashed border-indigo-500/30 flex items-center justify-center"
++            className="w-full h-full rounded-full border border-dashed border-blue-500/30 flex items-center justify-center"
+           >
+-            <Compass className="w-8 h-8 text-indigo-400" />
++            <Compass className="w-8 h-8 text-blue-600" />
+           </motion.div>
+           {/* Inner pulse */}
+-          <div className="absolute inset-2 bg-indigo-500/5 rounded-full animate-ping -z-10" />
++          <div className="absolute inset-2 bg-blue-50 rounded-full animate-ping -z-10" />
+         </div>
+ 
+         <div>
+-          <h1 className="text-xl font-bold text-white mb-2 font-outfit">
++          <h1 className="text-xl font-bold text-slate-800 mb-2 font-outfit">
+             AI診断中
+           </h1>
+-          <p className="text-xs text-slate-400">
++          <p className="text-xs text-slate-500">
+             あなたの価値観にマッチする最適な旅行プランを組み立てています。
+           </p>
+         </div>
+ 
+         {/* Progress bar */}
+         <div className="space-y-3">
+-          <div className="w-full bg-white/5 border border-white/5 h-2 rounded-full overflow-hidden">
++          <div className="w-full bg-gray-100 border border-gray-200 h-2 rounded-full overflow-hidden">
+             <motion.div
+               animate={{ width: `${percent}%` }}
+               transition={{ duration: 0.5 }}
+-              className="h-full bg-indigo-500 rounded-full animated-gradient"
++              className="h-full bg-blue-600 rounded-full animated-gradient"
+             />
+           </div>
+           <div className="flex justify-between items-center text-[10px] font-mono text-slate-500">
+@@ -105,10 +105,10 @@ export default function ProcessingPage() {
+               initial={{ opacity: 0, y: 5 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: -5 }}
+-              className="text-xs font-medium text-indigo-300 leading-relaxed max-w-xs"
++              className="text-xs font-medium text-blue-600 leading-relaxed max-w-xs"
+             >
+               {error ? (
+-                <span className="text-rose-400 flex items-center justify-center gap-1.5">
++                <span className="text-rose-600 flex items-center justify-center gap-1.5">
+                   <ShieldAlert className="w-4 h-4" /> {error}
+                 </span>
+               ) : (
+@@ -129,13 +129,13 @@ export default function ProcessingPage() {
+               <div
+                 className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors ${
+                   s.active
+-                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400'
+-                    : 'bg-white/5 border-white/5 text-slate-600'
++                    ? 'bg-blue-50 border-blue-500 text-blue-600'
++                    : 'bg-gray-50 border-gray-200 text-slate-400'
+                 }`}
+               >
+                 {s.id}
+               </div>
+-              <span className={`text-xs transition-colors ${s.active ? 'text-slate-300 font-semibold' : 'text-slate-600'}`}>
++              <span className={`text-xs transition-colors ${s.active ? 'text-slate-800 font-semibold' : 'text-slate-400'}`}>
+                 {s.label}
+               </span>
+             </div>
+@@ -147,7 +147,7 @@ export default function ProcessingPage() {
+           <motion.button
+             whileTap={{ scale: 0.98 }}
+             onClick={() => router.replace(appPath('/results'))}
+-            className="w-full py-3 rounded-xl text-xs font-semibold text-white border border-white/10 hover:bg-white/5 transition-all cursor-pointer"
++            className="w-full py-3 rounded-xl text-xs font-semibold text-slate-600 border border-gray-200 hover:bg-gray-100 transition-all cursor-pointer"
+           >
+             処理を中断して結果へ進む
+           </motion.button>
+diff --git a/client/src/app/question/[questionNumber]/page.tsx b/client/src/app/question/[questionNumber]/page.tsx
+index f7b93fb..06a0723 100644
+--- a/client/src/app/question/[questionNumber]/page.tsx
++++ b/client/src/app/question/[questionNumber]/page.tsx
+@@ -87,7 +87,7 @@ export default function QuestionPage() {
+   if (!initialized || !currentQuestion) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+       </div>
+     );
+   }
+@@ -116,18 +116,18 @@ export default function QuestionPage() {
+       <div className="flex items-center gap-4">
+         <button
+           onClick={handleBack}
+-          className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++          className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-600 hover:text-slate-800 transition-all cursor-pointer"
+         >
+           <ArrowLeft className="w-4 h-4" />
+         </button>
+         <div className="flex-1">
+           {/* Progress bar container */}
+-          <div className="w-full bg-white/5 border border-white/5 h-2 rounded-full overflow-hidden">
++          <div className="w-full bg-gray-100 border border-gray-200 h-2 rounded-full overflow-hidden">
+             <motion.div
+               initial={{ width: 0 }}
+               animate={{ width: `${percent}%` }}
+               transition={{ duration: 0.3 }}
+-              className="h-full bg-indigo-500 rounded-full"
++              className="h-full bg-blue-600 rounded-full"
+             />
+           </div>
+         </div>
+@@ -147,10 +147,10 @@ export default function QuestionPage() {
+         >
+           {/* Header */}
+           <div className="text-center">
+-            <span className="text-[11px] font-bold tracking-wider text-indigo-400 uppercase">
++            <span className="text-[11px] font-bold tracking-wider text-blue-600 uppercase">
+               Question {questionNumber}
+             </span>
+-            <h2 className="text-lg font-bold text-white mt-1 leading-snug">
++            <h2 className="text-lg font-bold text-slate-800 mt-1 leading-snug">
+               {currentQuestion.question}
+             </h2>
+           </div>
+@@ -165,15 +165,15 @@ export default function QuestionPage() {
+                   onClick={() => setSelectedOption(opt.score)}
+                   className={`w-full text-left p-4 rounded-xl text-sm transition-all flex items-center justify-between border cursor-pointer ${
+                     isSelected
+-                      ? 'border-indigo-500 bg-indigo-950/20 text-white font-semibold'
+-                      : 'border-white/5 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10'
++                      ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
++                      : 'border-gray-200 bg-white text-slate-600 hover:bg-gray-50 hover:border-gray-300'
+                   }`}
+                 >
+                   <span>{opt.text}</span>
+                   {isSelected && (
+                     <motion.div
+                       layoutId="selectedIndicator"
+-                      className="w-2 h-2 rounded-full bg-indigo-400 shadow-md shadow-indigo-400/50"
++                      className="w-2 h-2 rounded-full bg-blue-500 shadow-md shadow-blue-500/20"
+                     />
+                   )}
+                 </button>
+@@ -192,8 +192,8 @@ export default function QuestionPage() {
+                 className="overflow-hidden"
+               >
+                 <div className="space-y-3 pt-2">
+-                  <label className="text-[11px] font-bold tracking-wider text-slate-400 flex items-center gap-1">
+-                    <Edit3 className="w-3 h-3 text-indigo-400" />
++                  <label className="text-[11px] font-bold tracking-wider text-slate-500 flex items-center gap-1">
++                    <Edit3 className="w-3 h-3 text-blue-600" />
+                     {(currentQuestion as any).free_text_prompt || 'あなたの考えを教えてください：'}
+                   </label>
+                   <textarea
+@@ -201,7 +201,7 @@ export default function QuestionPage() {
+                     onChange={(e) => setFreeText(e.target.value)}
+                     rows={4}
+                     placeholder={(currentQuestion as any).free_text_placeholder || 'ここに入力してください...'}
+-                    className="w-full p-4 glass-input text-white focus:outline-none text-xs leading-relaxed"
++                    className="w-full p-4 glass-input text-slate-800 focus:outline-none text-xs leading-relaxed"
+                   />
+                 </div>
+               </motion.div>
+@@ -218,7 +218,7 @@ export default function QuestionPage() {
+           disabled={selectedOption === null}
+           className={`w-full py-4 rounded-xl text-sm font-semibold text-white shadow-lg transition-all flex justify-center items-center gap-1 ${
+             selectedOption === null
+-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
++              ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200'
+               : 'animated-gradient cursor-pointer'
+           }`}
+         >
+diff --git a/client/src/app/results/page.tsx b/client/src/app/results/page.tsx
+index bf4f47c..f23c6dd 100644
+--- a/client/src/app/results/page.tsx
++++ b/client/src/app/results/page.tsx
+@@ -117,7 +117,7 @@ export default function ResultsPage() {
+   if (!initialized || loading) {
+     return (
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+       </div>
+     );
+   }
+@@ -125,10 +125,10 @@ export default function ResultsPage() {
+   if (!displayResult) {
+     return (
+       <div className="flex-1 flex flex-col justify-center items-center px-6 text-center space-y-4">
+-        <p className="text-slate-400 text-sm">有効な診断結果が見つかりませんでした。</p>
++        <p className="text-slate-500 text-sm">有効な診断結果が見つかりませんでした。</p>
+         <button
+           onClick={() => router.push(appPath('/'))}
+-          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer"
++          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all cursor-pointer"
+         >
+           診断トップへ戻る
+         </button>
+@@ -146,13 +146,13 @@ export default function ResultsPage() {
+       {
+         label: 'あなたのスコア',
+         data: chartDataValues,
+-        backgroundColor: 'rgba(99, 102, 241, 0.2)',
+-        borderColor: '#6366f1',
++        backgroundColor: 'rgba(59, 130, 246, 0.1)',
++        borderColor: '#3b82f6',
+         borderWidth: 2,
+-        pointBackgroundColor: '#6366f1',
++        pointBackgroundColor: '#3b82f6',
+         pointBorderColor: '#fff',
+         pointHoverBackgroundColor: '#fff',
+-        pointHoverBorderColor: '#6366f1',
++        pointHoverBorderColor: '#3b82f6',
+       },
+     ],
+   };
+@@ -161,13 +161,13 @@ export default function ResultsPage() {
+     scales: {
+       r: {
+         angleLines: {
+-          color: 'rgba(255, 255, 255, 0.08)',
++          color: 'rgba(0, 0, 0, 0.08)',
+         },
+         grid: {
+-          color: 'rgba(255, 255, 255, 0.08)',
++          color: 'rgba(0, 0, 0, 0.08)',
+         },
+         pointLabels: {
+-          color: '#94a3b8',
++          color: '#475569',
+           font: {
+             size: 9,
+             family: 'sans-serif',
+@@ -199,16 +199,16 @@ export default function ResultsPage() {
+   };
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen">
++    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen bg-white">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/10 left-1/10 w-72 h-72 bg-indigo-600/10 rounded-full blur-3xl -z-10" />
+-      <div className="absolute top-1/2 right-1/10 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/10 left-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/2 right-1/10 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl -z-10" />
+ 
+       {/* Header */}
+       <div className="flex items-center justify-between mb-6">
+         <button
+           onClick={() => router.push(appPath('/'))}
+-          className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++          className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
+         >
+           <ArrowLeft className="w-4 h-4" />
+         </button>
+@@ -225,23 +225,23 @@ export default function ResultsPage() {
+           animate={{ scale: 1, opacity: 1 }}
+           className="flex justify-center"
+         >
+-          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-bold">
++          <div className="bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-bold">
+             <CheckCircle2 className="w-4 h-4" /> 診断完了
+           </div>
+         </motion.div>
+ 
+         {/* Title & Desc */}
+         <div className="text-center">
+-          <h1 className="text-2xl font-extrabold tracking-tight text-white mb-3 font-outfit">
++          <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 mb-3 font-outfit">
+             {displayResult.title}
+           </h1>
+-          <p className="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto glass-panel p-4 rounded-xl">
++          <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto bg-white border border-gray-200 shadow-sm p-4 rounded-xl">
+             {displayResult.description}
+           </p>
+         </div>
+ 
+         {/* Radar Chart */}
+-        <div className="glass-panel rounded-2xl p-4 shadow-xl flex items-center justify-center min-h-[300px]">
++        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-center justify-center min-h-[300px]">
+           <div className="w-full max-w-[280px]">
+             <Radar data={radarData} options={radarOptions} />
+           </div>
+@@ -251,7 +251,7 @@ export default function ResultsPage() {
+         <div className="space-y-2">
+           <button
+             onClick={() => setShowScoreDetails(!showScoreDetails)}
+-            className="w-full py-3.5 px-4 rounded-xl bg-white/5 border border-white/5 text-slate-300 flex items-center justify-between text-xs font-semibold cursor-pointer"
++            className="w-full py-3.5 px-4 rounded-xl bg-gray-50 border border-gray-200 text-slate-750 flex items-center justify-between text-xs font-semibold cursor-pointer hover:bg-gray-100"
+           >
+             <span>スコアリング詳細を確認する</span>
+             {showScoreDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+@@ -265,24 +265,24 @@ export default function ResultsPage() {
+                 exit={{ opacity: 0, height: 0 }}
+                 className="overflow-hidden"
+               >
+-                <div className="glass-panel rounded-2xl p-4 space-y-4">
+-                  <div className="flex justify-between items-center border-b border-white/5 pb-2 text-xs">
+-                    <span className="text-slate-400">総合平均スコア</span>
+-                    <span className="text-indigo-400 font-bold text-sm font-mono">{displayResult.scoreDetails.average} / 4.00</span>
++                <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-4">
++                  <div className="flex justify-between items-center border-b border-gray-200 pb-2 text-xs">
++                    <span className="text-slate-500">総合平均スコア</span>
++                    <span className="text-blue-600 font-bold text-sm font-mono">{displayResult.scoreDetails.average} / 4.00</span>
+                   </div>
+ 
+                   <div className="space-y-3">
+                     {Object.entries(displayResult.scoreDetails.traitScores).map(([trait, score]) => (
+                       <div key={trait} className="space-y-1.5">
+                         <div className="flex justify-between text-xs">
+-                          <span className="text-slate-300 font-medium">{trait}</span>
+-                          <span className="text-slate-400 font-mono">{score.toFixed(2)}</span>
++                          <span className="text-slate-700 font-medium">{trait}</span>
++                          <span className="text-slate-500 font-mono">{score.toFixed(2)}</span>
+                         </div>
+                         {/* Progress line */}
+-                        <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
++                        <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                           <div
+                             style={{ width: `${(score / 4) * 100}%` }}
+-                            className="h-full bg-indigo-500 rounded-full"
++                            className="h-full bg-blue-600 rounded-full"
+                           />
+                         </div>
+                         {TRAIT_DESCRIPTIONS[trait] && (
+@@ -302,20 +302,20 @@ export default function ResultsPage() {
+         {/* AI Travel Plans */}
+         {displayResult.plans && displayResult.plans.length > 0 && (
+           <div className="space-y-4">
+-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+-              <Sparkles className="w-4 h-4 text-pink-400 animate-pulse" />
++            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
++              <Sparkles className="w-4 h-4 text-pink-500 animate-pulse" />
+               AI生成のおすすめ旅行プラン
+             </h3>
+ 
+             <div className="space-y-3">
+               {displayResult.plans.map((p: any, i: number) => (
+-                <div key={i} className="glass-panel-interactive rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
++                <div key={i} className="bg-white border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all shadow-sm rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
+                   <div>
+-                    <div className="text-xs text-indigo-400 font-bold mb-1 flex items-center gap-1">
++                    <div className="text-xs text-blue-600 font-bold mb-1 flex items-center gap-1">
+                       <MapPin className="w-3.5 h-3.5" /> Plan {i + 1}
+                     </div>
+-                    <h4 className="text-sm font-bold text-white mb-2">{p.title || p.name}</h4>
+-                    <p className="text-[11px] text-slate-400 leading-relaxed">
++                    <h4 className="text-sm font-bold text-slate-800 mb-2">{p.title || p.name}</h4>
++                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                       {p.description || 'あなた専用のカスタマイズ旅程が準備されています。'}
+                     </p>
+                   </div>
+@@ -323,7 +323,7 @@ export default function ResultsPage() {
+                   <div className="flex justify-end mt-4">
+                     <button
+                       onClick={() => startPlan(p)}
+-                      className="px-3 py-1.5 rounded-lg text-[10px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1 cursor-pointer"
++                      className="px-3 py-1.5 rounded-lg text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all flex items-center gap-1 cursor-pointer"
+                     >
+                       <Navigation className="w-3 h-3" /> このプランを開始する
+                     </button>
+@@ -338,7 +338,7 @@ export default function ResultsPage() {
+         <div className="pt-4">
+           <button
+             onClick={() => router.push(appPath('/main'))}
+-            className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg flex justify-center items-center gap-1 cursor-pointer"
++            className="w-full py-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-md flex justify-center items-center gap-1 cursor-pointer"
+           >
+             ダッシュボードへ進む <ChevronRight className="w-4 h-4" />
+           </button>
+diff --git a/client/src/app/signup/page.tsx b/client/src/app/signup/page.tsx
+index f3808c5..18587ee 100644
+--- a/client/src/app/signup/page.tsx
++++ b/client/src/app/signup/page.tsx
+@@ -50,7 +50,7 @@ function SignupContent() {
+   return (
+     <div className="flex-1 flex flex-col justify-center px-6 py-12 relative overflow-hidden">
+       {/* Background glowing decorations */}
+-      <div className="absolute top-1/4 right-1/10 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/4 right-1/10 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl -z-10" />
+       <div className="absolute bottom-1/4 left-1/10 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl -z-10" />
+ 
+       <motion.div
+@@ -60,17 +60,17 @@ function SignupContent() {
+         className="w-full glass-panel rounded-2xl p-8 shadow-2xl relative"
+       >
+         <div className="text-center mb-8">
+-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2 font-outfit">
++          <h1 className="text-3xl font-bold tracking-tight text-slate-800 mb-2 font-outfit">
+             新規登録
+           </h1>
+-          <p className="text-sm text-slate-400">
++          <p className="text-sm text-slate-500">
+             アカウントを作成して、AIと一緒に旅スタイルを見つけましょう。
+           </p>
+         </div>
+ 
+         <form onSubmit={handleSubmit} className="space-y-5">
+           <div className="space-y-2">
+-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
++            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+               お名前
+             </label>
+             <input
+@@ -79,12 +79,12 @@ function SignupContent() {
+               onChange={(e) => setName(e.target.value)}
+               placeholder="例: 山田 太郎"
+               required
+-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
++              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
+             />
+           </div>
+ 
+           <div className="space-y-2">
+-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
++            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+               ユーザーID
+             </label>
+             <input
+@@ -93,7 +93,7 @@ function SignupContent() {
+               onChange={(e) => setUserId(e.target.value.trim())}
+               placeholder="例: gemini_user"
+               required
+-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
++              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
+               autoComplete="username"
+             />
+             <p className="text-[10px] text-slate-500">
+@@ -102,7 +102,7 @@ function SignupContent() {
+           </div>
+ 
+           <div className="space-y-2">
+-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
++            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+               パスワード
+             </label>
+             <input
+@@ -111,7 +111,7 @@ function SignupContent() {
+               onChange={(e) => setPassword(e.target.value)}
+               placeholder="••••••••"
+               required
+-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
++              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
+               autoComplete="new-password"
+             />
+             <p className="text-[11px] text-slate-500">
+@@ -123,7 +123,7 @@ function SignupContent() {
+             <motion.p
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+-              className="text-xs font-medium text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-lg px-3 py-2"
++              className="text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200/60 rounded-lg px-3 py-2"
+             >
+               {error}
+             </motion.p>
+@@ -133,7 +133,7 @@ function SignupContent() {
+             whileTap={{ scale: 0.98 }}
+             type="submit"
+             disabled={loading}
+-            className="w-full py-3.5 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-indigo-500/10 transition-all flex justify-center items-center cursor-pointer"
++            className="w-full py-3.5 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-blue-500/10 transition-all flex justify-center items-center cursor-pointer"
+           >
+             {loading ? (
+               <span className="flex items-center gap-2">
+@@ -149,12 +149,12 @@ function SignupContent() {
+           </motion.button>
+         </form>
+ 
+-        <div className="mt-8 text-center border-t border-white/5 pt-6">
+-          <p className="text-xs text-slate-400">
++        <div className="mt-8 text-center border-t border-gray-200 pt-6">
++          <p className="text-xs text-slate-500">
+             すでにアカウントをお持ちですか？{' '}
+             <Link
+               href={`/login${searchParams.toString() ? '?' + searchParams.toString() : ''}`}
+-              className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors"
++              className="text-blue-600 font-semibold hover:text-blue-500 transition-colors"
+             >
+               ログインする
+             </Link>
+@@ -169,7 +169,7 @@ export default function SignupPage() {
+   return (
+     <Suspense fallback={
+       <div className="flex-1 flex justify-center items-center">
+-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
++        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+       </div>
+     }>
+       <SignupContent />
+diff --git a/client/src/app/travel-day/[id]/page.tsx b/client/src/app/travel-day/[id]/page.tsx
+index 04e59e6..76451b2 100644
+--- a/client/src/app/travel-day/[id]/page.tsx
++++ b/client/src/app/travel-day/[id]/page.tsx
+@@ -139,20 +139,20 @@ export default function TravelDayPage() {
+   };
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-[#090b11]">
++    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-[#f5f7fa]">
+       {/* Header */}
+-      <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-white/5 bg-[#090b11]/80 backdrop-blur-md z-10">
++      <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-gray-200 bg-white/90 backdrop-blur-md z-10">
+         <button
+           onClick={() => router.push(appPath('/main'))}
+-          className="p-2 rounded-xl border border-white/5 bg-white/5 text-white transition-all cursor-pointer"
++          className="p-2 rounded-xl border border-gray-200 bg-gray-50 text-slate-800 hover:bg-gray-100 transition-all cursor-pointer"
+         >
+           <ArrowLeft className="w-4 h-4" />
+         </button>
+         <div>
+-          <h1 className="text-xs font-bold text-white font-outfit truncate max-w-[180px]">
++          <h1 className="text-xs font-bold text-slate-800 font-outfit truncate max-w-[180px]">
+             {plan?.title || '旅行当日チャット'}
+           </h1>
+-          <span className="text-[9px] text-emerald-400 font-bold block tracking-wider uppercase flex items-center gap-1">
++          <span className="text-[9px] text-teal-600 font-bold block tracking-wider uppercase flex items-center gap-1">
+             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+             Travel Day Assistant
+           </span>
+@@ -173,11 +173,11 @@ export default function TravelDayPage() {
+               {msg.type === 'user' ? (
+                 <span>あなた</span>
+               ) : msg.type === 'system' ? (
+-                <span className="text-indigo-400">システム</span>
++                <span className="text-blue-600">システム</span>
+               ) : msg.type === 'error' ? (
+-                <span className="text-rose-400">エラー</span>
++                <span className="text-rose-600">エラー</span>
+               ) : (
+-                <span className="text-emerald-400 flex items-center gap-0.5">
++                <span className="text-teal-600 flex items-center gap-0.5">
+                   <Compass className="w-3 h-3" /> 当日アシスタント
+                 </span>
+               )}
+@@ -187,10 +187,10 @@ export default function TravelDayPage() {
+             <div
+               className={`rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                 msg.type === 'user'
+-                  ? 'bg-indigo-600 text-white rounded-tr-none'
++                  ? 'bg-blue-600 text-white rounded-tr-none'
+                   : msg.type === 'error'
+-                  ? 'bg-rose-950/20 border border-rose-900/30 text-rose-300 rounded-tl-none'
+-                  : 'bg-white/5 border border-white/5 text-slate-300 rounded-tl-none'
++                  ? 'bg-rose-50 border border-rose-200 text-rose-700 rounded-tl-none'
++                  : 'bg-white border border-gray-200 text-slate-700 rounded-tl-none shadow-sm'
+               }`}
+             >
+               {msg.content}
+@@ -202,22 +202,22 @@ export default function TravelDayPage() {
+                 {msg.places.map((place: any, pIdx: number) => (
+                   <div
+                     key={pIdx}
+-                    className="bg-white/5 border border-white/5 rounded-2xl p-3.5 space-y-1.5 shadow-md flex flex-col justify-between"
++                    className="bg-white border border-gray-200 rounded-2xl p-3.5 space-y-1.5 shadow-sm flex flex-col justify-between"
+                   >
+                     <div>
+-                      <h4 className="text-xs font-bold text-white flex items-center gap-1">
+-                        <MapPin className="w-3.5 h-3.5 text-emerald-400" />
++                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1">
++                        <MapPin className="w-3.5 h-3.5 text-teal-600" />
+                         {place.name}
+                       </h4>
+                       {place.description && (
+-                        <p className="text-[10px] text-slate-400 leading-normal mt-1">
++                        <p className="text-[10px] text-slate-500 leading-normal mt-1">
+                           {place.description}
+                         </p>
+                       )}
+                     </div>
+ 
+                     {place.rating && (
+-                      <span className="text-[9px] text-amber-400 font-bold">
++                      <span className="text-[9px] text-amber-600 font-bold">
+                         ★ {place.rating} / 5.0
+                       </span>
+                     )}
+@@ -229,7 +229,7 @@ export default function TravelDayPage() {
+                           href={msg.citations.find((c: any) => c.title?.includes(place.name)).url}
+                           target="_blank"
+                           rel="noopener noreferrer"
+-                          className="self-end text-[9px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-0.5 mt-2"
++                          className="self-end text-[9px] text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-0.5 mt-2"
+                         >
+                           Google Maps で開く <ExternalLink className="w-3 h-3" />
+                         </a>
+@@ -242,8 +242,8 @@ export default function TravelDayPage() {
+         ))}
+         {loading && (
+           <div className="flex flex-col gap-2 max-w-[85%] items-start">
+-            <span className="text-[9px] text-emerald-400 font-bold">当日アシスタント...</span>
+-            <div className="rounded-2xl px-4 py-3 bg-white/5 border border-white/5 text-slate-400 rounded-tl-none flex items-center gap-1.5">
++            <span className="text-[9px] text-teal-600 font-bold">当日アシスタント...</span>
++            <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200 text-slate-500 rounded-tl-none flex items-center gap-1.5 shadow-sm">
+               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-100" />
+               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-200" />
+               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-300" />
+@@ -254,13 +254,13 @@ export default function TravelDayPage() {
+       </div>
+ 
+       {/* Quick suggestions scroll */}
+-      <div className="px-6 py-2 flex gap-2 overflow-x-auto whitespace-nowrap bg-[#090b11] border-t border-white/5">
++      <div className="px-6 py-2 flex gap-2 overflow-x-auto whitespace-nowrap bg-white border-t border-gray-200">
+         {QUICK_SUGGESTIONS.map((s, idx) => (
+           <button
+             key={idx}
+             onClick={() => handleSend(s)}
+             disabled={loading}
+-            className="text-[10px] font-medium text-slate-300 border border-white/10 hover:border-white/20 bg-white/5 rounded-full px-3 py-1.5 cursor-pointer transition-all active:scale-95"
++            className="text-[10px] font-medium text-slate-600 border border-gray-200 hover:bg-gray-50 bg-white rounded-full px-3 py-1.5 cursor-pointer transition-all active:scale-95"
+           >
+             {s}
+           </button>
+@@ -268,7 +268,7 @@ export default function TravelDayPage() {
+       </div>
+ 
+       {/* Message input */}
+-      <div className="p-4 bg-[#090b11] z-10">
++      <div className="p-4 bg-[#f5f7fa] z-10">
+         <form onSubmit={handleFormSubmit} className="flex gap-2.5">
+           <input
+             type="text"
+@@ -276,16 +276,16 @@ export default function TravelDayPage() {
+             onChange={(e) => setInput(e.target.value)}
+             placeholder="次のスケジュールや現地のおすすめを質問..."
+             disabled={loading}
+-            className="flex-1 px-4 py-3 glass-input text-white text-xs focus:outline-none"
++            className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+           />
+           <motion.button
+             whileTap={{ scale: 0.95 }}
+             type="submit"
+             disabled={loading || !input.trim()}
+-            className={`p-3 rounded-xl flex items-center justify-center shadow-lg transition-all ${
++            className={`p-3 rounded-xl flex items-center justify-center shadow-md transition-all ${
+               !input.trim() || loading
+-                ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'
+-                : 'animated-gradient text-white cursor-pointer'
++                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
++                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+             }`}
+           >
+             <Send className="w-4 h-4" />
+diff --git a/client/src/app/travel-wizard/page.tsx b/client/src/app/travel-wizard/page.tsx
+index d933eea..c069dcb 100644
+--- a/client/src/app/travel-wizard/page.tsx
++++ b/client/src/app/travel-wizard/page.tsx
+@@ -218,9 +218,9 @@ export default function TravelWizardPage() {
+   };
+ 
+   return (
+-    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen">
++    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen bg-[#f5f7fa]">
+       {/* Top Background glowing decorations */}
+-      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
++      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
+ 
+       {/* INPUT SCREEN */}
+       {currentView === 'input' && (
+@@ -232,23 +232,23 @@ export default function TravelWizardPage() {
+           <div className="flex items-center gap-4">
+             <button
+               onClick={() => router.push(appPath('/main'))}
+-              className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++              className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
+             >
+               <ArrowLeft className="w-4 h-4" />
+             </button>
+             <div>
+-              <h1 className="text-xl font-bold text-white font-outfit">プラン作成</h1>
+-              <p className="text-[10px] text-slate-400">AIがオリジナルの旅程を設計します</p>
++              <h1 className="text-xl font-bold text-slate-800 font-outfit">プラン作成</h1>
++              <p className="text-[10px] text-slate-500">AIがオリジナルの旅程を設計します</p>
+             </div>
+           </div>
+ 
+-          <div className="glass-panel rounded-2xl p-6 shadow-xl space-y-6">
++          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-6">
+             <div className="text-center space-y-2">
+-              <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400">
++              <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto text-blue-600">
+                 <Sparkles className="w-6 h-6 animate-pulse" />
+               </div>
+-              <h2 className="text-base font-bold text-white">どんな旅行がしたいですか？</h2>
+-              <p className="text-[11px] text-slate-400">
++              <h2 className="text-base font-bold text-slate-800">どんな旅行がしたいですか？</h2>
++              <p className="text-[11px] text-slate-500">
+                 目的地、日数、テーマなどを自由に入力してください。
+               </p>
+             </div>
+@@ -260,13 +260,13 @@ export default function TravelWizardPage() {
+                 rows={4}
+                 placeholder="例: 京都の隠れた紅葉スポットを巡る2泊3日の大人旅。温泉と美味しい和食も楽しみたいです。"
+                 required
+-                className="w-full p-4 glass-input text-white focus:outline-none text-xs leading-relaxed"
++                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs leading-relaxed"
+               />
+ 
+               <motion.button
+                 whileTap={{ scale: 0.98 }}
+                 type="submit"
+-                className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg flex justify-center items-center gap-1.5 cursor-pointer"
++                className="w-full py-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md flex justify-center items-center gap-1.5 cursor-pointer"
+               >
+                 旅行計画を提案する <Send className="w-4 h-4" />
+               </motion.button>
+@@ -282,15 +282,15 @@ export default function TravelWizardPage() {
+             <motion.div
+               animate={{ rotate: 360 }}
+               transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
+-              className="w-full h-full rounded-full border border-dashed border-indigo-500/30 flex items-center justify-center"
++              className="w-full h-full rounded-full border border-dashed border-blue-500/30 flex items-center justify-center"
+             >
+-              <Sparkles className="w-6 h-6 text-indigo-400 animate-pulse" />
++              <Sparkles className="w-6 h-6 text-blue-600 animate-pulse" />
+             </motion.div>
+-            <div className="absolute inset-1.5 bg-indigo-500/5 rounded-full animate-ping -z-10" />
++            <div className="absolute inset-1.5 bg-blue-50 rounded-full animate-ping -z-10" />
+           </div>
+           <div>
+-            <h2 className="text-base font-bold text-white mb-2">{loadingTitle}</h2>
+-            <p className="text-xs text-slate-400 max-w-xs leading-relaxed">{loadingSubtitle}</p>
++            <h2 className="text-base font-bold text-slate-800 mb-2">{loadingTitle}</h2>
++            <p className="text-xs text-slate-500 max-w-xs leading-relaxed">{loadingSubtitle}</p>
+           </div>
+         </div>
+       )}
+@@ -305,19 +305,19 @@ export default function TravelWizardPage() {
+           <div className="flex items-center justify-between">
+             <button
+               onClick={() => setCurrentView('input')}
+-              className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++              className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
+             >
+               <ArrowLeft className="w-4 h-4" />
+             </button>
+-            <span className="text-xs font-bold text-slate-500 tracking-wider font-outfit">
++            <span className="text-xs font-bold text-slate-400 tracking-wider font-outfit">
+               SUGGESTIONS
+             </span>
+             <div className="w-8" />
+           </div>
+ 
+           <div className="text-center">
+-            <h2 className="text-base font-bold text-white mb-1">AIが3つのプランを提案しました</h2>
+-            <p className="text-[10px] text-slate-400">ご希望に一番近いプランを1つ選択してください。</p>
++            <h2 className="text-base font-bold text-slate-800 mb-1">AIが3つのプランを提案しました</h2>
++            <p className="text-[10px] text-slate-500">ご希望に一番近いプランを1つ選択してください。</p>
+           </div>
+ 
+           <div className="space-y-4">
+@@ -330,7 +330,7 @@ export default function TravelWizardPage() {
+                 <div
+                   key={plan.id}
+                   onClick={() => handleSelectPlan(plan)}
+-                  className="glass-panel-interactive rounded-2xl overflow-hidden cursor-pointer shadow-lg flex flex-col justify-between"
++                  className="bg-white border border-gray-200 hover:border-blue-300 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between transition-all"
+                 >
+                   <div
+                     style={{ backgroundImage: `url(${imgUrl})` }}
+@@ -338,17 +338,17 @@ export default function TravelWizardPage() {
+                   >
+                     <div className="absolute inset-0 bg-slate-950/40" />
+                     {plan.category_label && (
+-                      <span className="absolute top-3 left-3 bg-indigo-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
++                      <span className="absolute top-3 left-3 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+                         {plan.category_label}
+                       </span>
+                     )}
+                   </div>
+                   <div className="p-4 space-y-2">
+-                    <h3 className="text-sm font-bold text-white">{plan.title}</h3>
++                    <h3 className="text-sm font-bold text-slate-800">{plan.title}</h3>
+                     {plan.tags && (
+-                      <p className="text-[10px] text-indigo-400 font-semibold">{plan.tags}</p>
++                      <p className="text-[10px] text-blue-600 font-semibold">{plan.tags}</p>
+                     )}
+-                    <p className="text-[11px] text-slate-400 leading-normal line-clamp-2">
++                    <p className="text-[11px] text-slate-500 leading-normal line-clamp-2">
+                       {plan.brief}
+                     </p>
+                   </div>
+@@ -369,7 +369,7 @@ export default function TravelWizardPage() {
+           <div className="flex items-center justify-between">
+             <button
+               onClick={() => setCurrentView('suggestions')}
+-              className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
++              className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
+             >
+               <ArrowLeft className="w-4 h-4" />
+             </button>
+@@ -388,48 +388,48 @@ export default function TravelWizardPage() {
+                   : 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=480&q=80'
+               })`,
+             }}
+-            className="h-36 bg-cover bg-center rounded-2xl overflow-hidden relative shadow-lg flex flex-col justify-end p-4 border border-white/5"
++            className="h-36 bg-cover bg-center rounded-2xl overflow-hidden relative shadow-lg flex flex-col justify-end p-4 border border-gray-200"
+           >
+             <div className="absolute inset-0 bg-slate-950/50" />
+             <div className="relative space-y-1">
+               <h2 className="text-base font-bold text-white leading-snug">{selectedPlan.title}</h2>
+               {selectedPlan.tags && (
+-                <p className="text-[10px] text-indigo-400 font-semibold">{selectedPlan.tags}</p>
++                <p className="text-[10px] text-blue-300 font-semibold">{selectedPlan.tags}</p>
+               )}
+             </div>
+           </div>
+ 
+           {/* Overview text */}
+-          <div className="glass-panel rounded-2xl p-4 space-y-2">
+-            <h3 className="text-xs font-bold text-slate-300">💡 旅の概要</h3>
+-            <p className="text-xs text-slate-400 leading-relaxed">{selectedPlan.brief || selectedPlan.text}</p>
++          <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-2">
++            <h3 className="text-xs font-bold text-slate-700">💡 旅の概要</h3>
++            <p className="text-xs text-slate-600 leading-relaxed">{selectedPlan.brief || selectedPlan.text}</p>
+           </div>
+ 
+           {/* Itinerary vertical timeline */}
+           {selectedPlan.itinerary && selectedPlan.itinerary.length > 0 && (
+             <div className="space-y-4">
+-              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+-                <Calendar className="w-4 h-4 text-indigo-400" /> 旅程タイムライン
++              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
++                <Calendar className="w-4 h-4 text-blue-600" /> 旅程タイムライン
+               </h3>
+ 
+-              <div className="space-y-6 pl-4 border-l border-white/5 relative">
++              <div className="space-y-6 pl-4 border-l border-gray-200 relative">
+                 {selectedPlan.itinerary.map((day: any, dIdx: number) => (
+                   <div key={dIdx} className="space-y-4 relative">
+                     {/* Day circle node */}
+-                    <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-indigo-500 bg-[#090b11] flex items-center justify-center text-[8px] font-bold text-indigo-400 shadow-md">
++                    <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-blue-500 bg-white flex items-center justify-center text-[8px] font-bold text-blue-600 shadow-md">
+                       D{day.day}
+                     </div>
+ 
+-                    <div className="font-bold text-xs text-white pl-2">Day {day.day}</div>
++                    <div className="font-bold text-xs text-slate-800 pl-2">Day {day.day}</div>
+                     
+                     <div className="space-y-3 pl-2">
+                       {(day.activities || []).map((act: any, aIdx: number) => (
+-                        <div key={aIdx} className="bg-white/5 border border-white/5 rounded-xl p-3.5 space-y-1.5">
+-                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-400">
++                        <div key={aIdx} className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-1.5">
++                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-blue-600">
+                             <Clock className="w-3.5 h-3.5" /> {act.time || '指定なし'}
+                           </div>
+-                          <h4 className="text-xs font-bold text-white leading-snug">{act.title}</h4>
+-                          <p className="text-[10px] text-slate-400 leading-relaxed">{act.description}</p>
++                          <h4 className="text-xs font-bold text-slate-850 leading-snug">{act.title}</h4>
++                          <p className="text-[10px] text-slate-500 leading-relaxed">{act.description}</p>
+                           {act.location && (
+                             <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-500">
+                               <MapPin className="w-3 h-3" /> {act.location}
+@@ -445,13 +445,13 @@ export default function TravelWizardPage() {
+           )}
+ 
+           {/* Sticky Actions panel */}
+-          <div className="border-t border-white/5 pt-4 bg-[#090b11]/80 backdrop-blur-md -mx-6 px-6 sticky bottom-0 space-y-3">
++          <div className="border-t border-gray-200 pt-4 bg-white/90 backdrop-blur-md -mx-6 px-6 sticky bottom-0 space-y-3">
+             <div className="grid grid-cols-2 gap-3 pb-4">
+               <motion.button
+                 whileTap={{ scale: 0.98 }}
+                 onClick={handleRefine}
+                 disabled={saving}
+-                className="py-3.5 rounded-xl text-xs font-semibold text-slate-300 border border-white/10 hover:bg-white/5 hover:text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer"
++                className="py-3.5 rounded-xl text-xs font-semibold text-slate-600 border border-gray-200 hover:bg-gray-50 hover:text-slate-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+               >
+                 <MessageSquare className="w-4 h-4" /> 対話して微調整
+               </motion.button>
+@@ -460,7 +460,7 @@ export default function TravelWizardPage() {
+                 whileTap={{ scale: 0.98 }}
+                 onClick={handleSavePlan}
+                 disabled={saving}
+-                className="py-3.5 rounded-xl text-xs font-semibold text-white animated-gradient shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
++                className="py-3.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+               >
+                 <Save className="w-4 h-4" /> 決定して保存
+               </motion.button>
+diff --git a/client/src/components/BottomNav.tsx b/client/src/components/BottomNav.tsx
+index b1481e6..679939c 100644
+--- a/client/src/components/BottomNav.tsx
++++ b/client/src/components/BottomNav.tsx
+@@ -18,7 +18,7 @@ export default function BottomNav() {
+   ];
+ 
+   return (
+-    <div className="sticky bottom-0 left-0 right-0 bg-[#0f111a]/95 border-t border-white/5 backdrop-blur-md px-4 py-2 z-50 flex justify-around items-center -mx-6">
++    <div className="sticky bottom-0 left-0 right-0 bg-white/95 border-t border-gray-200 backdrop-blur-md px-4 py-2 z-50 flex justify-around items-center -mx-6">
+       {navItems.map((item) => {
+         const isActive = pathname.startsWith(item.href);
+         return (
+@@ -27,8 +27,8 @@ export default function BottomNav() {
+             href={item.href}
+             className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-300 ${
+               isActive
+-                ? 'text-indigo-400 font-semibold scale-105 bg-indigo-500/5'
+-                : 'text-slate-500 hover:text-slate-300'
++                ? 'text-blue-600 font-semibold scale-105 bg-blue-50'
++                : 'text-slate-400 hover:text-slate-600'
+             }`}
+           >
+             <div className={`mb-1 transition-transform duration-300 ${isActive ? 'translate-y-[-2px]' : ''}`}>

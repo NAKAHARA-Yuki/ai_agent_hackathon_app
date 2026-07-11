@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useActivePlanStore } from '@/stores/activePlanStore';
 import { dayAdvice } from '@/services/apiClient';
-import { appPath } from '@/utils/pathHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Sparkles, MapPin, Compass, Search, ExternalLink, HelpCircle } from 'lucide-react';
 
@@ -52,7 +51,7 @@ export default function TravelDayPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace(appPath('/login'));
+      router.replace('/login');
       return;
     }
 
@@ -75,7 +74,7 @@ export default function TravelDayPage() {
         setMessages([welcome]);
       } catch (e) {
         console.error('Failed to init travel day chat:', e);
-        router.push(appPath('/plans'));
+        router.push('/plans');
       }
     };
     init();
@@ -143,7 +142,7 @@ export default function TravelDayPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-gray-200 bg-white/90 backdrop-blur-md z-10">
         <button
-          onClick={() => router.push(appPath('/main'))}
+          onClick={() => router.push('/main')}
           className="p-2 rounded-xl border border-gray-200 bg-gray-50 text-slate-800 hover:bg-gray-100 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />

@@ -7,7 +7,7 @@ import { planDetail, deletePlan, Plan } from '@/services/apiClient';
 import { transportLabel, transportIcon, formatDuration, formatDistance } from '@/utils/transportHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Trash2, Edit, Calendar, Clock, MapPin, AlertTriangle, ShieldAlert } from 'lucide-react';
-import { appPath } from '@/utils/pathHelper';
+
 
 export default function PlanDetailPage() {
   const router = useRouter();
@@ -42,7 +42,7 @@ export default function PlanDetailPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace(appPath('/login'));
+      router.replace('/login');
       return;
     }
     loadPlan();
@@ -53,7 +53,7 @@ export default function PlanDetailPage() {
     setDeleting(true);
     try {
       await deletePlan(planId, auth.authHeader());
-      router.replace(appPath('/plans'));
+      router.replace('/plans');
     } catch (e) {
       console.error(e);
       alert('プランの削除に失敗しました。');
@@ -89,7 +89,7 @@ export default function PlanDetailPage() {
         <ShieldAlert className="w-8 h-8 text-rose-600" />
         <p className="text-slate-500 text-sm">{error || 'プランが見つかりませんでした。'}</p>
         <button
-          onClick={() => router.push(appPath('/plans'))}
+          onClick={() => router.push('/plans')}
           className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all cursor-pointer"
         >
           プラン一覧へ戻る
@@ -112,7 +112,7 @@ export default function PlanDetailPage() {
         {/* Float back button */}
         <div className="relative flex justify-between items-center z-10">
           <button
-            onClick={() => router.push(appPath('/plans'))}
+            onClick={() => router.push('/plans')}
             className="p-2 rounded-xl border border-white/10 bg-black/40 text-white transition-all cursor-pointer backdrop-blur-md"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -250,7 +250,7 @@ export default function PlanDetailPage() {
         </button>
 
         <button
-          onClick={() => router.push(appPath(`/plans/${planId}/chat`))}
+          onClick={() => router.push(`/plans/${planId}/chat`)}
           className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Edit className="w-4 h-4" /> ブラッシュアップ

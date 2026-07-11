@@ -1,0 +1,152 @@
+/* =============================================================
+   Design Tokens (Light Theme)
+   目的: 色/余白/角丸/影/フォントサイズを集中管理
+   ============================================================= */
+:root {
+  /* colors */
+  --color-bg: #ffffff;
+  --color-bg-alt: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f9fafb;
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-text: #1e293b; /* slate-800 */
+  --color-text-subtle: #64748b; /* slate-500 */
+  --color-primary: #2563eb; /* blue-600 */
+  --color-primary-hover: #1d4ed8; /* blue-700 */
+  --color-primary-active: #1e40af; /* blue-800 */
+  --color-accent: #0f766e; /* teal-700 */
+  --color-accent-hover: #0d5f59;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fee2e2;
+  --color-success: #059669;
+  --color-success-bg: #dcfce7;
+  --color-warning: #d97706;
+  --color-focus: #2563eb;
+  --color-code-bg: #0f172a;
+  --color-code-bg-alt: #0b1220;
+
+  /* typography */
+  --font-family-base: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: clamp(1.55rem, 4vw, 1.9rem);
+  --line-height-base: 1.5;
+
+  /* spacing scale */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-7: 28px; --space-8: 32px;
+
+  /* radius */
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px; --radius-full: 999px;
+
+  /* shadows */
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.08);
+
+  /* layout */
+  --tap-min: 44px;
+}
+
+html, body, #app { height: 100%; }
+body { margin:0; font-family: var(--font-family-base); background: var(--color-bg-alt); color: var(--color-text); line-height: var(--line-height-base); -webkit-font-smoothing: antialiased; }
+
+/* 汎用カード */
+.card { background: var(--color-surface); padding: var(--space-6); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 600px; max-width: 96%; border:1px solid #eef2f7; }
+
+/* モバイルでの適切なカード表示 */
+@media (max-width: 768px) {
+  .card { 
+    width: 100%; 
+    max-width: 100%; 
+    margin: 16px;
+    border-radius: var(--radius-lg); 
+    box-shadow: var(--shadow-md); 
+    border: 1px solid var(--color-border);
+  }
+}
+
+h1 { color: var(--color-text); font-size: var(--font-size-xl); font-weight:700; text-align:center; margin:0 0 var(--space-4); letter-spacing:-.5px; }
+
+/* プライマリボタン (リセット + トークン適用) */
+button { background: var(--color-primary); color:#fff; border:1px solid var(--color-primary-active); padding: 12px 18px; border-radius: var(--radius-lg); font-size: var(--font-size-base); font-weight:600; cursor:pointer; transition: background .18s ease, transform .08s ease; width:100%; margin-top:14px; box-shadow: var(--shadow-sm); min-height: var(--tap-min); }
+button:hover:not(:disabled){ background: var(--color-primary-hover); }
+button:active:not(:disabled){ background: var(--color-primary-active); transform: translateY(1px); }
+button:disabled{ background: var(--color-border); color: var(--color-text-subtle); border-color: var(--color-border); box-shadow:none; cursor:not-allowed; }
+
+/* アクセシビリティ: フォーカスリング統一 */
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--color-focus); outline-offset:2px; border-radius:4px; }
+
+/* ユーティリティ */
+.tap-area { min-height: var(--tap-min); display:inline-flex; align-items:center; justify-content:center; }
+.text-subtle { color: var(--color-text-subtle); }
+.surface-alt { background: var(--color-surface-alt); }
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-4)); }
+.pt-safe { padding-top: calc(env(safe-area-inset-top) + var(--space-2)); }
+.overscroll-contain { overscroll-behavior: contain; }
+.overscroll-none { overscroll-behavior: none; }
+.no-bounce-ios { position: relative; overflow: hidden; }
+
+/* メディアクエリ例（小画面向け余白調整） */
+@media (max-width:600px){
+  .card { padding: var(--space-5); }
+  button { font-size:14px; }
+}
+
+/* モバイル向け全画面対応 */
+@media (max-width: 768px) {
+  html, body, #app { 
+    height: 100vh; 
+    height: 100dvh; /* 動的ビューポート高さを使用（対応ブラウザのみ） */
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  
+  body {
+    /* モバイルでのスクロールバウンスを防止 */
+    overscroll-behavior: none;
+    /* ピンチズームを無効化（必要に応じて） */
+    touch-action: manipulation;
+    /* フォントサイズの自動調整を防止 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  /* すべての要素でbox-sizingを確実にborder-boxに */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  
+  /* タッチターゲットの最小サイズ確保 */
+  button, [role="button"], input, select, textarea {
+    min-height: var(--tap-min);
+  }
+  
+  /* フォーカスインジケータをより目立たせる */
+  button:focus-visible, 
+  a:focus-visible, 
+  input:focus-visible, 
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* 小さな画面での追加の調整 */
+@media (max-width: 480px) {
+  :root {
+    --font-size-base: 14px;
+    --space-4: 12px;
+    --space-6: 20px;
+  }
+  
+  button {
+    padding: 14px 20px;
+    font-size: 15px;
+    min-height: 48px;
+  }
+}

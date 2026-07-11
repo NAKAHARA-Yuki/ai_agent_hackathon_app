@@ -6,7 +6,6 @@ import { useQuizStore } from '@/stores/quizStore';
 import { useAuthStore } from '@/stores/authStore';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Check, Compass } from 'lucide-react';
-import { appPath } from '@/utils/pathHelper';
 
 const MIN_REQUIRED = 3;
 
@@ -43,15 +42,15 @@ export default function InterestsPage() {
     quiz.setSelectedLikes(Array.from(selected));
     
     // Redirect to processing view
-    router.push(appPath('/processing'));
+    router.push('/processing');
   };
 
   const handleBack = () => {
     // Back to last question
     if (quiz.questions.length > 0) {
-      router.push(appPath(`/question/${quiz.questions.length}`));
+      router.push(`/question/${quiz.questions.length}`);
     } else {
-      router.push(appPath('/'));
+      router.push('/');
     }
   };
 

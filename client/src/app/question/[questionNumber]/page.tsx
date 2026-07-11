@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuizStore } from '@/stores/quizStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ChevronRight, Edit3 } from 'lucide-react';
-import { appPath } from '@/utils/pathHelper';
 
 export default function QuestionPage() {
   const router = useRouter();
@@ -42,7 +41,7 @@ export default function QuestionPage() {
           setFreeText('');
         }
       } else {
-        router.replace(appPath('/'));
+        router.replace('/');
       }
       setInitialized(true);
     };
@@ -68,19 +67,19 @@ export default function QuestionPage() {
 
       const nextIdx = store.nextQuestion();
       if (nextIdx !== null) {
-        router.push(appPath(`/question/${nextIdx + 1}`));
+        router.push(`/question/${nextIdx + 1}`);
       } else {
         // Go to Interests (likes selection)
-        router.push(appPath('/interests'));
+        router.push('/interests');
       }
     }
   };
 
   const handleBack = () => {
     if (questionNumber > 1) {
-      router.push(appPath(`/question/${questionNumber - 1}`));
+      router.push(`/question/${questionNumber - 1}`);
     } else {
-      router.push(appPath('/'));
+      router.push('/');
     }
   };
 

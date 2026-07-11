@@ -6,7 +6,7 @@ import { useQuizStore, QuizResult } from '@/stores/quizStore';
 import { useAuthStore } from '@/stores/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, MapPin, Sparkles, Navigation } from 'lucide-react';
-import { appPath } from '@/utils/pathHelper';
+
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -127,7 +127,7 @@ export default function ResultsPage() {
       <div className="flex-1 flex flex-col justify-center items-center px-6 text-center space-y-4">
         <p className="text-slate-500 text-sm">有効な診断結果が見つかりませんでした。</p>
         <button
-          onClick={() => router.push(appPath('/'))}
+          onClick={() => router.push('/')}
           className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all cursor-pointer"
         >
           診断トップへ戻る
@@ -195,7 +195,7 @@ export default function ResultsPage() {
   const startPlan = (plan: any) => {
     // Generate temporary plan doc and active it
     // For simplicity, we direct to plans list or wizard
-    router.push(appPath('/plans'));
+    router.push('/plans');
   };
 
   return (
@@ -207,7 +207,7 @@ export default function ResultsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
-          onClick={() => router.push(appPath('/'))}
+          onClick={() => router.push('/')}
           className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -337,7 +337,7 @@ export default function ResultsPage() {
         {/* Home redirect */}
         <div className="pt-4">
           <button
-            onClick={() => router.push(appPath('/main'))}
+            onClick={() => router.push('/main')}
             className="w-full py-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-md flex justify-center items-center gap-1 cursor-pointer"
           >
             ダッシュボードへ進む <ChevronRight className="w-4 h-4" />
