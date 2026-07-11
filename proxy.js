@@ -9,7 +9,8 @@ const BASE_PATH = '/izatabi';
 
 // 1. Next.js サーバーを子プロセスとして起動
 console.log(`Starting Next.js production server on port ${TARGET_PORT}...`);
-const nextProcess = spawn('npx', ['next', 'start', path.join(__dirname, 'client'), '-p', TARGET_PORT], {
+const nextBin = path.join(__dirname, 'client', 'node_modules', '.bin', 'next');
+const nextProcess = spawn(nextBin, ['start', path.join(__dirname, 'client'), '-p', TARGET_PORT], {
   stdio: 'inherit',
   shell: true
 });
