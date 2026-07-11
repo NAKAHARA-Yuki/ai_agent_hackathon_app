@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { getMemory, listPlans, getMemoryVideoStatus } from '@/services/apiClient';
+import { appPath } from '@/utils/pathHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Calendar, Film, Image as ImageIcon, MapPin, Sparkles, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
@@ -58,7 +59,7 @@ export default function MemoryDetailPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace('/login');
+      router.replace(appPath('/login'));
       return;
     }
     fetchDetails();
@@ -153,7 +154,7 @@ export default function MemoryDetailPage() {
         <ShieldAlert className="w-8 h-8 text-rose-400" />
         <p className="text-slate-400 text-sm">{error || '思い出が見つかりませんでした。'}</p>
         <button
-          onClick={() => router.push('/memories')}
+          onClick={() => router.push(appPath('/memories'))}
           className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer"
         >
           アルバム一覧へ戻る
@@ -170,7 +171,7 @@ export default function MemoryDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
-          onClick={() => router.push('/memories')}
+          onClick={() => router.push(appPath('/memories'))}
           className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />

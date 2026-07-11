@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore, USER_ID_REGEX } from '@/stores/authStore';
 import { motion } from 'framer-motion';
+import { appPath } from '@/utils/pathHelper';
 
 function SignupContent() {
   const router = useRouter();
@@ -35,9 +36,9 @@ function SignupContent() {
       await auth.signup({ name, user_id: userId, password });
       
       if (redirect) {
-        router.replace(redirect);
+        router.replace(appPath(redirect));
       } else {
-        router.replace('/');
+        router.replace(appPath('/'));
       }
     } catch (e: any) {
       setError(e?.message || '登録に失敗しました');

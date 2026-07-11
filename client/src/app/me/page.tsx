@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { appPath } from '@/utils/pathHelper';
 import BottomNav from '@/components/BottomNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, LogOut, Save, Plus, X, Calendar, MapPin, DollarSign, RefreshCw } from 'lucide-react';
@@ -74,7 +75,7 @@ export default function MyPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace('/login');
+      router.replace(appPath('/login'));
       return;
     }
     loadProfile();
@@ -165,7 +166,7 @@ export default function MyPage() {
 
   const handleLogout = () => {
     auth.logout();
-    router.replace('/');
+    router.replace(appPath('/'));
   };
 
   if (loading) {

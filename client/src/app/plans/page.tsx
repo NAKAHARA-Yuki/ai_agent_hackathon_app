@@ -8,6 +8,7 @@ import { listPlans, Plan } from '@/services/apiClient';
 import BottomNav from '@/components/BottomNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, MessageSquare, Calendar, Compass, ShieldAlert, Sparkles } from 'lucide-react';
+import { appPath } from '@/utils/pathHelper';
 
 export default function PlansPage() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function PlansPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace('/login');
+      router.replace(appPath('/login'));
       return;
     }
     fetchPlansList();
@@ -69,7 +70,7 @@ export default function PlansPage() {
 
   const openTravelDayChat = () => {
     if (activePlanStore.activePlan) {
-      router.push(`/travel-day/${activePlanStore.activePlan.id}`);
+      router.push(appPath(`/travel-day/${activePlanStore.activePlan.id}`));
     }
   };
 
@@ -98,7 +99,7 @@ export default function PlansPage() {
         {/* Top Header */}
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/main')}
+            onClick={() => router.push(appPath('/main'))}
             className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -156,7 +157,7 @@ export default function PlansPage() {
               return (
                 <div
                   key={p.id}
-                  onClick={() => router.push(`/plans/${p.id}`)}
+                  onClick={() => router.push(appPath(`/plans/${p.id}`))}
                   style={{ backgroundImage: `url(${bgImg})` }}
                   className={`relative rounded-2xl bg-cover bg-center overflow-hidden shadow-lg h-36 flex flex-col justify-between p-4 cursor-pointer border group transition-all duration-300 ${
                     active ? 'border-indigo-500 scale-[1.01]' : 'border-white/5'
@@ -214,7 +215,7 @@ export default function PlansPage() {
               <p className="text-[10px] text-slate-500 mt-1">最初のプランを作成して冒険に出かけましょう。</p>
             </div>
             <button
-              onClick={() => router.push('/travel-wizard')}
+              onClick={() => router.push(appPath('/travel-wizard'))}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
             >
               旅行計画を作成する

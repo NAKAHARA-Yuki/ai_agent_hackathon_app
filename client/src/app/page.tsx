@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useQuizStore } from '@/stores/quizStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Compass, Sparkles, Activity, ShieldCheck, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { appPath } from '@/utils/pathHelper';
 
 const stepsData = [
   {
@@ -42,7 +43,7 @@ export default function StartPage() {
         try {
           const user = await auth.refreshMe();
           if (user?.diagnosis_completed) {
-            router.replace('/main');
+            router.replace(appPath('/main'));
             return;
           }
         } catch {}
@@ -59,7 +60,7 @@ export default function StartPage() {
     
     if (quiz.questions.length > 0) {
       quiz.resetQuiz();
-      router.push('/question/1');
+      router.push(appPath('/question/1'));
     } else {
       alert('旅行スタイル診断の読み込みに失敗しました。時間をおいて再度お試しください。');
     }

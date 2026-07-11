@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { motion } from 'framer-motion';
+import { appPath } from '@/utils/pathHelper';
 
 function LoginContent() {
   const router = useRouter();
@@ -33,9 +34,9 @@ function LoginContent() {
       await auth.login({ user_id: userId, password });
       
       if (redirect) {
-        router.replace(redirect);
+        router.replace(appPath(redirect));
       } else {
-        router.replace('/');
+        router.replace(appPath('/'));
       }
     } catch (e: any) {
       setError(e?.message || 'ログインに失敗しました');

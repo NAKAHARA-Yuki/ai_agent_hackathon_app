@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { listMemories, listPlans, createMemory, Memory, Plan } from '@/services/apiClient';
+import { appPath } from '@/utils/pathHelper';
 import BottomNav from '@/components/BottomNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Image, Calendar, Trash2, ShieldAlert, X, Upload } from 'lucide-react';
@@ -44,7 +45,7 @@ export default function MemoriesPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace('/login');
+      router.replace(appPath('/login'));
       return;
     }
     fetchMemoriesAndPlans();
@@ -188,7 +189,7 @@ export default function MemoriesPage() {
               return (
                 <div
                   key={mem.id}
-                  onClick={() => router.push(`/memories/${mem.id}`)}
+                  onClick={() => router.push(appPath(`/memories/${mem.id}`))}
                   className="glass-panel-interactive rounded-2xl overflow-hidden cursor-pointer shadow-lg flex"
                 >
                   {/* Image Thumbnail */}

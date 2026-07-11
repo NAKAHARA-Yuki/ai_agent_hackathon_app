@@ -7,6 +7,7 @@ import { modifyPlan, agentChat, planDetail, createPlan, Plan } from '@/services/
 import { transportLabel, transportIcon, formatDuration, formatDistance } from '@/utils/transportHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Save, MessageSquare, Calendar, Sparkles, Check, Clock, MapPin, User, Compass } from 'lucide-react';
+import { appPath } from '@/utils/pathHelper';
 
 interface ChatMessage {
   id: number;
@@ -45,7 +46,7 @@ export default function PlanChatPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace('/login');
+      router.replace(appPath('/login'));
       return;
     }
 
@@ -65,7 +66,7 @@ export default function PlanChatPage() {
         setMessages([welcome]);
       } catch (e) {
         console.error('Failed to load plan for chat:', e);
-        router.push('/plans');
+        router.push(appPath('/plans'));
       }
     };
     init();
@@ -172,7 +173,7 @@ export default function PlanChatPage() {
       await createPlan({ ...payload, id: planId }, auth.authHeader());
       showToast('プランを正常に保存しました！');
       setTimeout(() => {
-        router.push(`/plans/${planId}`);
+        router.push(appPath(`/plans/${planId}`));
       }, 1000);
     } catch (e) {
       console.error(e);
@@ -188,7 +189,7 @@ export default function PlanChatPage() {
       <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/5 bg-[#090b11]/80 backdrop-blur-md z-10">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push(`/plans/${planId}`)}
+            onClick={() => router.push(appPath(`/plans/${planId}`))}
             className="p-2 rounded-xl border border-white/5 bg-white/5 text-white transition-all cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />

@@ -7,6 +7,7 @@ import { useActivePlanStore } from '@/stores/activePlanStore';
 import BottomNav from '@/components/BottomNav';
 import { motion } from 'framer-motion';
 import { MessageCircle, PlusCircle, Compass, Calendar, Clipboard, User, RefreshCw, AlertCircle } from 'lucide-react';
+import { appPath } from '@/utils/pathHelper';
 
 interface RecentPlan {
   id: string;
@@ -75,7 +76,7 @@ export default function MainPage() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      router.replace('/login');
+      router.replace(appPath('/login'));
       return;
     }
     loadLatestPersona();
@@ -85,7 +86,7 @@ export default function MainPage() {
 
   const openTravelDayChat = () => {
     if (activePlanStore.activePlan) {
-      router.push(`/travel-day/${activePlanStore.activePlan.id}`);
+      router.push(appPath(`/travel-day/${activePlanStore.activePlan.id}`));
     }
   };
 
@@ -202,7 +203,7 @@ export default function MainPage() {
                   </div>
                   <div className="text-center pt-2">
                     <button
-                      onClick={() => router.push('/results')}
+                      onClick={() => router.push(appPath('/results'))}
                       className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors font-semibold"
                     >
                       詳細な診断グラフを表示する &rarr;
@@ -220,7 +221,7 @@ export default function MainPage() {
               <p className="text-[10px] text-slate-500 mt-1">旅行スタイルを分析してパーソナライズを開始しましょう。</p>
             </div>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push(appPath('/'))}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
             >
               スタイル診断を受ける
@@ -231,7 +232,7 @@ export default function MainPage() {
         {/* CTA Actions */}
         <div className="grid grid-cols-1 gap-3">
           <button
-            onClick={() => router.push('/travel-wizard')}
+            onClick={() => router.push(appPath('/travel-wizard'))}
             className="w-full py-4 rounded-2xl font-semibold text-white animated-gradient shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-2 cursor-pointer text-sm"
           >
             <PlusCircle className="w-5 h-5" /> 新しい旅行計画を作成
@@ -246,7 +247,7 @@ export default function MainPage() {
               最近の旅行プラン
             </h3>
             <button
-              onClick={() => router.push('/plans')}
+              onClick={() => router.push(appPath('/plans'))}
               className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
             >
               すべて見る
@@ -260,7 +261,7 @@ export default function MainPage() {
               {recentPlans.map((plan) => (
                 <div
                   key={plan.id}
-                  onClick={() => router.push(`/plans/${plan.id}`)}
+                  onClick={() => router.push(appPath(`/plans/${plan.id}`))}
                   className="glass-panel-interactive rounded-2xl p-4 flex items-center justify-between cursor-pointer"
                 >
                   <div className="space-y-1.5 max-w-[240px]">

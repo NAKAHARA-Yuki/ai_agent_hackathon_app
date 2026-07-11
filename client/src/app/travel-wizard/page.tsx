@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { createPlan, generatePlanImage } from '@/services/apiClient';
+import { appPath } from '@/utils/pathHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Sparkles, MapPin, Calendar, Clock, ChevronRight, CheckCircle2, MessageSquare, Save } from 'lucide-react';
 
@@ -177,7 +178,7 @@ export default function TravelWizardPage() {
 
       const doc = await createPlan(payload, auth.authHeader());
       if (doc && doc.id) {
-        router.push(`/plans/${doc.id}`);
+        router.push(appPath(`/plans/${doc.id}`));
       } else {
         throw new Error('Save returned invalid document');
       }
@@ -206,7 +207,7 @@ export default function TravelWizardPage() {
       };
       const doc = await createPlan(payload, auth.authHeader());
       if (doc && doc.id) {
-        router.push(`/plans/${doc.id}/chat`);
+        router.push(appPath(`/plans/${doc.id}/chat`));
       }
     } catch (e) {
       console.error('Failed to save before refine:', e);
@@ -230,7 +231,7 @@ export default function TravelWizardPage() {
         >
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push('/main')}
+              onClick={() => router.push(appPath('/main'))}
               className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />

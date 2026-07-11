@@ -6,6 +6,7 @@ import { useQuizStore, QuizResult } from '@/stores/quizStore';
 import { useAuthStore } from '@/stores/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, MapPin, Sparkles, Navigation } from 'lucide-react';
+import { appPath } from '@/utils/pathHelper';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -126,7 +127,7 @@ export default function ResultsPage() {
       <div className="flex-1 flex flex-col justify-center items-center px-6 text-center space-y-4">
         <p className="text-slate-400 text-sm">有効な診断結果が見つかりませんでした。</p>
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push(appPath('/'))}
           className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer"
         >
           診断トップへ戻る
@@ -194,7 +195,7 @@ export default function ResultsPage() {
   const startPlan = (plan: any) => {
     // Generate temporary plan doc and active it
     // For simplicity, we direct to plans list or wizard
-    router.push('/plans');
+    router.push(appPath('/plans'));
   };
 
   return (
@@ -206,7 +207,7 @@ export default function ResultsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push(appPath('/'))}
           className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -336,7 +337,7 @@ export default function ResultsPage() {
         {/* Home redirect */}
         <div className="pt-4">
           <button
-            onClick={() => router.push('/main')}
+            onClick={() => router.push(appPath('/main'))}
             className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg flex justify-center items-center gap-1 cursor-pointer"
           >
             ダッシュボードへ進む <ChevronRight className="w-4 h-4" />
