@@ -3,10 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   basePath: '/izatabi',
-  experimental: {
-    turbopack: {
-      root: path.join(__dirname),
-    },
+  // @ts-ignore
+  turbopack: {
+    root: path.join(__dirname),
   },
   async rewrites() {
     return [
