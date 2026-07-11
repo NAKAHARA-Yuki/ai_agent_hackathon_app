@@ -13,17 +13,17 @@ const stepsData = [
   {
     title: '1. 直感的に答えるだけ',
     desc: 'いくつかの簡単な質問に選択で回答。迷ったら自由記述であなたの好みを詳しく教えてください。',
-    icon: <Compass className="w-12 h-12 text-indigo-400" />,
+    icon: <Compass className="w-12 h-12 text-blue-600" />,
   },
   {
     title: '2. あなたの旅タイプを分析',
     desc: 'AIが自由記述のニュアンスも精密に読み取り、あなたの10の特性別スコアを可視化します。',
-    icon: <Activity className="w-12 h-12 text-purple-400" />,
+    icon: <Activity className="w-12 h-12 text-blue-500" />,
   },
   {
     title: '3. AI旅行プランを自動生成',
     desc: '分析された旅行スタイルに基づき、あなた専用に最適化された国内旅行プランを即座に提案します。',
-    icon: <Sparkles className="w-12 h-12 text-pink-400" />,
+    icon: <Sparkles className="w-12 h-12 text-teal-600" />,
   },
 ];
 
@@ -70,7 +70,7 @@ export default function StartPage() {
   if (checkingAuth) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -78,13 +78,13 @@ export default function StartPage() {
   return (
     <div className="flex-1 flex flex-col justify-between px-6 py-12 relative overflow-hidden">
       {/* Background glowing decorations */}
-      <div className="absolute top-1/6 left-1/10 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl -z-10" />
-      <div className="absolute bottom-1/6 right-1/10 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/6 left-1/10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl -z-10" />
+      <div className="absolute bottom-1/6 right-1/10 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl -z-10" />
 
       {/* Header Logged In User Status / Auth buttons */}
       <div className="flex justify-end items-center gap-3">
         {auth.isAuthenticated ? (
-          <div className="text-xs text-slate-400 bg-white/5 border border-white/5 rounded-full px-3 py-1.5 flex items-center gap-1.5">
+          <div className="text-xs text-slate-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
             {auth.user?.name} さん
           </div>
@@ -92,7 +92,7 @@ export default function StartPage() {
           <div className="flex gap-2">
             <Link
               href="/login"
-              className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all flex items-center gap-1"
+              className="text-xs font-semibold text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 transition-all flex items-center gap-1"
             >
               <LogIn className="w-3.5 h-3.5" /> ログイン
             </Link>
@@ -114,13 +114,13 @@ export default function StartPage() {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <div className="w-16 h-16 rounded-2xl animated-gradient flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6 mx-auto">
+          <div className="w-16 h-16 rounded-2xl animated-gradient flex items-center justify-center shadow-lg shadow-blue-500/20 mb-6 mx-auto">
             <Compass className="w-8 h-8 text-white animate-pulse" />
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-4 font-outfit leading-tight">
+          <h1 className="text-4xl font-extrabold tracking-tight text-slate-800 mb-4 font-outfit leading-tight">
             AI旅行スタイル診断
           </h1>
-          <p className="text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
+          <p className="text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
             わずか数分で、あなたに最適化された旅行スタイルを可視化。AIがオリジナルの国内旅行プランも自動生成します。
           </p>
         </motion.div>
@@ -137,10 +137,10 @@ export default function StartPage() {
               className="flex flex-col items-center text-center py-2"
             >
               <div className="mb-4">{stepsData[step].icon}</div>
-              <h3 className="text-base font-bold text-white mb-2">
+              <h3 className="text-base font-bold text-slate-800 mb-2">
                 {stepsData[step].title}
               </h3>
-              <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+              <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
                 {stepsData[step].desc}
               </p>
             </motion.div>
@@ -153,7 +153,7 @@ export default function StartPage() {
                 key={i}
                 onClick={() => setStep(i)}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  step === i ? 'w-5 bg-indigo-500' : 'w-1.5 bg-slate-700'
+                  step === i ? 'w-5 bg-blue-600' : 'w-1.5 bg-slate-300'
                 }`}
               />
             ))}
@@ -168,7 +168,7 @@ export default function StartPage() {
             whileTap={{ scale: 0.98 }}
             onClick={handleStart}
             disabled={loading}
-            className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-indigo-500/10 transition-all flex justify-center items-center gap-2 cursor-pointer"
+            className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-blue-500/10 transition-all flex justify-center items-center gap-2 cursor-pointer"
           >
             {loading ? (
               <span className="animate-pulse">読み込み中...</span>

@@ -172,37 +172,37 @@ export default function MyPage() {
   if (loading) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden h-screen bg-[#090b11]">
+    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden h-screen bg-[#f5f7fa] text-slate-800">
       {/* Top Background glowing decorations */}
-      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
 
       {/* Main Form content (Scrollable) */}
       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[80vh]">
         {/* Title */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold text-white font-outfit">マイページ</h1>
-            <p className="text-[10px] text-slate-400">プロフィールの編集とシステム設定</p>
+            <h1 className="text-xl font-bold text-slate-800 font-outfit">マイページ</h1>
+            <p className="text-[10px] text-slate-500">プロフィールの編集とシステム設定</p>
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 rounded-xl bg-rose-950/20 border border-rose-900/30 text-rose-400 hover:bg-rose-950/40 transition-all flex items-center justify-center gap-1 cursor-pointer text-[10px] font-bold"
+            className="p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition-all flex items-center justify-center gap-1 cursor-pointer text-[10px] font-bold shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5" /> ログアウト
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="glass-panel rounded-2xl p-5 space-y-4 shadow-lg">
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-sm">
             {/* Display Name */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                 お名前
               </label>
               <input
@@ -211,28 +211,28 @@ export default function MyPage() {
                 onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
                 required
                 placeholder="山田 太郎"
-                className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none"
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Birthday and Gender */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   生年月日
                 </label>
                 <input
                   type="date"
                   value={profile.birthdate}
                   onChange={handleBirthdateChange}
-                  className="w-full px-3 py-2 glass-input text-xs text-white focus:outline-none"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   年齢
                 </label>
-                <div className="w-full px-3 py-2 bg-slate-900/50 border border-white/5 text-xs text-slate-300 rounded-xl min-h-[38px] flex items-center select-none font-mono">
+                <div className="w-full px-3 py-2 bg-gray-100 border border-gray-200 text-xs text-slate-600 rounded-xl min-h-[38px] flex items-center select-none font-mono">
                   {profile.age ? `${profile.age} 歳` : '未入力'}
                 </div>
               </div>
@@ -241,22 +241,22 @@ export default function MyPage() {
             {/* Gender and Departure location */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   性別
                 </label>
                 <select
                   value={profile.gender}
                   onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
-                  className="w-full px-3 py-2 glass-input text-xs text-white bg-slate-900 border border-white/5 focus:outline-none rounded-xl"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
                 >
-                  <option value="" className="bg-slate-950">選択なし</option>
-                  <option value="male" className="bg-slate-950">男性</option>
-                  <option value="female" className="bg-slate-950">女性</option>
-                  <option value="other" className="bg-slate-950">その他</option>
+                  <option value="" className="bg-white text-slate-800">選択なし</option>
+                  <option value="male" className="bg-white text-slate-800">男性</option>
+                  <option value="female" className="bg-white text-slate-800">女性</option>
+                  <option value="other" className="bg-white text-slate-800">その他</option>
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   出発地
                 </label>
                 <input
@@ -264,14 +264,14 @@ export default function MyPage() {
                   value={profile.location}
                   onChange={(e) => setProfile({ ...profile, location: e.target.value })}
                   placeholder="例: 東京都"
-                  className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {/* Budget */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                 ご予算（概算）
               </label>
               <input
@@ -279,13 +279,13 @@ export default function MyPage() {
                 value={profile.budget}
                 onChange={(e) => setProfile({ ...profile, budget: e.target.value })}
                 placeholder="例: 1回あたり 5万円程度"
-                className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none"
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Hobbies list with Badge tags */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                 趣味・関心（Enterで追加、最大10個）
               </label>
               <input
@@ -294,34 +294,34 @@ export default function MyPage() {
                 onChange={(e) => setHobbyInput(e.target.value)}
                 onKeyDown={handleAddHobby}
                 placeholder="例: サウナ、日本酒、アート"
-                className="w-full px-3 py-2.5 glass-input text-xs text-white focus:outline-none mb-2"
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none mb-2"
               />
 
               <div className="flex flex-wrap gap-1.5">
                 {profile.hobbies.map((hobby, index) => (
                   <span
                     key={index}
-                    className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 font-semibold"
+                    className="bg-blue-50 border border-blue-200 text-blue-600 text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 font-semibold"
                   >
                     {hobby}
                     <button
                       type="button"
                       onClick={() => handleRemoveHobby(index)}
-                      className="hover:text-indigo-200"
+                      className="hover:text-blue-800"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </span>
                 ))}
                 {profile.hobbies.length === 0 && (
-                  <span className="text-[10px] text-slate-600 font-bold">趣味タグが登録されていません</span>
+                  <span className="text-[10px] text-slate-400 font-bold">趣味タグが登録されていません</span>
                 )}
               </div>
             </div>
 
             {/* Travel Memo / Preference Notes */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                 旅行に関するメモ・アレルギーなど
               </label>
               <textarea
@@ -329,7 +329,7 @@ export default function MyPage() {
                 onChange={(e) => setProfile({ ...profile, notes: e.target.value })}
                 rows={3}
                 placeholder="例: 移動中の車酔いがあります。人混みが少ない静かな場所を好みます。"
-                className="w-full p-3 glass-input text-xs text-white focus:outline-none"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none"
               />
             </div>
           </div>
@@ -339,7 +339,7 @@ export default function MyPage() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={saving}
-            className="w-full py-4 rounded-2xl font-semibold text-white animated-gradient shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm"
+            className="w-full py-4 rounded-2xl font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md flex items-center justify-center gap-2 cursor-pointer text-sm"
           >
             <Save className="w-4 h-4" />
             {saving ? 'プロフィール更新中...' : 'プロフィールを更新する'}
@@ -354,9 +354,9 @@ export default function MyPage() {
             initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 px-4 py-2.5 rounded-xl text-xs font-medium text-white shadow-xl flex items-center gap-2 z-50 whitespace-nowrap"
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl text-xs font-medium text-slate-800 shadow-xl flex items-center gap-2 z-50 whitespace-nowrap"
           >
-            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
+            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />
             {toast}
           </motion.div>
         )}

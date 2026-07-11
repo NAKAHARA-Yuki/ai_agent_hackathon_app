@@ -58,7 +58,7 @@ export default function InterestsPage() {
   if (!initialized) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -71,7 +71,7 @@ export default function InterestsPage() {
       <div className="flex items-center justify-between">
         <button
           onClick={handleBack}
-          className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+          className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-600 hover:text-slate-800 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
@@ -84,10 +84,10 @@ export default function InterestsPage() {
       {/* Main content header */}
       <div className="my-6">
         <div className="text-center mb-6">
-          <h1 className="text-xl font-bold text-white mb-2 font-outfit">
+          <h1 className="text-xl font-bold text-slate-800 mb-2 font-outfit">
             好きなことを教えてください
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             あなたの好みに合う旅行プランを調整します。直感的に最低{MIN_REQUIRED}個以上選択してください。
           </p>
         </div>
@@ -102,8 +102,8 @@ export default function InterestsPage() {
                 onClick={() => toggleOption(opt.id)}
                 className={`flex flex-col items-center justify-center p-4 rounded-2xl border text-center transition-all cursor-pointer select-none min-h-[96px] ${
                   isActive
-                    ? 'border-indigo-500 bg-indigo-950/20 text-white font-semibold shadow-md shadow-indigo-500/5'
-                    : 'border-white/5 bg-white/5 text-slate-300 hover:bg-white/10'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-md shadow-blue-500/5'
+                    : 'border-gray-200 bg-white text-slate-600 hover:bg-gray-50 hover:border-gray-300'
                 }`}
               >
                 <span className="text-2xl mb-2" role="img" aria-label={opt.label}>
@@ -119,11 +119,11 @@ export default function InterestsPage() {
       </div>
 
       {/* Action Footer (Sticky) */}
-      <div className="border-t border-white/5 pt-4 bg-[#090b11]/80 backdrop-blur-md -mx-6 px-6">
+      <div className="border-t border-gray-200 pt-4 bg-white/90 backdrop-blur-md -mx-6 px-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-slate-500">
             選択数:{' '}
-            <span className={canNext ? 'text-indigo-400 font-bold' : 'text-slate-500'}>
+            <span className={canNext ? 'text-blue-600 font-bold' : 'text-slate-400'}>
               {selected.size}
             </span>{' '}
             / {MIN_REQUIRED} 以上
@@ -132,7 +132,7 @@ export default function InterestsPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1 font-bold"
+              className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-600 px-2 py-0.5 rounded-full flex items-center gap-1 font-bold"
             >
               <Check className="w-3 h-3" /> 条件クリア
             </motion.div>
@@ -145,7 +145,7 @@ export default function InterestsPage() {
           disabled={!canNext}
           className={`w-full py-4 rounded-xl text-sm font-semibold text-white shadow-lg transition-all flex justify-center items-center gap-1 ${
             !canNext
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200'
               : 'animated-gradient cursor-pointer'
           }`}
         >

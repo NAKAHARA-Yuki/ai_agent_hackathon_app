@@ -143,7 +143,7 @@ export default function MemoryDetailPage() {
   if (loading) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -151,11 +151,11 @@ export default function MemoryDetailPage() {
   if (error || !memory) {
     return (
       <div className="flex-1 flex flex-col justify-center items-center px-6 text-center space-y-4">
-        <ShieldAlert className="w-8 h-8 text-rose-400" />
-        <p className="text-slate-400 text-sm">{error || '思い出が見つかりませんでした。'}</p>
+        <ShieldAlert className="w-8 h-8 text-rose-600" />
+        <p className="text-slate-600 text-sm">{error || '思い出が見つかりませんでした。'}</p>
         <button
           onClick={() => router.push(appPath('/memories'))}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer"
+          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all cursor-pointer"
         >
           アルバム一覧へ戻る
         </button>
@@ -164,19 +164,19 @@ export default function MemoryDetailPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen">
+    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen bg-[#f5f7fa] text-slate-800">
       {/* Background glowing decorations */}
-      <div className="absolute top-1/3 left-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/3 left-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => router.push(appPath('/memories'))}
-          className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+          className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <span className="text-xs font-bold text-slate-500 tracking-wider font-outfit">
+        <span className="text-xs font-bold text-slate-400 tracking-wider font-outfit">
           ALBUM DETAIL
         </span>
         <div className="w-8" />
@@ -185,9 +185,9 @@ export default function MemoryDetailPage() {
       <div className="space-y-6 pb-24">
         {/* Album Header Info */}
         <div className="space-y-2">
-          <h1 className="text-lg font-bold text-white leading-snug">{planTitle}</h1>
+          <h1 className="text-lg font-bold text-slate-800 leading-snug">{planTitle}</h1>
           {(memory.trip_start_date || memory.trip_end_date) && (
-            <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+            <p className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5" />
               {fmtDate(memory.trip_start_date)} ~ {fmtDate(memory.trip_end_date)}
             </p>
@@ -196,12 +196,12 @@ export default function MemoryDetailPage() {
 
         {/* Video slideshow player */}
         <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1">
-            <Film className="w-4 h-4 text-indigo-400" /> スライドショー動画
+          <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1">
+            <Film className="w-4 h-4 text-blue-600" /> スライドショー動画
           </h3>
 
           {videoUrlsList.length > 0 ? (
-            <div className="glass-panel rounded-2xl overflow-hidden aspect-video relative bg-black/40 border border-white/5 shadow-lg flex items-center justify-center">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden aspect-video relative shadow-sm flex items-center justify-center">
               <video
                 src={videoUrlsList[0]}
                 controls
@@ -216,21 +216,21 @@ export default function MemoryDetailPage() {
             </div>
           ) : !allDone ? (
             /* Video generating / waiting status */
-            <div className="glass-panel rounded-2xl p-6 text-center space-y-4 shadow-lg border border-indigo-500/20 bg-indigo-950/10">
+            <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
               <div className="relative w-12 h-12 mx-auto">
-                <div className="animate-spin rounded-full h-full w-full border-2 border-indigo-500 border-t-transparent" />
-                <Film className="w-5 h-5 text-indigo-400 absolute inset-3.5 animate-pulse" />
+                <div className="animate-spin rounded-full h-full w-full border-2 border-blue-500 border-t-transparent" />
+                <Film className="w-5 h-5 text-blue-600 absolute inset-3.5 animate-pulse" />
               </div>
               <div>
-                <p className="text-xs font-bold text-white">AIスライドショー動画を生成中...</p>
-                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs font-bold text-slate-800">AIスライドショー動画を生成中...</p>
+                <p className="text-[9px] text-slate-500 mt-1 leading-relaxed">
                   アップロードされた写真から自動で想い出ムービーを作成しています。<br />
                   このまま少々お待ちください。
                 </p>
               </div>
             </div>
           ) : (
-            <div className="glass-panel rounded-2xl py-8 text-center text-xs text-slate-500">
+            <div className="bg-white border border-gray-200 rounded-2xl py-8 text-center text-xs text-slate-500 shadow-sm">
               動画生成のリクエストがありません。
             </div>
           )}
@@ -239,8 +239,8 @@ export default function MemoryDetailPage() {
         {/* Photos grid */}
         {memory.images && memory.images.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1">
-              <ImageIcon className="w-4 h-4 text-indigo-400" /> 想い出の写真
+            <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1">
+              <ImageIcon className="w-4 h-4 text-blue-600" /> 想い出の写真
             </h3>
 
             <div className="grid grid-cols-3 gap-2">
@@ -251,7 +251,7 @@ export default function MemoryDetailPage() {
                     key={idx}
                     whileTap={{ scale: 0.96 }}
                     onClick={() => setSelectedPhoto(src)}
-                    className="aspect-square bg-slate-900 rounded-xl overflow-hidden cursor-pointer shadow-md hover:opacity-90 transition-opacity border border-white/5"
+                    className="aspect-square bg-gray-100 rounded-xl overflow-hidden cursor-pointer shadow-sm hover:opacity-90 transition-opacity border border-gray-200"
                   >
                     <img src={src} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
                   </motion.div>
@@ -264,22 +264,22 @@ export default function MemoryDetailPage() {
         {/* Itinerary details */}
         {memory.itinerary && memory.itinerary.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1">
-              <MapPin className="w-4 h-4 text-indigo-400" /> 当日の活動ルート
+            <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1">
+              <MapPin className="w-4 h-4 text-blue-600" /> 当日の活動ルート
             </h3>
-            <div className="glass-panel rounded-2xl p-4 space-y-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4 shadow-sm">
               {memory.itinerary.map((day: any, dIdx: number) => (
-                <div key={dIdx} className="space-y-2 border-b border-white/5 last:border-b-0 pb-3 last:pb-0">
-                  <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+                <div key={dIdx} className="space-y-2 border-b border-gray-200 last:border-b-0 pb-3 last:pb-0">
+                  <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
                     Day {day.day || dIdx + 1}
                   </div>
                   <div className="space-y-1.5">
                     {(day.items || day.activities || []).map((item: any, iIdx: number) => (
-                      <div key={iIdx} className="text-xs flex items-start gap-1.5 leading-relaxed text-slate-300">
-                        <span className="font-semibold text-white">•</span>
+                      <div key={iIdx} className="text-xs flex items-start gap-1.5 leading-relaxed text-slate-700">
+                        <span className="font-semibold text-slate-800">•</span>
                         <div>
-                          <span className="font-semibold text-white text-xs">{item.title}</span>
-                          {item.detail && <span className="text-[10px] text-slate-400 ml-1.5">— {item.detail}</span>}
+                          <span className="font-semibold text-slate-800 text-xs">{item.title}</span>
+                          {item.detail && <span className="text-[10px] text-slate-500 ml-1.5">— {item.detail}</span>}
                         </div>
                       </div>
                     ))}

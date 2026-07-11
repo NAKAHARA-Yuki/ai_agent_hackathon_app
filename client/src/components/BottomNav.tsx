@@ -18,7 +18,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="sticky bottom-0 left-0 right-0 bg-[#0f111a]/95 border-t border-white/5 backdrop-blur-md px-4 py-2 z-50 flex justify-around items-center -mx-6">
+    <div className="sticky bottom-0 left-0 right-0 bg-white/95 border-t border-gray-200 backdrop-blur-md px-4 py-2 z-50 flex justify-around items-center -mx-6">
       {navItems.map((item) => {
         const isActive = pathname.startsWith(item.href);
         return (
@@ -27,8 +27,8 @@ export default function BottomNav() {
             href={item.href}
             className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-300 ${
               isActive
-                ? 'text-indigo-400 font-semibold scale-105 bg-indigo-500/5'
-                : 'text-slate-500 hover:text-slate-300'
+                ? 'text-blue-600 font-semibold scale-105 bg-blue-50'
+                : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             <div className={`mb-1 transition-transform duration-300 ${isActive ? 'translate-y-[-2px]' : ''}`}>

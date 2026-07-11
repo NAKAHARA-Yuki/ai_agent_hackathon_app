@@ -27,7 +27,7 @@ export default function RootLayout({
       lang="ja"
       className={`${outfit.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-[#030407]">
+      <body className="min-h-full bg-[#f5f7fa]">
         <div className="mobile-container flex flex-col min-h-screen">
           {children}
         </div>

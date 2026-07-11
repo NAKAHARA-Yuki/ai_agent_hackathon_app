@@ -148,22 +148,22 @@ export default function MemoriesPage() {
   const canSave = selectedPlanId && images.some((img) => img !== null);
 
   return (
-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden">
+    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden bg-[#f5f7fa] text-slate-800">
       {/* Background glowing decorations */}
-      <div className="absolute bottom-1/4 right-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
+      <div className="absolute bottom-1/4 right-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
 
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[85vh]">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold text-white font-outfit">思い出アルバム</h1>
-            <p className="text-[10px] text-slate-400">訪れた場所の記録とスライド動画</p>
+            <h1 className="text-xl font-bold text-slate-800 font-outfit">思い出アルバム</h1>
+            <p className="text-[10px] text-slate-500">訪れた場所の記録とスライド動画</p>
           </div>
           {plans.length > 0 && (
             <button
               onClick={openAddModal}
-              className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition-all flex items-center gap-1 shadow-md cursor-pointer text-xs font-semibold"
+              className="p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center gap-1 shadow-md cursor-pointer text-xs font-semibold"
             >
               <Plus className="w-4 h-4" /> 追加
             </button>
@@ -174,9 +174,9 @@ export default function MemoriesPage() {
         {loading ? (
           <div className="text-center py-12 text-xs text-slate-500">読み込み中...</div>
         ) : error ? (
-          <div className="glass-panel border-rose-900/50 p-4 rounded-2xl flex items-center gap-3">
-            <ShieldAlert className="w-5 h-5 text-rose-400 flex-shrink-0" />
-            <span className="text-xs text-rose-400 font-medium">{error}</span>
+          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-center gap-3 shadow-sm">
+            <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <span className="text-xs text-rose-600 font-medium">{error}</span>
           </div>
         ) : memories.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
@@ -190,14 +190,14 @@ export default function MemoriesPage() {
                 <div
                   key={mem.id}
                   onClick={() => router.push(appPath(`/memories/${mem.id}`))}
-                  className="glass-panel-interactive rounded-2xl overflow-hidden cursor-pointer shadow-lg flex"
+                  className="bg-white border border-gray-200 hover:border-blue-300 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md flex transition-all"
                 >
                   {/* Image Thumbnail */}
-                  <div className="w-28 h-28 flex-shrink-0 bg-slate-900 flex items-center justify-center relative">
+                  <div className="w-28 h-28 flex-shrink-0 bg-gray-100 flex items-center justify-center relative">
                     {hasImages ? (
                       <img src={firstImg} alt="Thumbnail" className="w-full h-full object-cover" />
                     ) : (
-                      <Image className="w-6 h-6 text-slate-700" />
+                      <Image className="w-6 h-6 text-slate-400" />
                     )}
                     {mem.images && mem.images.length > 1 && (
                       <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md font-mono">
@@ -209,15 +209,15 @@ export default function MemoriesPage() {
                   {/* Text Description */}
                   <div className="p-4 flex flex-col justify-between flex-1 min-w-0">
                     <div className="space-y-1">
-                      <h3 className="text-xs font-bold text-white truncate">
+                      <h3 className="text-xs font-bold text-slate-800 truncate">
                         {getMemoryTitle(mem)}
                       </h3>
-                      <p className="text-[9px] text-slate-400 leading-normal flex items-center gap-0.5 font-mono">
+                      <p className="text-[9px] text-slate-500 leading-normal flex items-center gap-0.5 font-mono">
                         <Calendar className="w-3.5 h-3.5" />
                         {getMemoryRange(mem)}
                       </p>
                     </div>
-                    <span className="text-[8px] text-indigo-400 font-bold self-end hover:underline">
+                    <span className="text-[8px] text-blue-600 font-bold self-end hover:underline">
                       アルバムを開く &rarr;
                     </span>
                   </div>
@@ -226,21 +226,21 @@ export default function MemoriesPage() {
             })}
           </div>
         ) : (
-          <div className="glass-panel rounded-2xl py-16 px-6 text-center space-y-4">
-            <Image className="w-8 h-8 text-slate-500 mx-auto" />
+          <div className="bg-white border border-gray-200 rounded-2xl py-16 px-6 text-center space-y-4 shadow-sm">
+            <Image className="w-8 h-8 text-slate-400 mx-auto" />
             <div>
-              <p className="text-xs text-slate-400">登録された想い出がありません。</p>
+              <p className="text-xs font-medium text-slate-700">登録された想い出がありません。</p>
               <p className="text-[10px] text-slate-500 mt-1">旅行先で撮った写真をアップロードしてアルバムにしましょう。</p>
             </div>
             {plans.length > 0 ? (
               <button
                 onClick={openAddModal}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md cursor-pointer"
               >
                 想い出アルバムを作る
               </button>
             ) : (
-              <p className="text-[10px] text-slate-600">※思い出の作成には旅行プランの登録が必要です。</p>
+              <p className="text-[10px] text-slate-400">※思い出の作成には旅行プランの登録が必要です。</p>
             )}
           </div>
         )}
@@ -253,24 +253,24 @@ export default function MemoriesPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="w-full max-w-sm glass-panel rounded-2xl p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto"
+              className="w-full max-w-sm bg-white border border-gray-200 rounded-2xl p-6 shadow-xl relative max-h-[85vh] overflow-y-auto"
             >
               <button
                 onClick={() => setShowModal(false)}
-                className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white"
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600"
               >
                 <X className="w-4 h-4" />
               </button>
 
               <div className="text-center mb-6">
-                <h2 className="text-base font-bold text-white font-outfit">思い出の追加</h2>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <h2 className="text-base font-bold text-slate-800 font-outfit">思い出の追加</h2>
+                <p className="text-[10px] text-slate-500 mt-1">
                   旅行の計画と写真を選択してアルバムを作成します。
                 </p>
               </div>
@@ -278,16 +278,16 @@ export default function MemoriesPage() {
               <form onSubmit={handleSave} className="space-y-4">
                 {/* Plan Selector */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     対象の旅行プラン
                   </label>
                   <select
                     value={selectedPlanId}
                     onChange={(e) => setSelectedPlanId(e.target.value)}
-                    className="w-full px-3 py-2.5 glass-input text-xs text-white bg-slate-900 border border-white/5 focus:outline-none rounded-xl"
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
                   >
                     {plans.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-slate-950 text-white">
+                      <option key={p.id} value={p.id} className="bg-white text-slate-800">
                         {p.title}
                       </option>
                     ))}
@@ -297,28 +297,28 @@ export default function MemoriesPage() {
                 {/* Date Fields */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 block">開始日</label>
+                    <label className="text-[10px] font-bold text-slate-500 block">開始日</label>
                     <input
                       type="date"
                       value={tripStart}
                       onChange={(e) => setTripStart(e.target.value)}
-                      className="w-full px-3 py-2 glass-input text-xs text-white focus:outline-none rounded-xl"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 block">終了日</label>
+                    <label className="text-[10px] font-bold text-slate-500 block">終了日</label>
                     <input
                       type="date"
                       value={tripEnd}
                       onChange={(e) => setTripEnd(e.target.value)}
-                      className="w-full px-3 py-2 glass-input text-xs text-white focus:outline-none rounded-xl"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
                     />
                   </div>
                 </div>
 
                 {/* Images Upload */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     思い出の写真（最大3枚）
                   </label>
 
@@ -326,7 +326,7 @@ export default function MemoriesPage() {
                     {images.map((img, idx) => (
                       <div
                         key={idx}
-                        className="aspect-square bg-white/5 border border-dashed border-white/10 rounded-xl relative flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 transition-colors overflow-hidden"
+                        className="aspect-square bg-gray-50 border border-dashed border-gray-200 hover:border-blue-400 rounded-xl relative flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50/50 transition-colors overflow-hidden"
                       >
                         {img?.preview ? (
                           <img src={img.preview} alt="Upload" className="w-full h-full object-cover" />
@@ -352,10 +352,10 @@ export default function MemoriesPage() {
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={!canSave || saving}
-                  className={`w-full py-3.5 rounded-xl text-xs font-semibold text-white shadow-lg flex justify-center items-center gap-1.5 ${
+                  className={`w-full py-3.5 rounded-xl text-xs font-semibold text-white shadow-md flex justify-center items-center gap-1.5 ${
                     !canSave || saving
-                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
-                      : 'animated-gradient cursor-pointer'
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                      : 'bg-blue-600 hover:bg-blue-700 cursor-pointer text-white'
                   }`}
                 >
                   {saving ? '登録中...' : '登録して保存'}

@@ -93,23 +93,23 @@ export default function MainPage() {
   if (loading && !persona) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden">
+    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden bg-white">
       {/* Background glowing decorations */}
-      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/4 left-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
 
       {/* Main dashboard content */}
       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[85vh]">
         {/* Top Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold text-white font-outfit">マイページ</h1>
-            <p className="text-[10px] text-slate-400">旅行スタイルに基づきパーソナライズされています</p>
+            <h1 className="text-xl font-bold text-slate-800 font-outfit">マイページ</h1>
+            <p className="text-[10px] text-slate-500">旅行スタイルに基づきパーソナライズされています</p>
           </div>
           <button
             onClick={() => {
@@ -118,7 +118,7 @@ export default function MainPage() {
               loadLatestPersona();
               loadRecentPlans();
             }}
-            className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+            className="p-2 rounded-xl bg-gray-50 border border-gray-200 text-slate-500 hover:text-slate-800 hover:bg-gray-100 transition-all cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -129,20 +129,20 @@ export default function MainPage() {
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="rounded-2xl animated-gradient p-[1px] shadow-lg shadow-indigo-500/10"
+            className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 p-[1px] shadow-md shadow-blue-100"
           >
-            <div className="bg-[#090b11]/90 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-white rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <span className="text-[9px] font-bold text-indigo-400 tracking-wider block mb-1">
+                <span className="text-[9px] font-bold text-blue-600 tracking-wider block mb-1">
                   TRAVEL DAY MODE ACTIVE
                 </span>
-                <h3 className="text-sm font-bold text-white max-w-[200px] truncate">
+                <h3 className="text-sm font-bold text-slate-800 max-w-[200px] truncate">
                   {activePlanStore.activePlan.title}
                 </h3>
               </div>
               <button
                 onClick={openTravelDayChat}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md flex items-center gap-1.5 cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4" />
                 対話を開く
@@ -153,10 +153,10 @@ export default function MainPage() {
 
         {/* Error handling */}
         {error && (
-          <div className="glass-panel border-rose-900/50 p-4 rounded-2xl flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
             <div className="space-y-2">
-              <p className="text-xs text-rose-400 font-medium">{error}</p>
+              <p className="text-xs text-rose-700 font-medium">{error}</p>
               <button
                 onClick={loadLatestPersona}
                 className="px-3 py-1.5 rounded-lg text-[10px] font-semibold text-white bg-rose-600 hover:bg-rose-500"
@@ -170,32 +170,32 @@ export default function MainPage() {
         {/* Persona Profile Card */}
         {persona?.profile ? (
           <div className="space-y-4">
-            <div className="glass-panel rounded-2xl p-5 shadow-md">
-              <span className="text-[10px] font-bold text-indigo-400 tracking-wider block mb-1">
+            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-5 shadow-md">
+              <span className="text-[10px] font-bold text-blue-600 tracking-wider block mb-1">
                 CURRENT STYLE
               </span>
-              <h2 className="text-lg font-bold text-white mb-2">
+              <h2 className="text-lg font-bold text-slate-800 mb-2">
                 {persona.profile.title}
               </h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 {persona.profile.description || '旅行のパーソナライズプロファイルです。'}
               </p>
 
               {/* Traits Breakdown */}
               {persona.profile.traitScores && Object.keys(persona.profile.traitScores).length > 0 && (
-                <div className="mt-5 border-t border-white/5 pt-4 space-y-3">
-                  <h3 className="text-xs font-bold text-slate-300">📊 旅行特性サマリー</h3>
+                <div className="mt-5 border-t border-gray-200 pt-4 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-700">📊 旅行特性サマリー</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(persona.profile.traitScores).slice(0, 4).map(([trait, score]: any) => (
-                      <div key={trait} className="bg-white/5 border border-white/5 rounded-xl p-2.5 space-y-1">
+                      <div key={trait} className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 space-y-1">
                         <div className="flex justify-between items-center text-[10px]">
-                          <span className="text-slate-400 font-medium truncate max-w-[60px]">{trait}</span>
-                          <span className="text-indigo-400 font-bold font-mono">{score.toFixed(1)}</span>
+                          <span className="text-slate-600 font-medium truncate max-w-[60px]">{trait}</span>
+                          <span className="text-blue-600 font-bold font-mono">{score.toFixed(1)}</span>
                         </div>
-                        <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                        <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
                           <div
                             style={{ width: `${(score / 4) * 100}%` }}
-                            className="h-full bg-indigo-500 rounded-full"
+                            className="h-full bg-blue-600 rounded-full"
                           />
                         </div>
                       </div>
@@ -204,7 +204,7 @@ export default function MainPage() {
                   <div className="text-center pt-2">
                     <button
                       onClick={() => router.push(appPath('/results'))}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors font-semibold"
+                      className="text-[10px] text-blue-600 hover:text-blue-700 transition-colors font-semibold"
                     >
                       詳細な診断グラフを表示する &rarr;
                     </button>
@@ -214,15 +214,15 @@ export default function MainPage() {
             </div>
           </div>
         ) : (
-          <div className="glass-panel rounded-2xl p-6 text-center space-y-4">
-            <User className="w-8 h-8 text-slate-500 mx-auto" />
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 text-center space-y-4">
+            <User className="w-8 h-8 text-slate-400 mx-auto" />
             <div>
-              <p className="text-xs text-slate-400">診断データが登録されていません。</p>
+              <p className="text-xs text-slate-600">診断データが登録されていません。</p>
               <p className="text-[10px] text-slate-500 mt-1">旅行スタイルを分析してパーソナライズを開始しましょう。</p>
             </div>
             <button
               onClick={() => router.push(appPath('/'))}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-md cursor-pointer"
             >
               スタイル診断を受ける
             </button>
@@ -233,7 +233,7 @@ export default function MainPage() {
         <div className="grid grid-cols-1 gap-3">
           <button
             onClick={() => router.push(appPath('/travel-wizard'))}
-            className="w-full py-4 rounded-2xl font-semibold text-white animated-gradient shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-2 cursor-pointer text-sm"
+            className="w-full py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg shadow-blue-100 flex items-center justify-center gap-2 cursor-pointer text-sm"
           >
             <PlusCircle className="w-5 h-5" /> 新しい旅行計画を作成
           </button>
@@ -242,13 +242,13 @@ export default function MainPage() {
         {/* Recent Travel Plans */}
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <Compass className="w-4 h-4 text-indigo-400" />
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <Compass className="w-4 h-4 text-blue-600" />
               最近の旅行プラン
             </h3>
             <button
               onClick={() => router.push(appPath('/plans'))}
-              className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
+              className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold"
             >
               すべて見る
             </button>
@@ -262,11 +262,11 @@ export default function MainPage() {
                 <div
                   key={plan.id}
                   onClick={() => router.push(appPath(`/plans/${plan.id}`))}
-                  className="glass-panel-interactive rounded-2xl p-4 flex items-center justify-between cursor-pointer"
+                  className="bg-white border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all shadow-sm rounded-2xl p-4 flex items-center justify-between cursor-pointer"
                 >
                   <div className="space-y-1.5 max-w-[240px]">
-                    <h4 className="text-xs font-bold text-white truncate">{plan.title}</h4>
-                    <p className="text-[10px] text-slate-400 line-clamp-1 leading-normal">
+                    <h4 className="text-xs font-bold text-slate-800 truncate">{plan.title}</h4>
+                    <p className="text-[10px] text-slate-600 line-clamp-1 leading-normal">
                       {plan.summary || '旅程プランの詳細を表示します。'}
                     </p>
                     <div className="flex items-center gap-2 text-[9px] text-slate-500 font-mono">
@@ -279,12 +279,12 @@ export default function MainPage() {
                       </span>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-600" />
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="glass-panel rounded-2xl py-8 px-4 text-center text-xs text-slate-500">
+            <div className="bg-white border border-gray-200 shadow-sm rounded-2xl py-8 px-4 text-center text-xs text-slate-500">
               まだ保存されたプランはありません。
             </div>
           )}

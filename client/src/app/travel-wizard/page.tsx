@@ -218,9 +218,9 @@ export default function TravelWizardPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen">
+    <div className="flex-1 flex flex-col justify-start px-6 py-8 relative overflow-y-auto max-h-screen bg-[#f5f7fa]">
       {/* Top Background glowing decorations */}
-      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
 
       {/* INPUT SCREEN */}
       {currentView === 'input' && (
@@ -232,23 +232,23 @@ export default function TravelWizardPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push(appPath('/main'))}
-              className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+              className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-white font-outfit">プラン作成</h1>
-              <p className="text-[10px] text-slate-400">AIがオリジナルの旅程を設計します</p>
+              <h1 className="text-xl font-bold text-slate-800 font-outfit">プラン作成</h1>
+              <p className="text-[10px] text-slate-500">AIがオリジナルの旅程を設計します</p>
             </div>
           </div>
 
-          <div className="glass-panel rounded-2xl p-6 shadow-xl space-y-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-6">
             <div className="text-center space-y-2">
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto text-blue-600">
                 <Sparkles className="w-6 h-6 animate-pulse" />
               </div>
-              <h2 className="text-base font-bold text-white">どんな旅行がしたいですか？</h2>
-              <p className="text-[11px] text-slate-400">
+              <h2 className="text-base font-bold text-slate-800">どんな旅行がしたいですか？</h2>
+              <p className="text-[11px] text-slate-500">
                 目的地、日数、テーマなどを自由に入力してください。
               </p>
             </div>
@@ -260,13 +260,13 @@ export default function TravelWizardPage() {
                 rows={4}
                 placeholder="例: 京都の隠れた紅葉スポットを巡る2泊3日の大人旅。温泉と美味しい和食も楽しみたいです。"
                 required
-                className="w-full p-4 glass-input text-white focus:outline-none text-xs leading-relaxed"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs leading-relaxed"
               />
 
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 type="submit"
-                className="w-full py-4 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg flex justify-center items-center gap-1.5 cursor-pointer"
+                className="w-full py-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md flex justify-center items-center gap-1.5 cursor-pointer"
               >
                 旅行計画を提案する <Send className="w-4 h-4" />
               </motion.button>
@@ -282,15 +282,15 @@ export default function TravelWizardPage() {
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-              className="w-full h-full rounded-full border border-dashed border-indigo-500/30 flex items-center justify-center"
+              className="w-full h-full rounded-full border border-dashed border-blue-500/30 flex items-center justify-center"
             >
-              <Sparkles className="w-6 h-6 text-indigo-400 animate-pulse" />
+              <Sparkles className="w-6 h-6 text-blue-600 animate-pulse" />
             </motion.div>
-            <div className="absolute inset-1.5 bg-indigo-500/5 rounded-full animate-ping -z-10" />
+            <div className="absolute inset-1.5 bg-blue-50 rounded-full animate-ping -z-10" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white mb-2">{loadingTitle}</h2>
-            <p className="text-xs text-slate-400 max-w-xs leading-relaxed">{loadingSubtitle}</p>
+            <h2 className="text-base font-bold text-slate-800 mb-2">{loadingTitle}</h2>
+            <p className="text-xs text-slate-500 max-w-xs leading-relaxed">{loadingSubtitle}</p>
           </div>
         </div>
       )}
@@ -305,19 +305,19 @@ export default function TravelWizardPage() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setCurrentView('input')}
-              className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+              className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <span className="text-xs font-bold text-slate-500 tracking-wider font-outfit">
+            <span className="text-xs font-bold text-slate-400 tracking-wider font-outfit">
               SUGGESTIONS
             </span>
             <div className="w-8" />
           </div>
 
           <div className="text-center">
-            <h2 className="text-base font-bold text-white mb-1">AIが3つのプランを提案しました</h2>
-            <p className="text-[10px] text-slate-400">ご希望に一番近いプランを1つ選択してください。</p>
+            <h2 className="text-base font-bold text-slate-800 mb-1">AIが3つのプランを提案しました</h2>
+            <p className="text-[10px] text-slate-500">ご希望に一番近いプランを1つ選択してください。</p>
           </div>
 
           <div className="space-y-4">
@@ -330,7 +330,7 @@ export default function TravelWizardPage() {
                 <div
                   key={plan.id}
                   onClick={() => handleSelectPlan(plan)}
-                  className="glass-panel-interactive rounded-2xl overflow-hidden cursor-pointer shadow-lg flex flex-col justify-between"
+                  className="bg-white border border-gray-200 hover:border-blue-300 rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between transition-all"
                 >
                   <div
                     style={{ backgroundImage: `url(${imgUrl})` }}
@@ -338,17 +338,17 @@ export default function TravelWizardPage() {
                   >
                     <div className="absolute inset-0 bg-slate-950/40" />
                     {plan.category_label && (
-                      <span className="absolute top-3 left-3 bg-indigo-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+                      <span className="absolute top-3 left-3 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
                         {plan.category_label}
                       </span>
                     )}
                   </div>
                   <div className="p-4 space-y-2">
-                    <h3 className="text-sm font-bold text-white">{plan.title}</h3>
+                    <h3 className="text-sm font-bold text-slate-800">{plan.title}</h3>
                     {plan.tags && (
-                      <p className="text-[10px] text-indigo-400 font-semibold">{plan.tags}</p>
+                      <p className="text-[10px] text-blue-600 font-semibold">{plan.tags}</p>
                     )}
-                    <p className="text-[11px] text-slate-400 leading-normal line-clamp-2">
+                    <p className="text-[11px] text-slate-500 leading-normal line-clamp-2">
                       {plan.brief}
                     </p>
                   </div>
@@ -369,7 +369,7 @@ export default function TravelWizardPage() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setCurrentView('suggestions')}
-              className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+              className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -388,48 +388,48 @@ export default function TravelWizardPage() {
                   : 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=480&q=80'
               })`,
             }}
-            className="h-36 bg-cover bg-center rounded-2xl overflow-hidden relative shadow-lg flex flex-col justify-end p-4 border border-white/5"
+            className="h-36 bg-cover bg-center rounded-2xl overflow-hidden relative shadow-lg flex flex-col justify-end p-4 border border-gray-200"
           >
             <div className="absolute inset-0 bg-slate-950/50" />
             <div className="relative space-y-1">
               <h2 className="text-base font-bold text-white leading-snug">{selectedPlan.title}</h2>
               {selectedPlan.tags && (
-                <p className="text-[10px] text-indigo-400 font-semibold">{selectedPlan.tags}</p>
+                <p className="text-[10px] text-blue-300 font-semibold">{selectedPlan.tags}</p>
               )}
             </div>
           </div>
 
           {/* Overview text */}
-          <div className="glass-panel rounded-2xl p-4 space-y-2">
-            <h3 className="text-xs font-bold text-slate-300">💡 旅の概要</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">{selectedPlan.brief || selectedPlan.text}</p>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-2">
+            <h3 className="text-xs font-bold text-slate-700">💡 旅の概要</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">{selectedPlan.brief || selectedPlan.text}</p>
           </div>
 
           {/* Itinerary vertical timeline */}
           {selectedPlan.itinerary && selectedPlan.itinerary.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-indigo-400" /> 旅程タイムライン
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-blue-600" /> 旅程タイムライン
               </h3>
 
-              <div className="space-y-6 pl-4 border-l border-white/5 relative">
+              <div className="space-y-6 pl-4 border-l border-gray-200 relative">
                 {selectedPlan.itinerary.map((day: any, dIdx: number) => (
                   <div key={dIdx} className="space-y-4 relative">
                     {/* Day circle node */}
-                    <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-indigo-500 bg-[#090b11] flex items-center justify-center text-[8px] font-bold text-indigo-400 shadow-md">
+                    <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-blue-500 bg-white flex items-center justify-center text-[8px] font-bold text-blue-600 shadow-md">
                       D{day.day}
                     </div>
 
-                    <div className="font-bold text-xs text-white pl-2">Day {day.day}</div>
+                    <div className="font-bold text-xs text-slate-800 pl-2">Day {day.day}</div>
                     
                     <div className="space-y-3 pl-2">
                       {(day.activities || []).map((act: any, aIdx: number) => (
-                        <div key={aIdx} className="bg-white/5 border border-white/5 rounded-xl p-3.5 space-y-1.5">
-                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-400">
+                        <div key={aIdx} className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-blue-600">
                             <Clock className="w-3.5 h-3.5" /> {act.time || '指定なし'}
                           </div>
-                          <h4 className="text-xs font-bold text-white leading-snug">{act.title}</h4>
-                          <p className="text-[10px] text-slate-400 leading-relaxed">{act.description}</p>
+                          <h4 className="text-xs font-bold text-slate-850 leading-snug">{act.title}</h4>
+                          <p className="text-[10px] text-slate-500 leading-relaxed">{act.description}</p>
                           {act.location && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-500">
                               <MapPin className="w-3 h-3" /> {act.location}
@@ -445,13 +445,13 @@ export default function TravelWizardPage() {
           )}
 
           {/* Sticky Actions panel */}
-          <div className="border-t border-white/5 pt-4 bg-[#090b11]/80 backdrop-blur-md -mx-6 px-6 sticky bottom-0 space-y-3">
+          <div className="border-t border-gray-200 pt-4 bg-white/90 backdrop-blur-md -mx-6 px-6 sticky bottom-0 space-y-3">
             <div className="grid grid-cols-2 gap-3 pb-4">
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleRefine}
                 disabled={saving}
-                className="py-3.5 rounded-xl text-xs font-semibold text-slate-300 border border-white/10 hover:bg-white/5 hover:text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="py-3.5 rounded-xl text-xs font-semibold text-slate-600 border border-gray-200 hover:bg-gray-50 hover:text-slate-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4" /> 対話して微調整
               </motion.button>
@@ -460,7 +460,7 @@ export default function TravelWizardPage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSavePlan}
                 disabled={saving}
-                className="py-3.5 rounded-xl text-xs font-semibold text-white animated-gradient shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                className="py-3.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Save className="w-4 h-4" /> 決定して保存
               </motion.button>

@@ -185,12 +185,12 @@ export default function GeneralChatPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-[#090b11]">
+    <div className="flex-1 flex flex-col justify-between relative overflow-hidden h-screen bg-[#f5f7fa]">
       {/* Top Header */}
-      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/5 bg-[#090b11]/80 backdrop-blur-md z-10">
+      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200 bg-white/90 backdrop-blur-md z-10">
         <div>
-          <h1 className="text-xl font-bold text-white font-outfit">AIコンシェルジュ</h1>
-          <p className="text-[10px] text-slate-400">旅行に関するフリートーク相談を承ります</p>
+          <h1 className="text-xl font-bold text-slate-800 font-outfit">AIコンシェルジュ</h1>
+          <p className="text-[10px] text-slate-500">旅行に関するフリートーク相談を承ります</p>
         </div>
 
         {/* GPS Button */}
@@ -199,13 +199,13 @@ export default function GeneralChatPage() {
           disabled={locationLoading}
           className={`p-2.5 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
             locationEnabled
-              ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
-              : 'border-white/5 bg-white/5 text-slate-400 hover:text-white'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+              : 'border-gray-200 bg-white text-slate-500 hover:text-slate-800 shadow-sm'
           }`}
           title={locationEnabled ? '位置情報をオフにする' : '位置情報をオンにする'}
         >
           {locationLoading ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-indigo-500" />
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-blue-500" />
           ) : (
             <MapPin className={`w-4 h-4 ${locationEnabled ? 'animate-pulse' : ''}`} />
           )}
@@ -222,12 +222,12 @@ export default function GeneralChatPage() {
             <div
               className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold ${
                 msg.type === 'user'
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-blue-600 text-white'
                   : msg.type === 'system'
-                  ? 'bg-slate-800 text-indigo-400 border border-indigo-500/20'
+                  ? 'bg-white text-blue-600 border border-blue-200 shadow-sm'
                   : msg.type === 'error'
-                  ? 'bg-rose-950/20 border border-rose-900/20 text-rose-400'
-                  : 'bg-indigo-950/40 border border-indigo-500/10 text-indigo-400'
+                  ? 'bg-rose-50 border border-rose-200 text-rose-600 shadow-sm'
+                  : 'bg-blue-50 border border-blue-200 text-blue-600 shadow-sm'
               }`}
             >
               {msg.type === 'user' ? <User className="w-4 h-4" /> : <CompassIcon className="w-4 h-4" />}
@@ -237,10 +237,10 @@ export default function GeneralChatPage() {
               <div
                 className={`rounded-2xl px-4 py-3 text-xs leading-relaxed ${
                   msg.type === 'user'
-                    ? 'bg-indigo-600 text-white rounded-tr-none'
+                    ? 'bg-blue-600 text-white rounded-tr-none'
                     : msg.type === 'error'
-                    ? 'bg-rose-950/20 border border-rose-900/30 text-rose-300 rounded-tl-none'
-                    : 'bg-white/5 border border-white/5 text-slate-300 rounded-tl-none'
+                    ? 'bg-rose-50 border border-rose-200 text-rose-700 rounded-tl-none'
+                    : 'bg-white border border-gray-200 text-slate-700 rounded-tl-none shadow-sm'
                 }`}
               >
                 {msg.content}
@@ -252,14 +252,14 @@ export default function GeneralChatPage() {
                   {msg.places.map((place: any, pIdx: number) => (
                     <div
                       key={pIdx}
-                      className="bg-white/5 border border-white/5 rounded-2xl p-3 shadow-md space-y-1"
+                      className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm space-y-1"
                     >
-                      <h4 className="text-xs font-bold text-white flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
                         {place.name}
                       </h4>
                       {place.description && (
-                        <p className="text-[10px] text-slate-400 leading-normal">
+                        <p className="text-[10px] text-slate-500 leading-normal">
                           {place.description}
                         </p>
                       )}
@@ -272,10 +272,10 @@ export default function GeneralChatPage() {
         ))}
         {loading && (
           <div className="flex gap-3 max-w-[85%]">
-            <div className="w-7 h-7 rounded-xl bg-indigo-950/40 border border-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs">
+            <div className="w-7 h-7 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center text-xs shadow-sm">
               <CompassIcon className="w-4 h-4 animate-spin" />
             </div>
-            <div className="rounded-2xl px-4 py-3 bg-white/5 border border-white/5 text-slate-400 rounded-tl-none flex items-center gap-1.5">
+            <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200 text-slate-500 rounded-tl-none flex items-center gap-1.5 shadow-sm">
               <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-100" />
               <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-200" />
               <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-300" />
@@ -295,12 +295,12 @@ export default function GeneralChatPage() {
               <button
                 key={idx}
                 onClick={() => handleSend(s.text)}
-                className="glass-panel-interactive rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[100px] select-none"
+                className="bg-white border border-gray-200 hover:border-blue-300 hover:shadow-md rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[100px] select-none shadow-sm transition-all"
               >
-                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
+                <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">
                   {s.label}
                 </span>
-                <span className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                <span className="text-[11px] text-slate-600 font-medium leading-relaxed">
                   {s.text}
                 </span>
               </button>
@@ -310,7 +310,7 @@ export default function GeneralChatPage() {
       </div>
 
       {/* Message input area */}
-      <div className="p-4 bg-[#090b11] border-t border-white/5 z-10 flex flex-col gap-3">
+      <div className="p-4 bg-[#f5f7fa] border-t border-gray-200 z-10 flex flex-col gap-3">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -324,16 +324,16 @@ export default function GeneralChatPage() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="全国のおすすめスポットや計画方法を聞く..."
             disabled={loading}
-            className="flex-1 px-4 py-3 glass-input text-white text-xs focus:outline-none"
+            className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <motion.button
             whileTap={{ scale: 0.95 }}
             type="submit"
             disabled={loading || !input.trim()}
-            className={`p-3 rounded-xl flex items-center justify-center shadow-lg transition-all ${
+            className={`p-3 rounded-xl flex items-center justify-center shadow-md transition-all ${
               !input.trim() || loading
-                ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'
-                : 'animated-gradient text-white cursor-pointer'
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
             }`}
           >
             <Send className="w-4 h-4" />

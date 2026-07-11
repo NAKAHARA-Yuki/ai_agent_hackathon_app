@@ -50,7 +50,7 @@ function SignupContent() {
   return (
     <div className="flex-1 flex flex-col justify-center px-6 py-12 relative overflow-hidden">
       {/* Background glowing decorations */}
-      <div className="absolute top-1/4 right-1/10 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/4 right-1/10 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl -z-10" />
       <div className="absolute bottom-1/4 left-1/10 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl -z-10" />
 
       <motion.div
@@ -60,17 +60,17 @@ function SignupContent() {
         className="w-full glass-panel rounded-2xl p-8 shadow-2xl relative"
       >
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2 font-outfit">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800 mb-2 font-outfit">
             新規登録
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             アカウントを作成して、AIと一緒に旅スタイルを見つけましょう。
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
               お名前
             </label>
             <input
@@ -79,12 +79,12 @@ function SignupContent() {
               onChange={(e) => setName(e.target.value)}
               placeholder="例: 山田 太郎"
               required
-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
+              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
               ユーザーID
             </label>
             <input
@@ -93,7 +93,7 @@ function SignupContent() {
               onChange={(e) => setUserId(e.target.value.trim())}
               placeholder="例: gemini_user"
               required
-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
+              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
               autoComplete="username"
             />
             <p className="text-[10px] text-slate-500">
@@ -102,7 +102,7 @@ function SignupContent() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
               パスワード
             </label>
             <input
@@ -111,7 +111,7 @@ function SignupContent() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full px-4 py-3 glass-input text-white focus:outline-none text-sm"
+              className="w-full px-4 py-3 glass-input text-slate-800 focus:outline-none text-sm"
               autoComplete="new-password"
             />
             <p className="text-[11px] text-slate-500">
@@ -123,7 +123,7 @@ function SignupContent() {
             <motion.p
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-xs font-medium text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-lg px-3 py-2"
+              className="text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200/60 rounded-lg px-3 py-2"
             >
               {error}
             </motion.p>
@@ -133,7 +133,7 @@ function SignupContent() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-indigo-500/10 transition-all flex justify-center items-center cursor-pointer"
+            className="w-full py-3.5 rounded-xl text-sm font-semibold text-white animated-gradient shadow-lg hover:shadow-blue-500/10 transition-all flex justify-center items-center cursor-pointer"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -149,12 +149,12 @@ function SignupContent() {
           </motion.button>
         </form>
 
-        <div className="mt-8 text-center border-t border-white/5 pt-6">
-          <p className="text-xs text-slate-400">
+        <div className="mt-8 text-center border-t border-gray-200 pt-6">
+          <p className="text-xs text-slate-500">
             すでにアカウントをお持ちですか？{' '}
             <Link
               href={`/login${searchParams.toString() ? '?' + searchParams.toString() : ''}`}
-              className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors"
+              className="text-blue-600 font-semibold hover:text-blue-500 transition-colors"
             >
               ログインする
             </Link>
@@ -169,7 +169,7 @@ export default function SignupPage() {
   return (
     <Suspense fallback={
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     }>
       <SignupContent />

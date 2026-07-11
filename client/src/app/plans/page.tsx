@@ -90,9 +90,9 @@ export default function PlansPage() {
   const isCurrentActive = (id: string) => activePlanStore.activePlan?.id === id;
 
   return (
-    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden">
+    <div className="flex-1 flex flex-col justify-between px-6 pt-8 relative overflow-hidden bg-white">
       {/* Background glowing decorations */}
-      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-indigo-600/5 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/4 right-1/10 w-72 h-72 bg-blue-600/5 rounded-full blur-3xl -z-10" />
 
       {/* Main Container */}
       <div className="flex-1 overflow-y-auto pr-1 pb-6 space-y-6 max-h-[85vh]">
@@ -100,13 +100,13 @@ export default function PlansPage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push(appPath('/main'))}
-            className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+            className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-800 transition-all cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white font-outfit">保存したプラン</h1>
-            <p className="text-[10px] text-slate-400">作成済みの全旅行プランを表示しています</p>
+            <h1 className="text-xl font-bold text-slate-800 font-outfit">保存したプラン</h1>
+            <p className="text-[10px] text-slate-500">作成済みの全旅行プランを表示しています</p>
           </div>
         </div>
 
@@ -115,20 +115,20 @@ export default function PlansPage() {
           <motion.div
             initial={{ y: -10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="rounded-2xl animated-gradient p-[1px] shadow-lg shadow-indigo-500/10"
+            className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 p-[1px] shadow-md shadow-blue-100"
           >
-            <div className="bg-[#090b11]/90 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-white rounded-2xl p-4 flex items-center justify-between">
               <div>
-                <span className="text-[9px] font-bold text-indigo-400 tracking-wider block mb-1">
+                <span className="text-[9px] font-bold text-blue-600 tracking-wider block mb-1">
                   TRAVEL DAY ACTIVE
                 </span>
-                <h3 className="text-xs font-bold text-white max-w-[180px] truncate">
+                <h3 className="text-xs font-bold text-slate-800 max-w-[180px] truncate">
                   {activePlanStore.activePlan.title}
                 </h3>
               </div>
               <button
                 onClick={openTravelDayChat}
-                className="px-3 py-2 rounded-xl text-[10px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 flex items-center gap-1 cursor-pointer shadow-md"
+                className="px-3 py-2 rounded-xl text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-500 flex items-center gap-1 cursor-pointer shadow-md"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 当日チャットを開く
@@ -141,9 +141,9 @@ export default function PlansPage() {
         {loading ? (
           <div className="text-center py-12 text-xs text-slate-500">読み込み中...</div>
         ) : error ? (
-          <div className="glass-panel border-rose-900/50 p-4 rounded-2xl flex items-center gap-3">
-            <ShieldAlert className="w-5 h-5 text-rose-400 flex-shrink-0" />
-            <span className="text-xs text-rose-400 font-medium">{error}</span>
+          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-center gap-3">
+            <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <span className="text-xs text-rose-700 font-medium">{error}</span>
           </div>
         ) : plans.length > 0 ? (
           <div className="space-y-4">
@@ -160,7 +160,7 @@ export default function PlansPage() {
                   onClick={() => router.push(appPath(`/plans/${p.id}`))}
                   style={{ backgroundImage: `url(${bgImg})` }}
                   className={`relative rounded-2xl bg-cover bg-center overflow-hidden shadow-lg h-36 flex flex-col justify-between p-4 cursor-pointer border group transition-all duration-300 ${
-                    active ? 'border-indigo-500 scale-[1.01]' : 'border-white/5'
+                    active ? 'border-blue-500 scale-[1.01]' : 'border-gray-200'
                   }`}
                 >
                   {/* Overlay background */}
@@ -169,7 +169,7 @@ export default function PlansPage() {
                   {/* Corner indicator / Active button */}
                   <div className="flex justify-between items-start">
                     {active ? (
-                      <span className="bg-indigo-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
+                      <span className="bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
                         <Sparkles className="w-3 h-3 animate-pulse" /> 旅行当日
                       </span>
                     ) : (
@@ -180,7 +180,7 @@ export default function PlansPage() {
                       onClick={(e) => toggleActivePlan(e, p)}
                       className={`p-2 rounded-xl border backdrop-blur-md transition-all cursor-pointer ${
                         active
-                          ? 'border-indigo-500 bg-indigo-500/20 text-indigo-400'
+                          ? 'border-blue-500 bg-blue-500/20 text-blue-300'
                           : 'border-white/10 bg-black/30 text-slate-400 hover:text-white hover:border-white/20'
                       }`}
                       title={active ? '当日モードを解除' : '当日モードを有効化'}
@@ -208,15 +208,15 @@ export default function PlansPage() {
             })}
           </div>
         ) : (
-          <div className="glass-panel rounded-2xl py-16 px-6 text-center space-y-4">
-            <Compass className="w-8 h-8 text-slate-500 mx-auto" />
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl py-16 px-6 text-center space-y-4">
+            <Compass className="w-8 h-8 text-slate-400 mx-auto" />
             <div>
-              <p className="text-xs text-slate-400">作成された旅行プランがありません。</p>
+              <p className="text-xs text-slate-650">作成された旅行プランがありません。</p>
               <p className="text-[10px] text-slate-500 mt-1">最初のプランを作成して冒険に出かけましょう。</p>
             </div>
             <button
               onClick={() => router.push(appPath('/travel-wizard'))}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-md cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-md cursor-pointer"
             >
               旅行計画を作成する
             </button>
@@ -231,9 +231,9 @@ export default function PlansPage() {
             initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 px-4 py-2.5 rounded-xl text-xs font-medium text-white shadow-xl flex items-center gap-2 z-50 whitespace-nowrap"
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl text-xs font-medium text-slate-800 shadow-lg flex items-center gap-2 z-50 whitespace-nowrap"
           >
-            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
+            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping" />
             {toast}
           </motion.div>
         )}

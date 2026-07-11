@@ -57,7 +57,7 @@ export default function ProcessingPage() {
   return (
     <div className="flex-1 flex flex-col justify-center px-8 py-12 relative overflow-hidden">
       {/* Background glowing decorations */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl -z-10" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl -z-10" />
 
       <div className="w-full text-center space-y-8 max-w-sm mx-auto">
         {/* Animated Spin Compass Header */}
@@ -65,30 +65,30 @@ export default function ProcessingPage() {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
-            className="w-full h-full rounded-full border border-dashed border-indigo-500/30 flex items-center justify-center"
+            className="w-full h-full rounded-full border border-dashed border-blue-500/30 flex items-center justify-center"
           >
-            <Compass className="w-8 h-8 text-indigo-400" />
+            <Compass className="w-8 h-8 text-blue-600" />
           </motion.div>
           {/* Inner pulse */}
-          <div className="absolute inset-2 bg-indigo-500/5 rounded-full animate-ping -z-10" />
+          <div className="absolute inset-2 bg-blue-50 rounded-full animate-ping -z-10" />
         </div>
 
         <div>
-          <h1 className="text-xl font-bold text-white mb-2 font-outfit">
+          <h1 className="text-xl font-bold text-slate-800 mb-2 font-outfit">
             AI診断中
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             あなたの価値観にマッチする最適な旅行プランを組み立てています。
           </p>
         </div>
 
         {/* Progress bar */}
         <div className="space-y-3">
-          <div className="w-full bg-white/5 border border-white/5 h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-gray-100 border border-gray-200 h-2 rounded-full overflow-hidden">
             <motion.div
               animate={{ width: `${percent}%` }}
               transition={{ duration: 0.5 }}
-              className="h-full bg-indigo-500 rounded-full animated-gradient"
+              className="h-full bg-blue-600 rounded-full animated-gradient"
             />
           </div>
           <div className="flex justify-between items-center text-[10px] font-mono text-slate-500">
@@ -105,10 +105,10 @@ export default function ProcessingPage() {
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
-              className="text-xs font-medium text-indigo-300 leading-relaxed max-w-xs"
+              className="text-xs font-medium text-blue-600 leading-relaxed max-w-xs"
             >
               {error ? (
-                <span className="text-rose-400 flex items-center justify-center gap-1.5">
+                <span className="text-rose-600 flex items-center justify-center gap-1.5">
                   <ShieldAlert className="w-4 h-4" /> {error}
                 </span>
               ) : (
@@ -129,13 +129,13 @@ export default function ProcessingPage() {
               <div
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors ${
                   s.active
-                    ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400'
-                    : 'bg-white/5 border-white/5 text-slate-600'
+                    ? 'bg-blue-50 border-blue-500 text-blue-600'
+                    : 'bg-gray-50 border-gray-200 text-slate-400'
                 }`}
               >
                 {s.id}
               </div>
-              <span className={`text-xs transition-colors ${s.active ? 'text-slate-300 font-semibold' : 'text-slate-600'}`}>
+              <span className={`text-xs transition-colors ${s.active ? 'text-slate-800 font-semibold' : 'text-slate-400'}`}>
                 {s.label}
               </span>
             </div>
@@ -147,7 +147,7 @@ export default function ProcessingPage() {
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => router.replace(appPath('/results'))}
-            className="w-full py-3 rounded-xl text-xs font-semibold text-white border border-white/10 hover:bg-white/5 transition-all cursor-pointer"
+            className="w-full py-3 rounded-xl text-xs font-semibold text-slate-600 border border-gray-200 hover:bg-gray-100 transition-all cursor-pointer"
           >
             処理を中断して結果へ進む
           </motion.button>

@@ -78,7 +78,7 @@ export default function PlanDetailPage() {
   if (loading) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -86,11 +86,11 @@ export default function PlanDetailPage() {
   if (error || !plan) {
     return (
       <div className="flex-1 flex flex-col justify-center items-center px-6 text-center space-y-4">
-        <ShieldAlert className="w-8 h-8 text-rose-400" />
-        <p className="text-slate-400 text-sm">{error || 'プランが見つかりませんでした。'}</p>
+        <ShieldAlert className="w-8 h-8 text-rose-600" />
+        <p className="text-slate-500 text-sm">{error || 'プランが見つかりませんでした。'}</p>
         <button
           onClick={() => router.push(appPath('/plans'))}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all cursor-pointer"
+          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-all cursor-pointer"
         >
           プラン一覧へ戻る
         </button>
@@ -101,7 +101,7 @@ export default function PlanDetailPage() {
   const bgImg = getPlanImage(plan);
 
   return (
-    <div className="flex-1 flex flex-col justify-start relative overflow-y-auto max-h-screen">
+    <div className="flex-1 flex flex-col justify-start relative overflow-y-auto max-h-screen bg-white">
       {/* Hero background image */}
       <div
         style={{ backgroundImage: `url(${bgImg})` }}
@@ -129,21 +129,21 @@ export default function PlanDetailPage() {
       <div className="p-6 space-y-6 pb-24">
         {/* Brief/Summary */}
         {plan.text && (
-          <div className="glass-panel rounded-2xl p-4 space-y-2">
-            <h3 className="text-xs font-bold text-slate-300">💡 旅の概要</h3>
-            <p className="text-xs text-slate-300 leading-relaxed font-outfit whitespace-pre-wrap">{plan.text}</p>
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-2">
+            <h3 className="text-xs font-bold text-slate-700">💡 旅の概要</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-outfit whitespace-pre-wrap">{plan.text}</p>
           </div>
         )}
 
         {/* Suggested keywords/tags */}
         {plan.suggestions && plan.suggestions.length > 0 && (
-          <div className="glass-panel rounded-2xl p-4 space-y-3">
-            <h3 className="text-xs font-bold text-slate-300">📌 おすすめの観光地候補</h3>
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-3">
+            <h3 className="text-xs font-bold text-slate-700">📌 おすすめの観光地候補</h3>
             <ul className="space-y-2">
               {plan.suggestions.map((s: any, idx: number) => (
-                <li key={idx} className="text-xs border-b border-white/5 pb-2 last:border-b-0 last:pb-0">
-                  <div className="font-semibold text-white">{s.title}</div>
-                  {s.brief && <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">{s.brief}</p>}
+                <li key={idx} className="text-xs border-b border-gray-200 pb-2 last:border-b-0 last:pb-0">
+                  <div className="font-semibold text-slate-800">{s.title}</div>
+                  {s.brief && <p className="text-[10px] text-slate-500 mt-0.5 leading-normal">{s.brief}</p>}
                 </li>
               ))}
             </ul>
@@ -153,32 +153,32 @@ export default function PlanDetailPage() {
         {/* Itinerary Timeline */}
         {plan.itinerary && plan.itinerary.length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-indigo-400" />
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-blue-600" />
               旅程タイムライン
             </h3>
 
-            <div className="space-y-6 pl-4 border-l border-white/5 relative">
+            <div className="space-y-6 pl-4 border-l border-gray-200 relative">
               {plan.itinerary.map((day: any, dIdx: number) => (
                 <div key={dIdx} className="space-y-4 relative">
                   {/* Day marker node */}
-                  <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-indigo-500 bg-[#090b11] flex items-center justify-center text-[8px] font-bold text-indigo-400 shadow-md">
+                  <div className="absolute -left-[25px] top-1.5 w-4 h-4 rounded-full border border-blue-500 bg-white flex items-center justify-center text-[8px] font-bold text-blue-600 shadow-md">
                     D{day.day}
                   </div>
 
-                  <div className="font-bold text-xs text-white pl-2">Day {day.day}</div>
+                  <div className="font-bold text-xs text-slate-800 pl-2">Day {day.day}</div>
                   
                   <div className="space-y-3.5 pl-2">
                     {(day.items || []).map((item: any, iIdx: number) => (
                       <div key={iIdx} className="space-y-2">
                         {/* Event Card */}
-                        <div className="bg-white/5 border border-white/5 rounded-xl p-3.5 space-y-1">
-                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-400">
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-1">
+                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-blue-600">
                             <Clock className="w-3.5 h-3.5" /> {item.time || '時間指定なし'}
                           </div>
-                          <h4 className="text-xs font-bold text-white leading-snug">{item.title}</h4>
+                          <h4 className="text-xs font-bold text-slate-800 leading-snug">{item.title}</h4>
                           {item.detail && (
-                            <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
+                            <p className="text-[10px] text-slate-650 leading-relaxed mt-1">
                               {item.detail}
                             </p>
                           )}
@@ -219,16 +219,16 @@ export default function PlanDetailPage() {
 
         {/* Place check marks */}
         {plan.places && plan.places.length > 0 && (
-          <div className="glass-panel rounded-2xl p-4 space-y-3">
-            <h3 className="text-xs font-bold text-slate-300">📍 主要目的地・スポット</h3>
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 space-y-3">
+            <h3 className="text-xs font-bold text-slate-700">📍 主要目的地・スポット</h3>
             <div className="grid grid-cols-1 gap-2">
               {plan.places.map((place: any, pIdx: number) => (
-                <div key={pIdx} className="bg-white/5 rounded-xl p-2.5 flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+                <div key={pIdx} className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <span className="text-xs font-semibold text-white block">{place.name}</span>
+                    <span className="text-xs font-semibold text-slate-800 block">{place.name}</span>
                     {place.note && (
-                      <span className="text-[9px] text-slate-400 leading-normal block mt-0.5">
+                      <span className="text-[9px] text-slate-500 leading-normal block mt-0.5">
                         {place.note}
                       </span>
                     )}
@@ -241,17 +241,17 @@ export default function PlanDetailPage() {
       </div>
 
       {/* Sticky Action Footer */}
-      <div className="border-t border-white/5 pt-4 bg-[#090b11]/85 backdrop-blur-md px-6 py-4 absolute bottom-0 left-0 right-0 z-40 flex gap-3">
+      <div className="border-t border-gray-200 pt-4 bg-white/95 backdrop-blur-md px-6 py-4 absolute bottom-0 left-0 right-0 z-40 flex gap-3 shadow-lg">
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-rose-400 border border-rose-950 bg-rose-950/20 hover:bg-rose-950/40 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-rose-600 border border-rose-200 bg-rose-50 hover:bg-rose-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Trash2 className="w-4 h-4" /> プランを削除
         </button>
 
         <button
           onClick={() => router.push(appPath(`/plans/${planId}/chat`))}
-          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-white animated-gradient shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+          className="flex-1 py-3.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Edit className="w-4 h-4" /> ブラッシュアップ
         </button>
@@ -265,28 +265,28 @@ export default function PlanDetailPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowDeleteConfirm(false)}
-            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-6"
           >
             <motion.div
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 15 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xs glass-panel rounded-2xl p-5 space-y-4 border border-rose-900/40 shadow-2xl text-center"
+              className="w-full max-w-xs bg-white rounded-2xl p-5 space-y-4 border border-rose-200 shadow-2xl text-center"
             >
-              <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
+              <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto text-rose-600">
                 <AlertTriangle className="w-5 h-5 animate-bounce" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">プランを削除しますか？</h3>
-                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                <h3 className="text-sm font-bold text-slate-800">プランを削除しますか？</h3>
+                <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
                   「{plan.title}」を完全に削除します。<br />この操作は取り消せません。
                 </p>
               </div>
               <div className="flex gap-2.5 pt-2">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-slate-300 border border-white/5 bg-white/5 hover:bg-white/10"
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-slate-600 border border-gray-200 bg-gray-50 hover:bg-gray-100"
                 >
                   キャンセル
                 </button>

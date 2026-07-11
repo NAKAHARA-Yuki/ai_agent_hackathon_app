@@ -87,7 +87,7 @@ export default function QuestionPage() {
   if (!initialized || !currentQuestion) {
     return (
       <div className="flex-1 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -116,18 +116,18 @@ export default function QuestionPage() {
       <div className="flex items-center gap-4">
         <button
           onClick={handleBack}
-          className="p-2 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+          className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-slate-600 hover:text-slate-800 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1">
           {/* Progress bar container */}
-          <div className="w-full bg-white/5 border border-white/5 h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-gray-100 border border-gray-200 h-2 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${percent}%` }}
               transition={{ duration: 0.3 }}
-              className="h-full bg-indigo-500 rounded-full"
+              className="h-full bg-blue-600 rounded-full"
             />
           </div>
         </div>
@@ -147,10 +147,10 @@ export default function QuestionPage() {
         >
           {/* Header */}
           <div className="text-center">
-            <span className="text-[11px] font-bold tracking-wider text-indigo-400 uppercase">
+            <span className="text-[11px] font-bold tracking-wider text-blue-600 uppercase">
               Question {questionNumber}
             </span>
-            <h2 className="text-lg font-bold text-white mt-1 leading-snug">
+            <h2 className="text-lg font-bold text-slate-800 mt-1 leading-snug">
               {currentQuestion.question}
             </h2>
           </div>
@@ -165,15 +165,15 @@ export default function QuestionPage() {
                   onClick={() => setSelectedOption(opt.score)}
                   className={`w-full text-left p-4 rounded-xl text-sm transition-all flex items-center justify-between border cursor-pointer ${
                     isSelected
-                      ? 'border-indigo-500 bg-indigo-950/20 text-white font-semibold'
-                      : 'border-white/5 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                      : 'border-gray-200 bg-white text-slate-600 hover:bg-gray-50 hover:border-gray-300'
                   }`}
                 >
                   <span>{opt.text}</span>
                   {isSelected && (
                     <motion.div
                       layoutId="selectedIndicator"
-                      className="w-2 h-2 rounded-full bg-indigo-400 shadow-md shadow-indigo-400/50"
+                      className="w-2 h-2 rounded-full bg-blue-500 shadow-md shadow-blue-500/20"
                     />
                   )}
                 </button>
@@ -192,8 +192,8 @@ export default function QuestionPage() {
                 className="overflow-hidden"
               >
                 <div className="space-y-3 pt-2">
-                  <label className="text-[11px] font-bold tracking-wider text-slate-400 flex items-center gap-1">
-                    <Edit3 className="w-3 h-3 text-indigo-400" />
+                  <label className="text-[11px] font-bold tracking-wider text-slate-500 flex items-center gap-1">
+                    <Edit3 className="w-3 h-3 text-blue-600" />
                     {(currentQuestion as any).free_text_prompt || 'あなたの考えを教えてください：'}
                   </label>
                   <textarea
@@ -201,7 +201,7 @@ export default function QuestionPage() {
                     onChange={(e) => setFreeText(e.target.value)}
                     rows={4}
                     placeholder={(currentQuestion as any).free_text_placeholder || 'ここに入力してください...'}
-                    className="w-full p-4 glass-input text-white focus:outline-none text-xs leading-relaxed"
+                    className="w-full p-4 glass-input text-slate-800 focus:outline-none text-xs leading-relaxed"
                   />
                 </div>
               </motion.div>
@@ -218,7 +218,7 @@ export default function QuestionPage() {
           disabled={selectedOption === null}
           className={`w-full py-4 rounded-xl text-sm font-semibold text-white shadow-lg transition-all flex justify-center items-center gap-1 ${
             selectedOption === null
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200'
               : 'animated-gradient cursor-pointer'
           }`}
         >
