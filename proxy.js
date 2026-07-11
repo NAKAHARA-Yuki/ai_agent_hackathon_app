@@ -3,7 +3,7 @@ const { spawn } = require('child_process');
 
 const path = require('path');
 
-const PORT = 8089;
+const PORT = 8090;
 const TARGET_PORT = 8087;
 const BASE_PATH = '/izatabi';
 
