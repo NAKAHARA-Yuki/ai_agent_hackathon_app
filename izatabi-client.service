@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 WorkingDirectory=/home/nakahara/develop/03_ai_agent_hackathon_app
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/node proxy.js
+ExecStart=node izatabi-proxy.js
 Restart=on-failure
 
 [Install]
