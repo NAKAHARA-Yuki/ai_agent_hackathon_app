@@ -59,10 +59,11 @@ test('signup and login e2e flow', async ({ page }) => {
   console.log('Submitting login form...');
   await page.click('button[type="submit"]');
 
-  console.log('Waiting for login redirect to /main...');
-  await page.waitForURL(url => url.pathname.endsWith('/main'), { timeout: 15000 });
+  console.log('Waiting for login redirect...');
+  // 診断未完了ユーザーの場合、ログイン後は '/' (すなわち /izatabi) にリダイレクトされるのが正常です
+  await page.waitForURL(url => url.pathname.endsWith('/izatabi') || url.pathname.endsWith('/izatabi/'), { timeout: 15000 });
   
   const currentURL = page.url();
   console.log(`Final Page URL: ${currentURL}`);
-  expect(currentURL).toContain('/main');
+  expect(currentURL).toMatch(/\/izatabi\/?$/);
 });
