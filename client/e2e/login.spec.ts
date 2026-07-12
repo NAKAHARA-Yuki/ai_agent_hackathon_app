@@ -30,7 +30,7 @@ test('login test and diagnostic trace', async ({ page }) => {
   
   console.log('Filling login credentials...');
   // ユーザーIDとパスワードの入力を試行
-  await page.fill('input[placeholder*="ユーザーID"], input[placeholder*="user ID"], input[placeholder*="ID"]', 'gemini_user');
+  await page.fill('input[placeholder*="gemini_user"]', 'gemini_user');
   await page.fill('input[type="password"]', 'password');
 
   console.log('Submitting login form...');
