@@ -149,9 +149,8 @@ class _DevDocSnapshot:
         return deepcopy(self._data) if self._data is not None else None
 
 class _DevDocumentRef:
-    def __init__(self, db, store, path):
+    def __init__(self, db, path):
         self._db = db
-        self._store = store
         self._path = path  # tuple of segments
         self.id = path[-1] if path else None
 
@@ -163,7 +162,7 @@ class _DevDocumentRef:
             return datetime.utcnow().isoformat() + "Z"
 
     def _resolve(self):
-        cur = self._store
+        cur = self._db._store
         for seg in self._path:
             cur = cur.setdefault(seg, {})
         return cur
@@ -197,26 +196,25 @@ class _DevDocumentRef:
         self._db._save()
 
     def collection(self, name):
-        return _DevCollectionRef(self._db, self._store, self._path + (name,))
+        return _DevCollectionRef(self._db, self._path + (name,))
 
 class _DevCollectionRef:
-    def __init__(self, db, store, path):
+    def __init__(self, db, path):
         self._db = db
-        self._store = store
         self._path = path  # tuple of segments
 
     def document(self, doc_id=None):
         if not doc_id:
             doc_id = uuid.uuid4().hex
-        cur = self._store
+        cur = self._db._store
         for seg in self._path:
             cur = cur.setdefault(seg, {})
         cur.setdefault(doc_id, {})
-        return _DevDocumentRef(self._db, self._store, self._path + (doc_id,))
+        return _DevDocumentRef(self._db, self._path + (doc_id,))
 
     def stream(self):
         self._db._load_silent()
-        cur = self._store
+        cur = self._db._store
         for seg in self._path:
             cur = cur.get(seg, {})
             if not isinstance(cur, dict):
@@ -263,7 +261,7 @@ class DevDB:
                 logger.error(f"Failed to save DevDB to {self._filepath}: {e}")
 
     def collection(self, name):
-        return _DevCollectionRef(self, self._store, (name,))
+        return _DevCollectionRef(self, (name,))
 
 db = DevDB()
 
