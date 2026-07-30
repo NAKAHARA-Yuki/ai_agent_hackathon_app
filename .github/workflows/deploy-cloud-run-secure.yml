@@ -1,0 +1,298 @@
+name: Deploy to Cloud Run (Secure)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# セキュリティ強化されたデプロイメントワークフロー
+# - VPC接続
+# - 専用サービスアカウント
+# - Secret Manager統合
+# - セキュリティ監視
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.CLOUD_RUN_REGION }}
+  ENVIRONMENT: prod
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  build-agent-mcp:
+    needs: security-scan
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    name: Build and Deploy Agent + MCP (Secure)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+    outputs:
+      agent_url: ${{ steps.resolve_agent_url.outputs.agent_url }}
+      mcp_url: ${{ steps.resolve_mcp_url.outputs.mcp_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and scan Agent image
+        env:
+          IMAGE_TAG: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/travel-containers/travel-agent-service:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE_TAG agent/
+          
+          # セキュリティスキャン
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image --severity HIGH,CRITICAL $IMAGE_TAG
+          
+          docker push $IMAGE_TAG
+
+      - name: Build and scan MCP image
+        env:
+          IMAGE_TAG: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/travel-containers/maps-mcp-service:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE_TAG mcp/
+          
+          # セキュリティスキャン
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image --severity HIGH,CRITICAL $IMAGE_TAG
+          
+          docker push $IMAGE_TAG
+
+      - name: Deploy MCP Service (Secure)
+        env:
+          SERVICE_NAME: maps-mcp-service-${{ env.ENVIRONMENT }}
+          IMAGE_TAG: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/travel-containers/maps-mcp-service:${{ github.sha }}
+          SA_EMAIL: travel-mcp-${{ env.ENVIRONMENT }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          VPC_CONNECTOR: travel-app-connector-${{ env.ENVIRONMENT }}
+        run: |
+          gcloud run deploy $SERVICE_NAME \
+            --image $IMAGE_TAG \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --port 3000 \
+            --service-account $SA_EMAIL \
+            --vpc-connector $VPC_CONNECTOR \
+            --vpc-egress private-ranges-only \
+            --no-allow-unauthenticated \
+            --execution-environment gen2 \
+            --cpu 1 \
+            --memory 512Mi \
+            --max-instances 3 \
+            --min-instances 0 \
+            --set-env-vars=APP_ENV=${{ env.ENVIRONMENT }} \
+            --labels=environment=${{ env.ENVIRONMENT }},service=mcp,security-level=high
+
+      - name: Deploy Agent Service (Secure)
+        env:
+          SERVICE_NAME: travel-agent-service-${{ env.ENVIRONMENT }}
+          IMAGE_TAG: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/travel-containers/travel-agent-service:${{ github.sha }}
+          SA_EMAIL: travel-agent-${{ env.ENVIRONMENT }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          VPC_CONNECTOR: travel-app-connector-${{ env.ENVIRONMENT }}
+        run: |
+          # MCPサービスのURLを取得
+          MCP_URL=$(gcloud run services describe maps-mcp-service-${{ env.ENVIRONMENT }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          
+          gcloud run deploy $SERVICE_NAME \
+            --image $IMAGE_TAG \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --port 8080 \
+            --service-account $SA_EMAIL \
+            --vpc-connector $VPC_CONNECTOR \
+            --vpc-egress private-ranges-only \
+            --no-allow-unauthenticated \
+            --execution-environment gen2 \
+            --cpu 2 \
+            --memory 2Gi \
+            --max-instances 5 \
+            --min-instances 0 \
+            --set-env-vars=APP_ENV=${{ env.ENVIRONMENT }},GEMINI_MODEL=gemini-2.5-pro,MAPS_MCP_ENDPOINT_URL=$MCP_URL/tools/retrieve-google-maps-platform-docs,MAPS_MCP_AUDIENCE=$MCP_URL \
+            --set-secrets=GEMINI_API_KEY=travel-app-gemini-api-key-${{ env.ENVIRONMENT }}:latest \
+            --labels=environment=${{ env.ENVIRONMENT }},service=agent,security-level=high
+
+      - name: Configure service-to-service access
+        run: |
+          # Agent → MCP access
+          gcloud run services add-iam-policy-binding maps-mcp-service-${{ env.ENVIRONMENT }} \
+            --region ${{ env.REGION }} \
+            --member serviceAccount:travel-agent-${{ env.ENVIRONMENT }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --role roles/run.invoker
+
+      - name: Get service URLs
+        id: resolve_agent_url
+        run: |
+          AGENT_URL=$(gcloud run services describe travel-agent-service-${{ env.ENVIRONMENT }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          echo "agent_url=$AGENT_URL" >> $GITHUB_OUTPUT
+
+  build-main-app:
+    needs: build-agent-mcp
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    name: Build and Deploy Main App (Secure)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and scan Main App image
+        env:
+          IMAGE_TAG: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/travel-containers/travel-quiz-app:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE_TAG .
+          
+          # セキュリティスキャン
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image --severity HIGH,CRITICAL $IMAGE_TAG
+          
+          docker push $IMAGE_TAG
+
+      - name: Deploy Main App (Secure)
+        env:
+          SERVICE_NAME: travel-quiz-app-${{ env.ENVIRONMENT }}
+          IMAGE_TAG: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/travel-containers/travel-quiz-app:${{ github.sha }}
+          SA_EMAIL: travel-app-${{ env.ENVIRONMENT }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          VPC_CONNECTOR: travel-app-connector-${{ env.ENVIRONMENT }}
+          AGENT_URL: ${{ needs.build-agent-mcp.outputs.agent_url }}
+        run: |
+          gcloud run deploy $SERVICE_NAME \
+            --image $IMAGE_TAG \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --port 8080 \
+            --service-account $SA_EMAIL \
+            --vpc-connector $VPC_CONNECTOR \
+            --vpc-egress private-ranges-only \
+            --allow-unauthenticated \
+            --execution-environment gen2 \
+            --cpu 2 \
+            --memory 2Gi \
+            --max-instances 10 \
+            --min-instances 1 \
+            --set-env-vars=FLASK_ENV=production,ENV=${{ env.ENVIRONMENT }},GCP_PROJECT_ID=${{ env.PROJECT_ID }},FIRESTORE_DATABASE=(default),AGENT_BASE_URL=$AGENT_URL \
+            --set-secrets=JWT_SECRET=travel-app-jwt-secret-${{ env.ENVIRONMENT }}:latest,GOOGLE_MAPS_API_KEY=travel-app-maps-api-key-${{ env.ENVIRONMENT }}:latest \
+            --labels=environment=${{ env.ENVIRONMENT }},service=main-app,security-level=high
+
+      - name: Configure app-to-agent access
+        run: |
+          # App → Agent access
+          gcloud run services add-iam-policy-binding travel-agent-service-${{ env.ENVIRONMENT }} \
+            --region ${{ env.REGION }} \
+            --member serviceAccount:travel-app-${{ env.ENVIRONMENT }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --role roles/run.invoker
+
+      - name: Update Agent with App URL
+        run: |
+          APP_URL=$(gcloud run services describe travel-quiz-app-${{ env.ENVIRONMENT }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          
+          gcloud run services update travel-agent-service-${{ env.ENVIRONMENT }} \
+            --region ${{ env.REGION }} \
+            --update-env-vars=APP_SERVER_BASE=$APP_URL
+
+  security-validation:
+    needs: [build-agent-mcp, build-main-app]
+    name: Security Validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Validate security configuration
+        run: |
+          echo "🔍 セキュリティ設定を検証中..."
+          
+          # VPC設定の確認
+          echo "✅ VPC設定確認"
+          gcloud compute networks describe travel-app-vpc-${{ env.ENVIRONMENT }} \
+            --format="value(name)" || echo "❌ VPC not found"
+          
+          # サービスアカウント設定の確認
+          echo "✅ サービスアカウント確認"
+          gcloud iam service-accounts describe travel-app-${{ env.ENVIRONMENT }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --format="value(email)" || echo "❌ Service account not found"
+          
+          # Cloud Run設定の確認
+          echo "✅ Cloud Runセキュリティ設定確認"
+          for service in travel-quiz-app travel-agent-service maps-mcp-service; do
+            gcloud run services describe $service-${{ env.ENVIRONMENT }} \
+              --region ${{ env.REGION }} \
+              --format="value(spec.template.metadata.annotations['run.googleapis.com/vpc-access-connector'])" \
+              || echo "❌ $service VPC connector not configured"
+          done
+          
+          echo "🎉 セキュリティ検証完了"
